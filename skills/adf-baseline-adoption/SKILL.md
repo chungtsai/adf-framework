@@ -22,7 +22,7 @@ Target Reverse Analysis 只能建立 Candidate Specification；經 Evidence-Guid
 `BASELINE_ADOPTION` 永遠要求 Human Approval。Target 現況只能標記 `OBSERVED`，不能直接升級為 `APPROVED`；重要 Candidate Rules 必須經人工確認後才能形成 Approved Baseline。後續功能修改改走 `CHANGE`。
 
 ## Evidence-Guided Q&A
-遇到 `UNKNOWN`、`REVIEW_REQUIRED`、`CONFLICT` 或必要資料不足時，依 `.adf/framework/review/` 進入互動審查：
+遇到 `UNKNOWN`、`REVIEW_REQUIRED`、`CONFLICT` 或必要資料不足時，依 `.adf/.adf/framework/review/` 進入互動審查：
 1. 一次只問一個需要 Human 判斷的問題。
 2. 依 Evidence 提供 2～3 個合理候選答案；若有推薦答案，必須附上推薦理由與 Evidence，不得把推測描述成事實。
 3. 永遠允許「其他／自行輸入」與「不確定，保留 REVIEW_REQUIRED」。
