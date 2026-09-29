@@ -6,7 +6,7 @@
 
 ## Compatibility
 
-`issue_tracking.enabled: false` 時維持 v5.0 工作流程。
+Issue Tracking 為 Optional Integration。未建立設定檔或 `issue_tracking.enabled: false` 時維持 v5.0 工作流程；只有專案明確啟用 GitLab/GitHub Issue Tracking 時，才要求 integration runtime 與 project config。
 
 ## Skill Changes
 
