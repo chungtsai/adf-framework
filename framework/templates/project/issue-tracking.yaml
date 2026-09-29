@@ -1,0 +1,42 @@
+provider: GITLAB
+enabled: false
+
+issue:
+  creation:
+    mode: AI_ASSISTED
+    require_human_confirmation: true
+
+workflow:
+  TODO: status::todo
+  ANALYSIS: status::analysis
+  REVIEW: status::review
+  DEVELOPMENT: status::development
+  VERIFICATION: status::verification
+  COMPLETED: CLOSED
+
+labels:
+  work_type:
+    NEW: adf::new
+    CHANGE: adf::change
+    MIGRATION: adf::migration
+
+  intent:
+    FEATURE: intent::feature
+    BUGFIX: intent::bugfix
+    SECURITY_FIX: intent::security
+    REFACTOR: intent::refactor
+
+blocked:
+  preserve_current_stage: true
+
+rules:
+  finding_creates_issue: false
+  unknown_creates_issue: false
+  review_required_creates_issue: false
+
+completion:
+  close_issue_when:
+    - verification_passed
+    - traceability_passed
+    - no_blockers
+    - human_approved
