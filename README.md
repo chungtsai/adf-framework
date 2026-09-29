@@ -171,23 +171,71 @@ standards/
 
 Development Standards 定義 Target 應如何設計；Migration Standards 定義 Legacy → Target 哪些轉換被允許。Module 的 `spec/standards.md` 只記錄該 Module 實際適用的 Standards。
 
-# 安裝與初始化
+# 安裝、環境建置與版本更新
 
-此 Release 採 GitHub-only，`skills/` 是唯一 Skill Source of Truth，不需要發布 npm package。
+> 本節區分「現在可使用」與「未來 CLI 規劃」。目前 ADF 本體仍採 GitHub-only；請勿把尚未發布的 CLI 命令當成現行安裝方式。
+
+## 1. 前置環境
+
+建議準備：
+
+- Git
+- Node.js 18 以上
+- npm / npx
+- Claude Code、Codex 或其他支援 Agent Skills 的工具
+- 若使用 Private GitHub Repository，先完成 Git / GitHub Authentication
+
+確認環境：
 
 ```bash
-npx skills add your-user/adf
+git --version
+node --version
+npm --version
+npx --version
 ```
 
-Clone ADF repo 後，也可初始化專案：
+## 2. 安裝 ADF Skills
+
+ADF Repository 的 `skills/` 是唯一 Skill Source of Truth。使用 `skills` CLI 從 GitHub 安裝，不需要把整套 ADF 發布成 npm package。
+
+查看可安裝 Skills：
 
 ```bash
+npx skills add chungtsai/adf-framework --list
+```
+
+安裝 Repository 中的 ADF Skills：
+
+```bash
+npx skills add chungtsai/adf-framework
+```
+
+需要指定 Agent 時，可依 `skills` CLI 支援方式選擇 Claude Code、Codex 等 Agent。
+
+> 安裝 Skill 與初始化 ADF Project 是兩件事。Skill 安裝提供 AI 能力；Project Initialization 才會建立 `.adf/`、`standards/`、`modules/` 等專案資產。
+
+## 3. 初始化 ADF Project
+
+目前 v5.1 的正式方式是 Clone ADF Repository 後執行：
+
+```bash
+git clone https://github.com/chungtsai/adf-framework.git
+cd adf-framework
 node scripts/init.js C:\workspace\my-project
 node scripts/doctor.js C:\workspace\my-project
 node scripts/validate.js
 ```
 
-初始化後主要結構：
+macOS / Linux 範例：
+
+```bash
+node scripts/init.js ~/workspace/my-project
+node scripts/doctor.js ~/workspace/my-project
+```
+
+`init.js` 採「建立缺少項目、不任意覆蓋既有 Project File」原則。
+
+初始化後：
 
 ```text
 my-project/
@@ -207,6 +255,243 @@ my-project/
 ├── CLAUDE.md
 └── AGENTS.md
 ```
+
+## 4. 目錄 Ownership
+
+為避免 Framework Upgrade 與專案內容互相覆蓋，請遵守：
+
+| Path | Ownership | Upgrade 行為 |
+|---|---|---|
+| `.adf/framework/**` | ADF_MANAGED | 由 ADF Upgrade 管理 |
+| `.adf/templates/**` | ADF_MANAGED | 由 ADF Upgrade 管理 |
+| `.adf/VERSION` | ADF_MANAGED | 由 ADF Upgrade 更新 |
+| `standards/**` | PROJECT_MANAGED | 不可整份覆蓋 |
+| `modules/**` | PROJECT_MANAGED | 不可由 Framework Upgrade 覆蓋 |
+| `src/**` | PROJECT_MANAGED | 不可由 Framework Upgrade 覆蓋 |
+| `CLAUDE.md` | MERGE_CONTROLLED | 只能合併必要 ADF 區段 |
+| `AGENTS.md` | MERGE_CONTROLLED | 只能合併必要 ADF 區段 |
+
+### Framework 與 Standards 的差異
+
+Repository：
+
+```text
+framework/
+```
+
+是 ADF Release Source。
+
+Project 初始化後：
+
+```text
+.adf/framework/
+```
+
+是 ADF-managed Framework Runtime。
+
+專案自己的規範放：
+
+```text
+standards/
+```
+
+例如透過 `adf-standard-authoring` 建立 Development Standard，應寫入 `standards/development/`，而不是修改 `.adf/framework/`。
+
+Issue Tracking 的 Project 設定：
+
+```text
+standards/project/issue-tracking.yaml
+```
+
+也屬於 PROJECT_MANAGED，不可因 Framework 升版直接整份覆蓋。
+
+## 5. 確認目前 ADF Version
+
+初始化後：
+
+```text
+.adf/VERSION
+```
+
+記錄 Project 使用的 Framework Version，例如：
+
+```text
+5.1.0
+```
+
+更新前先執行：
+
+```bash
+node scripts/doctor.js C:\workspace\my-project
+```
+
+並確認 Git Working Tree：
+
+```bash
+git status
+```
+
+建議只在乾淨 Working Tree 上執行 Framework Upgrade。
+
+## 6. 現行版本更新方式
+
+目前尚未發布獨立的 `@adf/cli`，因此 **不要執行尚未存在的 `npx @adf/cli upgrade`**。
+
+現階段 Framework Upgrade 應由 ADF Repository 內的 Upgrade Package 驅動。
+
+例如：
+
+```text
+framework/upgrades/
+└── 5.0.0-to-5.1.0/
+    ├── upgrade.yaml
+    ├── plan.md
+    ├── validation.yaml
+    └── rollback.md
+```
+
+Upgrade SOP：
+
+```text
+PRECHECK
+  ↓
+BASELINE
+  ↓
+UPGRADE PLAN
+  ↓
+HUMAN APPROVAL
+  ↓
+MINIMAL PATCH
+  ↓
+STRUCTURAL / REGRESSION / INTEGRATION VALIDATION
+  ↓
+DIFF REVIEW
+  ↓
+HUMAN FINAL APPROVAL
+  ↓
+ACCEPT / ROLLBACK
+```
+
+重要規則：
+
+- PATCH EXISTING ADF；不得重新生成整套 ADF。
+- 不得刪除、Rename 或改變既有 Skill ID。
+- 不得弱化 Human Gate、Verification、Traceability。
+- `standards/**`、`modules/**` 不得被 Framework Upgrade 整份覆蓋。
+- Upgrade 前後必須保留可比較 Diff。
+- 建議建立獨立 Upgrade Branch，不直接修改 main/master。
+
+## 7. 跨版本更新
+
+如果 Project 很久沒有更新，例如：
+
+```text
+Project: 5.0.0
+Latest: 5.4.0
+```
+
+不得直接假設 5.0 可以覆蓋成 5.4。必須解析 Upgrade Chain：
+
+```text
+5.0.0
+  ↓
+5.1.0
+  ↓
+5.2.0
+  ↓
+5.3.0
+  ↓
+5.4.0
+```
+
+每一段都讀取對應：
+
+```text
+framework/upgrades/<from>-to-<to>/
+```
+
+只有前一段 Validation PASS 後才能進入下一段。
+
+如果缺少中間 Upgrade Package，必須停止，不可讓 AI 自行猜 Migration。
+
+## 8. Conflict Detection
+
+不要使用：
+
+```bash
+cp -r framework .adf/framework
+```
+
+也不要直接把 ADF Repository `git pull` 到業務 Project Root。
+
+若 `.adf/framework/**` 被 Project 人員自行修改，Upgrade 應比較 Baseline / Hash：
+
+```text
+Expected Old Hash
+        ↓
+Current Project Hash
+        ↓
+一致？
+├── YES → Apply Patch
+└── NO  → LOCAL_MODIFICATION_DETECTED
+           ↓
+       Stop Upgrade
+           ↓
+       Human Review
+```
+
+發生 Conflict 時不得直接覆蓋。
+
+## 9. Project Configuration Migration
+
+Framework Template：
+
+```text
+framework/templates/project/issue-tracking.yaml
+```
+
+與 Project Configuration：
+
+```text
+standards/project/issue-tracking.yaml
+```
+
+是不同角色。
+
+新版 Template 若增加欄位，Upgrade 只能對 Project Configuration 做必要 Migration，例如補上缺少的新欄位；不得整份 Replace 使用者既有 GitLab/GitHub Workflow Mapping。
+
+## 10. Rollback
+
+Upgrade 建議使用獨立 Branch：
+
+```bash
+git status
+git checkout -b upgrade/adf-5.x
+```
+
+若 Validation 或 Diff Review 失敗：
+
+1. 不 Merge Upgrade Branch。
+2. 保留 Upgrade Report / Validation Evidence。
+3. 回到升級前 Commit 或 Branch。
+4. 修正 Upgrade Package 後重新執行。
+5. 不以「重新初始化整套 ADF」取代 Rollback。
+
+## 11. 未來 CLI 規劃
+
+未來可提供薄型 Bootstrap / Upgrade CLI，讓使用者簡化為：
+
+```bash
+npx @adf/cli init
+npx @adf/cli upgrade --to latest --plan
+npx @adf/cli upgrade --to latest --apply
+npx @adf/cli upgrade --resume
+```
+
+但 CLI 只負責 Installation、Initialization、Upgrade Orchestration；GitHub Repository 仍是 ADF Source of Truth。
+
+在 `@adf/cli` 正式發布前，以上命令僅代表規劃中的 UX，不是目前可執行命令。
+
 
 # 最重要的原則
 
