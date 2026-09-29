@@ -5,12 +5,17 @@ validation:
 
 checks:
   - .adf/framework/review
-  - .adf/framework/integrations/issue-tracking
   - .adf/templates
   - standards/development
   - standards/migration
-  - standards/project/issue-tracking.yaml
   - modules
+
+optional_checks:
+  issue_tracking:
+    enabled_when_project_config_exists: true
+    checks:
+      - .adf/framework/integrations/issue-tracking
+      - standards/project/issue-tracking.yaml
 
 compatibility:
   issue_tracking_disabled_preserves_v5_behavior: true
