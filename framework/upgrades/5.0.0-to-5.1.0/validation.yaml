@@ -1,0 +1,21 @@
+validation:
+  expected_skill_count: 32
+  skill_id_changes: 0
+  skill_deletions: 0
+
+checks:
+  - .adf/framework/review
+  - .adf/framework/integrations/issue-tracking
+  - .adf/templates
+  - standards/development
+  - standards/migration
+  - standards/project/issue-tracking.yaml
+  - modules
+
+compatibility:
+  issue_tracking_disabled_preserves_v5_behavior: true
+
+gates:
+  human_review: required
+  verification: required
+  traceability: required
