@@ -18,6 +18,12 @@ for (const d of dirs) {
   if (!desc) errors.push(`${d}: missing description`);
   if ((desc || "").length > 1024) errors.push(`${d}: description too long`);
   if (!t.slice(m[0].length).trim()) errors.push(`${d}: empty instructions`);
+  if (t.includes(".adf/.adf/")) {
+    errors.push(`${d}: duplicated .adf path`);
+  }
+  if (t.includes(".adf/modules/")) {
+    errors.push(`${d}: invalid project module path; use modules/`);
+  }
   if (t.includes("framework/review/") && !t.includes(".adf/framework/review/")) {
     errors.push(`${d}: legacy project review path remains`);
   }
