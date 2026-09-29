@@ -1,0 +1,26 @@
+provider: GITLAB
+enabled: true
+
+issue:
+  creation:
+    mode: AI_ASSISTED
+    require_human_confirmation: true
+
+workflow:
+  TODO: status::todo
+  ANALYSIS: status::analysis
+  REVIEW: status::review
+  DEVELOPMENT: status::development
+  VERIFICATION: status::verification
+  COMPLETED: CLOSED
+
+labels:
+  work_type:
+    NEW: adf::new
+    CHANGE: adf::change
+    MIGRATION: adf::migration
+  intent:
+    FEATURE: intent::feature
+    BUGFIX: intent::bugfix
+    SECURITY_FIX: intent::security
+    REFACTOR: intent::refactor
