@@ -44,6 +44,12 @@ status:
     traceability: pending
 blockers: []
 
+tracking:
+  provider: null
+  issue: null
+  url: null
+  state: null
+
 # Adoption intents supported by ADF v3:
 # - RETROFIT_VERIFY: target already migrated and legacy is available; verify only first.
 # - BASELINE_ADOPTION: existing target with no legacy; establish approved current baseline.
