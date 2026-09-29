@@ -19,7 +19,7 @@ description: 初始化或重用 ADF Module 結構與 manifest。
 - Project-wide Standards 放在 `standards/`。
 
 ## Evidence-Guided Q&A
-遇到 `UNKNOWN`、`REVIEW_REQUIRED`、`CONFLICT` 或必要資料不足時，依 `framework/review/` 進入互動審查：
+遇到 `UNKNOWN`、`REVIEW_REQUIRED`、`CONFLICT` 或必要資料不足時，依 `.adf/framework/review/` 進入互動審查：
 1. 一次只問一個需要 Human 判斷的問題。
 2. 依 Evidence 提供 2～3 個合理候選答案；若有推薦答案，必須附上推薦理由與 Evidence，不得把推測描述成事實。
 3. 永遠允許「其他／自行輸入」與「不確定，保留 REVIEW_REQUIRED」。
@@ -27,3 +27,8 @@ description: 初始化或重用 ADF Module 結構與 manifest。
 5. `LOW` Risk 可提供批次快速確認，但仍需 Human 明確操作。
 6. 問題清除後進入 `READY_FOR_REVIEW`；需要 Human Gate 的 Stage 必須詢問「目前沒有其他待確認問題，是否確認此階段完成？」。
 7. 只有 Human 確認後才能標記 `APPROVED`。
+
+## Issue Tracking Registration
+- 若 `standards/project/issue-tracking.yaml` 啟用，初始化 manifest 時加入 `tracking` 區塊。
+- Issue 建立屬於正式 Work Item Registration；必須先有人類確認要正式進入 ADF 工作流程。
+- 已存在外部 Issue 時只登記其識別資訊，不得重複建立。
