@@ -233,7 +233,7 @@ node scripts/init.js ~/workspace/my-project
 node scripts/doctor.js ~/workspace/my-project
 ```
 
-`init.js` 採「建立缺少項目、不任意覆蓋既有 Project File」原則。
+`init.js` 採「建立缺少項目、不任意覆蓋既有 Project File」原則。Issue Tracking 是 Optional Integration；預設不建立 `standards/project/issue-tracking.yaml`，也不安裝 `.adf/framework/integrations/issue-tracking/`。只有明確指定 `--issue-tracking=gitlab` 或 `--issue-tracking=github` 時才啟用。
 
 初始化後：
 
@@ -242,15 +242,11 @@ my-project/
 ├── .adf/
 │   ├── VERSION
 │   ├── framework/
-│   │   ├── review/
-│   │   └── integrations/
-│   │       └── issue-tracking/
+│   │   └── review/
 │   └── templates/
 ├── standards/
 │   ├── development/
-│   ├── migration/
-│   └── project/
-│       └── issue-tracking.yaml
+│   └── migration/
 ├── modules/
 ├── CLAUDE.md
 └── AGENTS.md
@@ -297,13 +293,14 @@ standards/
 
 例如透過 `adf-standard-authoring` 建立 Development Standard，應寫入 `standards/development/`，而不是修改 `.adf/framework/`。
 
-Issue Tracking 的 Project 設定：
+Issue Tracking 是 Optional Integration。只有專案明確啟用時才會建立：
 
 ```text
+.adf/framework/integrations/issue-tracking/
 standards/project/issue-tracking.yaml
 ```
 
-也屬於 PROJECT_MANAGED，不可因 Framework 升版直接整份覆蓋。
+其中 `standards/project/issue-tracking.yaml` 屬於 PROJECT_MANAGED，不可因 Framework 升版直接整份覆蓋。未啟用時，`doctor.js` 顯示 `INFO issue-tracking: DISABLED`，不視為缺失或失敗。
 
 ## 5. 確認目前 ADF Version
 
