@@ -1,0 +1,15 @@
+provider: GITHUB
+enabled: true
+
+issue:
+  creation:
+    mode: AI_ASSISTED
+    require_human_confirmation: true
+
+workflow:
+  TODO: status::todo
+  ANALYSIS: status::analysis
+  REVIEW: status::review
+  DEVELOPMENT: status::development
+  VERIFICATION: status::verification
+  COMPLETED: CLOSED
