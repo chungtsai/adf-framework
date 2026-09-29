@@ -25,7 +25,7 @@ description: ADF 統一開發 Orchestrator，依 NEW、CHANGE、MIGRATION 與 In
 - `STANDARD_CHANGE` 是 Framework-level Trigger；進行中 Module 從最早受影響 Stage Revalidate，已完成 Module 依 policy 決定是否建立新的 `CHANGE`。
 
 ## Evidence-Guided Q&A
-遇到 `UNKNOWN`、`REVIEW_REQUIRED`、`CONFLICT` 或必要資料不足時，依 `framework/review/` 進入互動審查：
+遇到 `UNKNOWN`、`REVIEW_REQUIRED`、`CONFLICT` 或必要資料不足時，依 `.adf/framework/review/` 進入互動審查：
 1. 一次只問一個需要 Human 判斷的問題。
 2. 依 Evidence 提供 2～3 個合理候選答案；若有推薦答案，必須附上推薦理由與 Evidence，不得把推測描述成事實。
 3. 永遠允許「其他／自行輸入」與「不確定，保留 REVIEW_REQUIRED」。
@@ -33,3 +33,10 @@ description: ADF 統一開發 Orchestrator，依 NEW、CHANGE、MIGRATION 與 In
 5. `LOW` Risk 可提供批次快速確認，但仍需 Human 明確操作。
 6. 問題清除後進入 `READY_FOR_REVIEW`；需要 Human Gate 的 Stage 必須詢問「目前沒有其他待確認問題，是否確認此階段完成？」。
 7. 只有 Human 確認後才能標記 `APPROVED`。
+
+## Issue Tracking Integration
+- 讀取 `standards/project/issue-tracking.yaml`；`enabled: false` 時完全維持原 ADF 行為。
+- Work Item 尚未正式登記時，先進入 Registration Gate；只有 Human 明確確認後才可建立外部 Issue。
+- `Finding`、`UNKNOWN`、`REVIEW_REQUIRED` 不得自動建立 Issue。
+- Issue 建立後將 provider、issue number/url 寫入 Module manifest 的 `tracking`。
+- ADF Stage 是流程判定來源；外部 Issue/Label 僅同步管理狀態，不得反向跳過 ADF Gate。
