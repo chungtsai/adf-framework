@@ -1,8 +1,8 @@
 {
   "name": "adf-github-only",
-  "version": "5.0.0",
+  "version": "5.1.0",
   "private": true,
-  "description": "ADF GitHub-only skill repository with Evidence-Guided Q&A, retrofit verification, and baseline adoption",
+  "description": "ADF GitHub-only skill repository with Evidence-Guided Q&A, issue tracking integration, retrofit verification, and baseline adoption",
   "license": "MIT",
   "type": "module",
   "engines": {
