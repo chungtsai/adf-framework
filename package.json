@@ -1,0 +1,16 @@
+{
+  "name": "adf-github-only",
+  "version": "5.0.0",
+  "private": true,
+  "description": "ADF GitHub-only skill repository with Evidence-Guided Q&A, retrofit verification, and baseline adoption",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "init": "node scripts/init.js",
+    "doctor": "node scripts/doctor.js",
+    "validate": "node scripts/validate.js"
+  }
+}
