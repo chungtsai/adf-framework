@@ -22,7 +22,7 @@ description: 對已完成移轉且 Legacy 仍存在的 Target 補做事後語意
 第一階段禁止自動修改 Target。發現差異先保存 Evidence 與分類；確認為 `MIGRATION_DEFECT` 後，經 Human Gate 決定是否建立獨立 `CHANGE` 進行修復與 Re-Verify。
 
 ## Evidence-Guided Q&A
-遇到 `UNKNOWN`、`REVIEW_REQUIRED`、`CONFLICT` 或必要資料不足時，依 `framework/review/` 進入互動審查：
+遇到 `UNKNOWN`、`REVIEW_REQUIRED`、`CONFLICT` 或必要資料不足時，依 `.adf/framework/review/` 進入互動審查：
 1. 一次只問一個需要 Human 判斷的問題。
 2. 依 Evidence 提供 2～3 個合理候選答案；若有推薦答案，必須附上推薦理由與 Evidence，不得把推測描述成事實。
 3. 永遠允許「其他／自行輸入」與「不確定，保留 REVIEW_REQUIRED」。
