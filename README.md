@@ -1,8 +1,17 @@
-# ADF — AI Development Framework v5
+# ADF — AI Development Framework v5.1
 
 > **語言政策：人看的內容使用繁體中文；機器識別碼與程式代碼維持英文。**
 
 ADF 的目的不是讓 AI 單純寫得更快，而是把「相信 AI」轉成「相信可驗證的證據」。透過分析、規格、標準、設計、開發、測試、比對、Traceability 與 Human Gate，降低 AI 誤解需求與 Legacy 行為的風險。
+
+## v5.1 更新
+- 保留 32 支 Skill，不新增 Work Type。
+- 專案內 ADF Framework 資產統一放在 `.adf/framework/`。
+- Project Standards 保持在 `standards/`，Module Artifacts 保持在 `modules/`。
+- 新增可選式 GitLab / GitHub Issue Tracking Integration。
+- `Finding`、`UNKNOWN`、`REVIEW_REQUIRED` 不會自動建立 Issue。
+- 外部 Issue 建立與關閉均受 Human Gate / Completion Gate 控制。
+- Issue Tracking 預設 `enabled: false`，未啟用時維持 v5.0 行為。
 
 ## v5 重點
 - 32 支 `SKILL.md` 的操作說明全面改為繁體中文。
@@ -26,10 +35,10 @@ ADF 卡住時不只回報 `BLOCKED`。遇到 `UNKNOWN`、`REVIEW_REQUIRED`、`CO
 
 每次回答後更新 Artifact 並重新檢查；所有問題解決後，ADF 會詢問「是否確認此階段完成？」。只有 Human confirmation 後才進入 `APPROVED`。AI 信心再高也不能自行核准。`BASELINE_ADOPTION` 強制 Human Gate。
 
-共用規格位於：
+專案初始化後，共用 Review Framework 位於：
 
 ```text
-framework/review/
+.adf/framework/review/
 ├── interactive-review.md
 ├── question-schema.md
 ├── approval-gate.md
@@ -182,8 +191,18 @@ node scripts/validate.js
 
 ```text
 my-project/
+├── .adf/
+│   ├── VERSION
+│   ├── framework/
+│   │   ├── review/
+│   │   └── integrations/
+│   │       └── issue-tracking/
+│   └── templates/
 ├── standards/
-├── .adf/templates/
+│   ├── development/
+│   ├── migration/
+│   └── project/
+│       └── issue-tracking.yaml
 ├── modules/
 ├── CLAUDE.md
 └── AGENTS.md
