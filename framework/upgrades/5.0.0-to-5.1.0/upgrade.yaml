@@ -1,0 +1,37 @@
+upgrade:
+  from: 5.0.0
+  to: 5.1.0
+
+mode:
+  destructive_changes: false
+  preserve_existing_behavior: true
+  require_human_approval: true
+
+changes:
+  - PROJECT_PATH_LAYOUT
+  - ISSUE_TRACKING_INTEGRATION
+
+project_paths:
+  framework: .adf/framework
+  templates: .adf/templates
+  standards: standards
+  modules: modules
+
+issue_tracking:
+  default_enabled: false
+
+protected:
+  - existing_skill_ids
+  - work_types
+  - intents
+  - human_gate
+  - verification_gate
+  - traceability_gate
+
+forbidden:
+  - delete_skill
+  - rename_skill
+  - weaken_human_gate
+  - weaken_verification
+  - weaken_traceability
+  - auto_create_issue_from_finding
