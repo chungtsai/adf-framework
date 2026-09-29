@@ -25,7 +25,7 @@ description: 唯讀分析 Standard 新增或升版對各 Module 的影響。
 - `NEW_WORK_ONLY`：不得強迫已完成 Module 回補。
 
 ## Evidence-Guided Q&A
-遇到 `UNKNOWN`、`REVIEW_REQUIRED`、`CONFLICT` 或必要資料不足時，依 `framework/review/` 進入互動審查：
+遇到 `UNKNOWN`、`REVIEW_REQUIRED`、`CONFLICT` 或必要資料不足時，依 `.adf/framework/review/` 進入互動審查：
 1. 一次只問一個需要 Human 判斷的問題。
 2. 依 Evidence 提供 2～3 個合理候選答案；若有推薦答案，必須附上推薦理由與 Evidence，不得把推測描述成事實。
 3. 永遠允許「其他／自行輸入」與「不確定，保留 REVIEW_REQUIRED」。
@@ -33,3 +33,7 @@ description: 唯讀分析 Standard 新增或升版對各 Module 的影響。
 5. `LOW` Risk 可提供批次快速確認，但仍需 Human 明確操作。
 6. 問題清除後進入 `READY_FOR_REVIEW`；需要 Human Gate 的 Stage 必須詢問「目前沒有其他待確認問題，是否確認此階段完成？」。
 7. 只有 Human 確認後才能標記 `APPROVED`。
+
+## Standard Impact 與 Issue
+- Impact Analysis 本身維持 READ ONLY，不因掃描到受影響 Module 就自動建立 Issue。
+- Completed Module 只有在 change_policy 與 Human 決策確認需要修改後，才可建立新的 CHANGE Work Item / Issue。
