@@ -40,3 +40,12 @@ description: ADF 統一開發 Orchestrator，依 NEW、CHANGE、MIGRATION 與 In
 5. `LOW` Risk 可提供批次快速確認，但仍需 Human 明確操作。
 6. 問題清除後進入 `READY_FOR_REVIEW`；需要 Human Gate 的 Stage 必須詢問「目前沒有其他待確認問題，是否確認此階段完成？」。
 7. 只有 Human 確認後才能標記 `APPROVED`。
+
+## Human-readable Specification
+
+- Module 使用 `specification.md` 作為 Human 閱讀入口；它是由正式 ADF Artifacts / Evidence 彙整出的 Read Model，不是新的 Source of Truth。
+- NEW / CHANGE / MIGRATION 在 Requirement、Rule、UI、Design、Functional Scenario 等 Human-readable 行為形成或變更後，建立或同步 `specification.md`。
+- 規格書至少整理：功能概要、主要流程、畫面與輸入、Business Rules、Functional Scenarios、資料處理、驗證摘要、例外限制及 Traceability Summary。
+- 產生規格書時必須保留 `REQ-*`、`BR-*`、`FS-*`、`TC-*` 等來源 ID，讓 Human 可回到正式 Artifact 查證。
+- 不得直接修改 `specification.md` 取代 Requirement / Rule / Design / Verification 的正式變更流程。
+- 若規格書與正式 Artifact 衝突，以 Approved Source Artifact / Evidence 為準並標記 `REVIEW_REQUIRED`。
