@@ -34,3 +34,11 @@ description: 只有所有適用 Gate、Test、Traceability 與 Blocker 都完成
 5. `LOW` Risk 可提供批次快速確認，但仍需 Human 明確操作。
 6. 問題清除後進入 `READY_FOR_REVIEW`；需要 Human Gate 的 Stage 必須詢問「目前沒有其他待確認問題，是否確認此階段完成？」。
 7. 只有 Human 確認後才能標記 `APPROVED`。
+
+## Human-readable Specification Gate
+
+- 有 Human-visible / Business Behavior 的 Module，Completion 前應確認 `specification.md` 已建立且與本次已核准 Artifact 同步。
+- `specification.md` 僅是 Human-readable Read Model；Completion 不得以它取代 Requirement、Rule、Design、Verification 或 Traceability Gate。
+- CHANGE 若影響 Requirement、Rule、UI、Design、Functional Scenario 或其他 Human 可理解行為，應同步規格書。
+- 純技術重構且 Human-visible / Business Behavior 未改變時，可以不改寫規格內容。
+- 若規格書與正式 Artifact 不一致，不得結案為已同步；應標記 `REVIEW_REQUIRED`。
