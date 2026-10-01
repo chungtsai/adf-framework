@@ -1,0 +1,63 @@
+module:
+  id: CHANGE_ME
+  name: CHANGE_ME
+  origin: NEW
+work_item:
+  id: CHANGE_ME
+  type: NEW
+  intents:
+    - FEATURE
+  title: CHANGE_ME
+  trigger:
+    type: USER_REQUIREMENT
+    standards: []
+behavior:
+  change_allowed: true
+  preserve: []
+  approved_changes: []
+impact:
+  ui: unknown
+  backend: unknown
+  database: unknown
+revalidation:
+  required: false
+  reason: null
+  standards: []
+status:
+  analysis: pending
+  specification: pending
+  standards: pending
+  prototype:
+    status: pending
+    reason: null
+  design: pending
+  development:
+    backend: pending
+    frontend: pending
+  verification:
+    test_generation: pending
+    execution: pending
+    security: not_applicable
+    legacy_baseline: not_applicable
+    normalization: not_applicable
+    comparison: not_applicable
+    traceability: pending
+blockers: []
+
+# Adoption intents supported by ADF v3:
+# - RETROFIT_VERIFY: target already migrated and legacy is available; verify only first.
+# - BASELINE_ADOPTION: existing target with no legacy; establish approved current baseline.
+# For the first adoption pass, keep implementation modification disabled by process policy.
+
+
+review:
+  status: IN_PROGRESS
+  questions:
+    total: 0
+    answered: 0
+    unresolved: 0
+  blockers: []
+  approval:
+    required: false
+    approved: false
+

@@ -1,25 +1,26 @@
-import fs from "node:fs";
-import path from "node:path";
-const root=process.cwd(), skills=path.join(root,"skills");
-let errors=[];
-const dirs=fs.readdirSync(skills).filter(d=>fs.statSync(path.join(skills,d)).isDirectory());
-for (const d of dirs) {
-  const p=path.join(skills,d,"SKILL.md");
-  if (!fs.existsSync(p)) { errors.push(`${d}: missing SKILL.md`); continue; }
-  const t=fs.readFileSync(p,"utf8");
-  const m=t.match(/^---\s*\n([\s\S]*?)\n---/);
-  if (!m) { errors.push(`${d}: invalid/missing YAML frontmatter`); continue; }
-  const name=(m[1].match(/^name:\s*(.+)$/m)||[])[1]?.trim();
-  const desc=(m[1].match(/^description:\s*(.+)$/m)||[])[1]?.trim();
-  if(name!==d) errors.push(`${d}: name mismatch`);
-  if(!/^[a-z0-9-]{1,64}$/.test(name||'')) errors.push(`${d}: invalid skill name`);
-  if(!desc) errors.push(`${d}: missing description`);
-  if((desc||'').length>1024) errors.push(`${d}: description too long`);
-  if(!t.slice(m[0].length).trim()) errors.push(`${d}: empty instructions`);
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const registry=JSON.parse(fs.readFileSync(path.join(root,'skills/adf-project-install/references/resources.json')));
+const expected=JSON.parse(fs.readFileSync(path.join(root,'skills/adf-project-install/references/skills.json')));
+const dirs=fs.readdirSync(path.join(root,'skills')).filter(d=>fs.existsSync(path.join(root,'skills',d,'SKILL.md'))).sort();
+const errors=[];
+if(JSON.stringify(dirs)!==JSON.stringify(expected)||dirs.length!==33) errors.push('Expected the 33 declared skills');
+for(const name of dirs) {
+ const folder=path.join(root,'skills',name),text=fs.readFileSync(path.join(folder,'SKILL.md'),'utf8');
+ const front=text.match(/^---\s*\n([\s\S]*?)\n---/);
+ if(!front||!front[1].includes(`name: ${name}`)||!/^description: .+/m.test(front?.[1]||'')) errors.push(`${name}: invalid frontmatter`);
+ if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name)||name.length>64) errors.push(`${name}: invalid name`);
+ if(/framework\/(review|templates)|install\/base/.test(text)&&name!=='adf-project-install') errors.push(`${name}: stale resource reference`);
+ const version=JSON.parse(fs.readFileSync(path.join(folder,'references/release.json'))).version;
+ if(version!==registry.version) errors.push(`${name}: release mismatch`);
 }
-if(dirs.length!==32) errors.push(`expected 32 skills, found ${dirs.length}`);
-for (const f of ['interactive-review.md','question-schema.md','approval-gate.md','terminology.md']) {
-  if(!fs.existsSync(path.join(root,'framework','review',f))) errors.push(`framework/review/${f}: missing`);
+const seen=new Set();
+for(const [key,r] of Object.entries(registry.resources)) {
+ const p=`skills/${r.skill}/${r.path}`;
+ if(seen.has(p))errors.push(`${key}: duplicate owner`);seen.add(p);
+ if(!fs.existsSync(path.join(root,p)))errors.push(`${key}: missing resource`);
 }
-if(errors.length){ console.error(errors.join("\n")); process.exit(1); }
-console.log(`Validated ${dirs.length} ADF skills and shared review framework.`);
+if(fs.existsSync(path.join(root,'framework/templates'))||fs.existsSync(path.join(root,'framework/review'))) errors.push('Duplicate legacy resources');
+if(errors.length){console.error(errors.join('\n'));process.exitCode=1;}else console.log(`Validated ${dirs.length} skills and ${seen.size} single-source resources.`);

@@ -29,17 +29,10 @@ description: ADF 統一開發 Orchestrator，依 NEW、CHANGE、MIGRATION 與 In
 - NEW / CHANGE / MIGRATION 若有使用者操作流程，在 Verification 階段由 `adf-test-generation` 建立或更新 `functional-scenarios.md`。
 - 已完成的既有 Module 若缺少 Functional Scenario，建立新的 `CHANGE` Work Item 補做。
 - Retrofit CHANGE 僅補 Scenario、Test 關聯與 Traceability，不應重新走 Implementation；除非過程發現並經 Human 確認存在真正的 Behavior Change。
-- 不新增 `FUNCTIONAL_SCENARIO` Work Type，也不建立 v5.1 專用流程。
+- 不新增 `FUNCTIONAL_SCENARIO` Work Type，不新增 Work Type。
 
 ## Evidence-Guided Q&A
-遇到 `UNKNOWN`、`REVIEW_REQUIRED`、`CONFLICT` 或必要資料不足時，依 `framework/review/` 進入互動審查：
-1. 一次只問一個需要 Human 判斷的問題。
-2. 依 Evidence 提供 2～3 個合理候選答案；若有推薦答案，必須附上推薦理由與 Evidence，不得把推測描述成事實。
-3. 永遠允許「其他／自行輸入」與「不確定，保留 REVIEW_REQUIRED」。
-4. `HIGH` Risk（Security、Permission、金額、交易、刪除資料、關鍵 Business Rule、Migration Semantic Mismatch）不得批次接受。
-5. `LOW` Risk 可提供批次快速確認，但仍需 Human 明確操作。
-6. 問題清除後進入 `READY_FOR_REVIEW`；需要 Human Gate 的 Stage 必須詢問「目前沒有其他待確認問題，是否確認此階段完成？」。
-7. 只有 Human 確認後才能標記 `APPROVED`。
+解析單一官方來源 `adf-project-install/references/` 下的 interactive-review、question-schema、approval-gate 與 terminology，依其規則執行。來源缺少或版本不相容時停止需要 Review 的階段，不維護本地副本。
 
 ## Human-readable Specification
 
@@ -49,3 +42,15 @@ description: ADF 統一開發 Orchestrator，依 NEW、CHANGE、MIGRATION 與 In
 - 產生規格書時必須保留 `REQ-*`、`BR-*`、`FS-*`、`TC-*` 等來源 ID，讓 Human 可回到正式 Artifact 查證。
 - 不得直接修改 `specification.md` 取代 Requirement / Rule / Design / Verification 的正式變更流程。
 - 若規格書與正式 Artifact 衝突，以 Approved Source Artifact / Evidence 為準並標記 `REVIEW_REQUIRED`。
+
+
+## v5.1 資源與舊專案相容性
+- 官方資源唯一位置以 `adf-project-install/references/resources.json` 為準；不複製到專案 `.adf/templates/`，不使用客製範本。
+- 從本專案 `.agents/skills/` 或 `.claude/skills/` 解析來源；可使用安裝 Skill 的 `scripts/project.mjs resolve <project> <resource-key>`。兩處版本或內容衝突時停止，不回退到全域。
+- 官方資源來源 Skill 未安裝或版本不相容時，提示透過 `npx skills` 在專案層級安裝適用正式版本。Review 不可跳過。
+- 先讀取專案 `standards/` 與已核准 Evidence；官方規範範例不是專案核准規範，不自動套用。
+- 保留 v5.0 的 Module 文件、完成狀態與核准紀錄；新版缺少欄位或文件列為補做建議，不自動撤銷核准。需要補做另走 CHANGE。
+- 在尚未採用新版 Gate 的舊 Module，只列出 Functional Scenario / specification 差異；已明確採用的新工作才檢查新版要求。
+
+## 本 Skill 官方資源
+- `template/specification.md` → `assets/specification.md`。

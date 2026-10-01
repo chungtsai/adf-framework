@@ -1,17 +1,6 @@
-import fs from "node:fs";
-import path from "node:path";
-
-const target = path.resolve(process.argv[2] || process.cwd());
-const checks = [
-  ["standards", fs.existsSync(path.join(target, "standards"))],
-  [".adf/templates", fs.existsSync(path.join(target, ".adf", "templates"))],
-  ["modules", fs.existsSync(path.join(target, "modules"))],
-  ["CLAUDE.md", fs.existsSync(path.join(target, "CLAUDE.md"))],
-  ["AGENTS.md", fs.existsSync(path.join(target, "AGENTS.md"))],
-];
-let bad = 0;
-for (const [name, ok] of checks) {
-  console.log(`${ok ? "OK  " : "MISS"} ${name}`);
-  if (!ok) bad++;
-}
-process.exitCode = bad ? 1 : 0;
+import { plan } from '../skills/adf-project-install/scripts/project.mjs';
+try {
+ const result=plan(process.argv[2]||process.cwd());
+ console.log(JSON.stringify(result,null,2));
+ if(result.blockers.length)process.exitCode=1;
+}catch(e){console.error(e.message);process.exitCode=1;}
