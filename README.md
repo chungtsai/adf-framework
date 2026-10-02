@@ -194,3 +194,10 @@ my-project/
 **AI 不是 Source of Truth。** Source of Truth 來自 Requirement、Legacy/Target Evidence、Approved Standards、Approved Baseline/Design、Executable Tests 與 Verification Evidence。
 
 ADF 的核心是：**從「相信 AI」轉成「相信證據」。**
+
+
+## 已手動導入 v5.0：轉為 npx 管理
+
+使用 [手動導入轉接 SOP](docs/migrations/manual-v5-to-npx-v5.md) 與 `scripts/migrate-v5-installation.mjs`，執行 CHECK / PLAN / APPLY / VERIFY / RESTORE。ADF 版本維持 5.0.0，只改管理方式；使用者確認具體差異後替換舊 Skill。保留規範、功能文件、範本及核准紀錄，提供備份與回復。本工具不依賴 v5.1。
+
+轉接工具呼叫 skills@1.7.0，執行時需要 Node.js >=22.20.0；不改變既有應用程式的 Java/Node 技術需求。測試：`npm test`；明確需要網路驗收時執行 `npm run test:transfer:live`。
