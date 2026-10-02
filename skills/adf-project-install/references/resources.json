@@ -1,0 +1,131 @@
+{
+  "version": "5.1.0",
+  "resources": {
+    "review/approval-gate.md": {
+      "skill": "adf-project-install",
+      "path": "references/approval-gate.md"
+    },
+    "review/interactive-review.md": {
+      "skill": "adf-project-install",
+      "path": "references/interactive-review.md"
+    },
+    "review/question-schema.md": {
+      "skill": "adf-project-install",
+      "path": "references/question-schema.md"
+    },
+    "review/terminology.md": {
+      "skill": "adf-project-install",
+      "path": "references/terminology.md"
+    },
+    "template/design/design.md": {
+      "skill": "adf-development-design",
+      "path": "assets/design.md"
+    },
+    "template/manifest.yaml": {
+      "skill": "adf-feature-init",
+      "path": "assets/manifest.yaml"
+    },
+    "template/spec/requirements.md": {
+      "skill": "adf-requirement-analysis",
+      "path": "assets/requirements.md"
+    },
+    "template/spec/rules.md": {
+      "skill": "adf-business-rule",
+      "path": "assets/rules.md"
+    },
+    "template/spec/standards.md": {
+      "skill": "adf-standards-applicability",
+      "path": "assets/standards.md"
+    },
+    "template/specification.md": {
+      "skill": "adf-develop",
+      "path": "assets/specification.md"
+    },
+    "template/verification/functional-scenarios.md": {
+      "skill": "adf-test-generation",
+      "path": "assets/functional-scenarios.md"
+    },
+    "template/verification/test-cases.md": {
+      "skill": "adf-test-generation",
+      "path": "assets/test-cases.md"
+    },
+    "template/verification/traceability.md": {
+      "skill": "adf-traceability-check",
+      "path": "assets/traceability.md"
+    },
+    "standard/development/date-time.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/date-time.md"
+    },
+    "standard/development/error-handling.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/error-handling.md"
+    },
+    "standard/development/frontend/dialog.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/frontend/dialog.md"
+    },
+    "standard/development/frontend/master-detail.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/frontend/master-detail.md"
+    },
+    "standard/development/pagination.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/pagination.md"
+    },
+    "standard/development/security.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security.md"
+    },
+    "standard/migration/frontend/page-to-dialog.md": {
+      "skill": "adf-migration-rule-authoring",
+      "path": "assets/standards/migration/frontend/page-to-dialog.md"
+    },
+    "standard/migration/null-empty.md": {
+      "skill": "adf-migration-rule-authoring",
+      "path": "assets/standards/migration/null-empty.md"
+    },
+    "standard/migration/roc-calendar.md": {
+      "skill": "adf-migration-rule-authoring",
+      "path": "assets/standards/migration/roc-calendar.md"
+    }
+  },
+  "legacy_template_hashes": {
+    "module/design/design.md": [
+      "8f4e3eb803028994c7760993c0fca428659a749d6e90f975f2dd8a01929c95cc",
+      "2844e12becd94d8035dceaed63cd99fc743d012a6a8271f8c09eec25e68acb8b"
+    ],
+    "module/manifest.yaml": [
+      "e0e64a418b3eb4ce502757c7163371d6378d3cada7b338f80b417d216d798ff0",
+      "ee21c3077cbb0cedf1897f06c0b7bbe989c6c1c9bb42258bd66c072caa5ebeed"
+    ],
+    "module/spec/requirements.md": [
+      "64be48535d7a5076f42a24296969a1fecec274eb495d6e58f1fc0995eae5bcdb",
+      "1d0f2644607cbfd9e62226a462ae2ff6c3d4fff9c3b7024569214b9dcb98b040"
+    ],
+    "module/spec/rules.md": [
+      "b346c31bdd551bd163ca372f01f95db410739867adb4fda54aaf271017d06b80",
+      "b7bee89067df7d391df0697f167580a389b82e91afae7c4f8376ba2fde58b923"
+    ],
+    "module/spec/standards.md": [
+      "30ce0d00b05762a8415b32dcc11fdf3242323417e1494b74e0457f89566498fe",
+      "c4639302d53f0ca4b1e7c74bf0888b9118652700b8f7f4c40e3b57f9ee0c2272"
+    ],
+    "module/specification.md": [
+      "bf5096c351c95672a796bf54879a5a4563d3b19108ed75a53a9a864c3452f62d",
+      "e8e9a23c81ba36c41aac171e0c12da42ef96384119cb17c4e54471ad56bf5836"
+    ],
+    "module/verification/functional-scenarios.md": [
+      "b93f929377ce0e0187340724782974e6920ee540f758218711d502f05bf8740e",
+      "e7c7ea7eead49df71de14beaec02fd4e24019e9d2764f82bae73ef3313056942"
+    ],
+    "module/verification/test-cases.md": [
+      "69bd048cb0ff0e9826055bf23c1542d7d5d7cd36b9123911a24610dda93c2141",
+      "7885f382688729fb2cae9f4c80ac6638a82d98a0a4e23cc629a9ff56c3431eb5"
+    ],
+    "module/verification/traceability.md": [
+      "5588840ecea0cc063a583a6ea93d89074bdb22515707fe1dccc96d17a5caeab0",
+      "fb07584d3737f48d56d463552836f48c4a5651f1153fcf45b34567fa8f59a63a"
+    ]
+  }
+}

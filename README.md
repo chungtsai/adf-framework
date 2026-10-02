@@ -1,11 +1,11 @@
-# ADF — AI Development Framework v5
+# ADF — AI Development Framework v5.1
 
 > **語言政策：人看的內容使用繁體中文；機器識別碼與程式代碼維持英文。**
 
 ADF 的目的不是讓 AI 單純寫得更快，而是把「相信 AI」轉成「相信可驗證的證據」。透過分析、規格、標準、設計、開發、測試、比對、Traceability 與 Human Gate，降低 AI 誤解需求與 Legacy 行為的風險。
 
-## v5 重點
-- 32 支 `SKILL.md` 的操作說明全面改為繁體中文。
+## v5.1 重點
+- 33 支 `SKILL.md` 的操作說明全面改為繁體中文。
 - Skill ID、檔名、YAML/JSON Key、`NEW/CHANGE/MIGRATION`、Intent、Status、Rule ID、`DEV-*`、`MIG-*` 維持英文。
 - 共用 Review Framework 全面繁體中文化。
 - Evidence-Guided Q&A：依 Evidence 提供 2～3 個高可能答案、推薦理由、自訂回答與 `REVIEW_REQUIRED`。
@@ -28,16 +28,10 @@ ADF 卡住時不只回報 `BLOCKED`。遇到 `UNKNOWN`、`REVIEW_REQUIRED`、`CO
 
 共用規格位於：
 
-```text
-framework/review/
-├── interactive-review.md
-├── question-schema.md
-├── approval-gate.md
-└── terminology.md
-```
+`skills/adf-project-install/references/`；以專案來源解析，不回退全域，不保留副本。
 
 
-## ADF v3 支援的專案情境
+## ADF 支援的專案情境
 
 | 專案現況 | 建議入口 | 目的 |
 |---|---|---|
@@ -66,7 +60,7 @@ Migration 不以「新系統能跑」為完成條件。ADF 先從 Legacy 建立�
 
 `Target Analysis → Reverse Specification → Standards Applicability → Human Review → Approved Baseline → Regression Tests → Traceability`。這不能證明「Migration 正確」，但可以證明目前行為已被盤點、核准、測試，並成為後續 CHANGE 的可信基線。
 
-# Skills — 32 支
+# Skills — 33 支
 
 ## 導航與 Orchestration
 
@@ -75,6 +69,10 @@ Migration 不以「新系統能跑」為完成條件。ADF 先從 Legacy 建立�
 - **`adf-migrate`** — Legacy → Target Migration 的快速入口與流程協調。
 - **`adf-retrofit-verification`** — 已移轉完成且 Legacy 還存在時，事後做 Golden/Dual Verification；預設 Verify Only。
 - **`adf-baseline-adoption`** — 已完成開發但沒有 Legacy 時，建立 Current Approved Baseline、Regression Tests 與 Traceability。
+
+## 專案安裝
+
+- **`adf-project-install`** — CHECK / PLAN / APPLY / VERIFY / RESTORE；安全導入與 v5.0 移轉。
 
 ## 初始化與分析
 
@@ -162,35 +160,19 @@ standards/
 
 Development Standards 定義 Target 應如何設計；Migration Standards 定義 Legacy → Target 哪些轉換被允許。Module 的 `spec/standards.md` 只記錄該 Module 實際適用的 Standards。
 
-# 安裝與初始化
+# 安裝與移轉
 
-此 Release 採 GitHub-only，`skills/` 是唯一 Skill Source of Truth，不需要發布 npm package。
+統一使用專案層級 `npx skills`。正式版本指令、手動來源轉接、前置備份與回復，見 [v5.0 → v5.1 SOP](docs/upgrades/5.0-to-5.1.md)。v5.1.0 tag 發佈前，此分支僅為候選版。
 
-```bash
-npx skills add your-user/adf
-```
+官方範本各自只有一個 owner，資源清單位於 `skills/adf-project-install/references/resources.json`；不建立專案 `.adf/templates/` 或客製範本。共用 Review 也採單一來源。規範範例歸位至 authoring Skills 的 assets，專案實際規範維持 `standards/`。
 
-Clone ADF repo 後，也可初始化專案：
+專案保留 `standards/`、`modules/`、CLAUDE.md、AGENTS.md；移轉記錄位於 `.adf/project.yaml` 與 `.adf/migration.json`。不新增 Issue Tracking。更新 Skill 不重產既有文件、不撤銷已核准狀態。
 
-```bash
-node scripts/init.js C:\workspace\my-project
-node scripts/doctor.js C:\workspace\my-project
-node scripts/validate.js
-```
-
-初始化後主要結構：
-
-```text
-my-project/
-├── standards/
-├── .adf/templates/
-├── modules/
-├── CLAUDE.md
-└── AGENTS.md
-```
+repository 維護檢查：`npm run validate`、`npm test`。舊 `scripts/init.js` 現在只讀取，不再初始化或複製檔案。
 
 # 最重要的原則
 
 **AI 不是 Source of Truth。** Source of Truth 來自 Requirement、Legacy/Target Evidence、Approved Standards、Approved Baseline/Design、Executable Tests 與 Verification Evidence。
 
 ADF 的核心是：**從「相信 AI」轉成「相信證據」。**
+
