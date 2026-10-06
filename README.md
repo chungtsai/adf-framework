@@ -1,8 +1,15 @@
-# ADF — AI Development Framework v5.1
+# ADF — AI Development Framework v5.2
 
 > **語言政策：人看的內容使用繁體中文；機器識別碼與程式代碼維持英文。**
 
 ADF 的目的不是讓 AI 單純寫得更快，而是把「相信 AI」轉成「相信可驗證的證據」。透過分析、規格、標準、設計、開發、測試、比對、Traceability 與 Human Gate，降低 AI 誤解需求與 Legacy 行為的風險。
+
+## v5.2 重點
+- 共用規範集中為單一來源：`core/invariants.md`（共通不變條件）與 `core/runtime-compat.md`（資源解析與舊專案相容性），各 Skill 只保留固定的「共用規範」引用區塊，不再複製內容。
+- 修正舊版各 Skill 之間 Compact Artifacts 清單不一致的問題（多數 Skill 缺少 `functional-scenarios.md` 與 `FS-*`）。
+- 新增 `core/skill-contract.md`：Skill 操作契約格式（輸入、步驟、輸出、完成條件、禁止事項、範例）；`adf-backend-development` 為第一支完整範例。
+- `npm run validate` 新增檢查：共用區塊必須與契約一致、禁止重新複製共用段落、同一條規則出現在 3 支以上 Skill 即失敗、引用的 resource key 必須存在。
+- Skill 名稱、數量、Work Type、Gate 規則與 Module 文件格式都不變。由 v5.1 升級見 [v5.1 → v5.2 SOP](docs/upgrades/5.1-to-5.2.md)。
 
 ## v5.1 重點
 - 33 支 `SKILL.md` 的操作說明全面改為繁體中文。
@@ -162,7 +169,7 @@ Development Standards 定義 Target 應如何設計；Migration Standards 定義
 
 # 安裝與移轉
 
-統一使用專案層級 `npx skills`。正式版本指令、手動來源轉接、前置備份與回復，見 [v5.0 → v5.1 SOP](docs/upgrades/5.0-to-5.1.md)。v5.1.0 tag 發佈前，此分支僅為候選版。
+統一使用專案層級 `npx skills`。正式版本指令、手動來源轉接、前置備份與回復，從 v5.0 導入見 [v5.0 → v5.1 SOP](docs/upgrades/5.0-to-5.1.md)，從 v5.1 升級見 [v5.1 → v5.2 SOP](docs/upgrades/5.1-to-5.2.md)。v5.2.0 tag 發佈前，此分支僅為候選版。
 
 官方範本各自只有一個 owner，資源清單位於 `skills/adf-project-install/references/resources.json`；不建立專案 `.adf/templates/` 或客製範本。共用 Review 也採單一來源。規範範例歸位至 authoring Skills 的 assets，專案實際規範維持 `standards/`。
 
