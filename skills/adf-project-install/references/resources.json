@@ -1,5 +1,9 @@
 {
-  "version": "5.1.0",
+  "version": "5.2.0",
+  "compatible_tool_versions": [
+    "5.1.0",
+    "5.2.0"
+  ],
   "resources": {
     "review/approval-gate.md": {
       "skill": "adf-project-install",
@@ -16,6 +20,18 @@
     "review/terminology.md": {
       "skill": "adf-project-install",
       "path": "references/terminology.md"
+    },
+    "core/invariants.md": {
+      "skill": "adf-project-install",
+      "path": "references/core-invariants.md"
+    },
+    "core/runtime-compat.md": {
+      "skill": "adf-project-install",
+      "path": "references/runtime-compat.md"
+    },
+    "core/skill-contract.md": {
+      "skill": "adf-project-install",
+      "path": "references/skill-contract.md"
     },
     "template/design/design.md": {
       "skill": "adf-development-design",
