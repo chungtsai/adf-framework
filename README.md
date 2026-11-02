@@ -181,7 +181,32 @@ curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/main/script
 irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/install.ps1 | iex
 ```
 
-腳本會依序：檢查是否為全新專案 → 專案層級 `npx skills add`（v5.2.0 全部 33 支）→ `PLAN`（計畫檔存在專案外暫存目錄）→ `APPLY` → `VERIFY`。只新增 Skill、`skills-lock.json` 與 `.adf/`，不碰其他檔案。
+也可以一次下載整包（所有 Skill、腳本、文件）再執行，不依賴單一檔案網址：
+
+```bash
+# macOS / Linux：下載到暫存目錄 → 執行 → 清除
+ADF_REF=main; t=$(mktemp -d) && curl -fsSL "https://codeload.github.com/chungtsai/adf-framework/tar.gz/$ADF_REF" | tar -xz -C "$t" --strip-components=1 && bash "$t/scripts/install.sh"; rm -rf "$t"
+```
+
+```powershell
+# Windows PowerShell
+$r='main'; $t=Join-Path $env:TEMP "adf-$(New-Guid)"; Invoke-WebRequest -UseBasicParsing "https://codeload.github.com/chungtsai/adf-framework/zip/$r" -OutFile "$t.zip"; Expand-Archive "$t.zip" $t; & (Get-ChildItem "$t\*\scripts\install.ps1").FullName; Remove-Item -Recurse -Force $t, "$t.zip"
+```
+
+`ADF_REF` 只決定安裝腳本取自哪個分支／tag；Skill 本身一律由 `npx skills` 從正式 tag（預設 v5.2.0）安裝，才能留下 `skills-lock.json` 來源紀錄。
+
+腳本會依序：檢查是否為全新專案 → 下載同版本原始檔 → 專案層級 `npx skills add`（v5.2.0 全部 33 支）→ **逐檔比對每支 Skill 的 `SKILL.md`、`scripts/`、`assets/`、`references/` 都已放在正確位置且內容一致** → `PLAN`（計畫檔存在專案外暫存目錄）→ `APPLY` → `VERIFY`。只新增 Skill、`skills-lock.json` 與 `.adf/`，不碰其他檔案。有缺檔會停止並列出，不會自行補檔（補檔會與 `skills-lock.json` 雜湊不符）。
+
+安裝完成後的位置（Claude Code 預設）：
+
+```text
+<project>/
+├── .claude/skills/adf-*/        # 33 支 Skill，含 SKILL.md、scripts/、assets/、references/
+├── skills-lock.json            # npx skills 來源與雜湊紀錄
+└── .adf/project.yaml、migration.json、backups/
+```
+
+Codex 等其他 Agent 會放在 `.agents/skills/`。repo 根目錄的 `scripts/`、`tests/`、`docs/` 是框架維護用，不需要放進專案。
 
 - 其他 Agent：`bash install.sh --agent codex`（PowerShell：`-Agent codex`），或設定環境變數 `ADF_AGENT`。
 - 指定版本：`--version v5.2.0` 或 `ADF_VERSION`。Windows 無法建立符號連結時加 `--copy` / `-Copy`。

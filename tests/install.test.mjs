@@ -18,6 +18,7 @@ const dst=path.join(process.cwd(),'.claude/skills');fs.mkdirSync(dst,{recursive:
 const lock={version:1,skills:{}};
 for(const name of fs.readdirSync(path.join(repo,'skills'))){
  fs.cpSync(path.join(repo,'skills',name),path.join(dst,name),{recursive:true});
+ if(process.env.NPX_SKIP&&process.env.NPX_SKIP.startsWith(name+'/')) fs.rmSync(path.join(dst,process.env.NPX_SKIP));
  const files=[];(function walk(p){for(const n of fs.readdirSync(p)){const f=path.join(p,n);fs.statSync(f).isDirectory()?walk(f):files.push(path.relative(path.join(dst,name),f).split(path.sep).join('/'));}})(path.join(dst,name));
  const h=crypto.createHash('sha256');for(const rel of files.sort((a,b)=>a.localeCompare(b))){h.update(rel);h.update(fs.readFileSync(path.join(dst,name,rel)));}
  lock.skills[name]={source:'chungtsai/adf-framework',sourceType:'github',ref:'v'+version,skillPath:'skills/'+name+'/SKILL.md',computedHash:h.digest('hex')};
@@ -29,7 +30,7 @@ function setup(t){
  const bin=path.join(base,'bin'),project=path.join(base,'project');fs.mkdirSync(bin);fs.mkdirSync(project);
  fs.writeFileSync(path.join(bin,'npx'),stub,{mode:0o755});
  const home=path.join(base,'home');fs.mkdirSync(home);
- const run=()=>spawnSync('bash',[script,'--project',project],{encoding:'utf8',env:{...process.env,PATH:`${bin}${path.delimiter}${process.env.PATH}`,HOME:home,NPX_LOG:path.join(base,'npx.log')}});
+ const run=(extra={})=>spawnSync('bash',[script,'--project',project],{encoding:'utf8',env:{...process.env,PATH:`${bin}${path.delimiter}${process.env.PATH}`,HOME:home,NPX_LOG:path.join(base,'npx.log'),ADF_SOURCE_DIR:repo,...extra}});
  return {base,project,run};
 }
 test('fresh project installs, plans, applies and verifies in one command',{skip},t=>{
@@ -50,4 +51,9 @@ for(const [label,prepare] of [
  const {base,project,run}=setup(t);prepare(project);
  const r=run();assert.notEqual(r.status,0);assert.match(r.stderr,/不是全新專案/);
  assert.ok(!fs.existsSync(path.join(base,'npx.log')));assert.ok(!fs.existsSync(path.join(project,'skills-lock.json')));
+});
+test('installation missing a skill script is detected before any .adf write',{skip},t=>{
+ const {project,run}=setup(t);
+ const r=run({NPX_SKIP:'adf-feature-init/references/release.json'});assert.notEqual(r.status,0);
+ assert.match(r.stderr,/缺少：.*adf-feature-init\/references\/release\.json/);assert.ok(!fs.existsSync(path.join(project,'.adf')));
 });

@@ -46,19 +46,47 @@ if ($found.Count -gt 0) {
   Fail "這不是全新專案。請依 $Repo/tree/main/docs/upgrades 的 SOP 移轉，不要用一鍵安裝覆寫。"
 }
 
-# 3. 專案層級安裝（Windows 若無法建立符號連結可加 -Copy）
-Say "安裝 ADF $Version 到 $root（Agent：$Agent）"
-$npxArgs = @('-y', 'skills', 'add', "$Repo/tree/$Version", '--skill', '*', '-a', $Agent, '-y')
-if ($Copy) { $npxArgs += '--copy' }
-& npx @npxArgs
-if ($LASTEXITCODE -ne 0) { Fail 'npx skills add 失敗' }
-
-# 4. PLAN → APPLY → VERIFY
-$tool = @('.agents/skills', '.claude/skills') | ForEach-Object { Join-Path $_ 'adf-project-install/scripts/project.mjs' } | Where-Object { Test-Path $_ } | Select-Object -First 1
-if (-not $tool) { Fail '安裝後找不到 adf-project-install；請確認 Agent 名稱是否正確' }
+# 3. 下載同版本原始檔（專案外暫存），用來比對安裝結果是否完整
 $work = Join-Path ([IO.Path]::GetTempPath()) ("adf-install-" + [guid]::NewGuid())
 New-Item -ItemType Directory $work | Out-Null
 try {
+  if ($env:ADF_SOURCE_DIR) { $src = $env:ADF_SOURCE_DIR } else {
+    Say "下載 $Version 原始檔以供比對"
+    $zip = Join-Path $work 'src.zip'
+    try { Invoke-WebRequest -UseBasicParsing "https://codeload.github.com/chungtsai/adf-framework/zip/refs/tags/$Version" -OutFile $zip }
+    catch { Fail "無法下載 $Version；請確認版本存在且網路可連到 GitHub" }
+    Expand-Archive $zip (Join-Path $work 'src')
+    $src = (Get-ChildItem (Join-Path $work 'src') -Directory | Select-Object -First 1).FullName
+  }
+  $srcSkills = Join-Path $src 'skills'
+  if (-not (Test-Path (Join-Path $srcSkills 'adf-project-install'))) { Fail "原始檔不完整：$srcSkills" }
+
+  # 4. 專案層級安裝（Windows 若無法建立符號連結可加 -Copy）
+  Say "安裝 ADF $Version 到 $root（Agent：$Agent）"
+  $npxArgs = @('-y', 'skills', 'add', "$Repo/tree/$Version", '--skill', '*', '-a', $Agent, '-y')
+  if ($Copy) { $npxArgs += '--copy' }
+  & npx @npxArgs
+  if ($LASTEXITCODE -ne 0) { Fail 'npx skills add 失敗' }
+
+  # 5. 找到 adf-project-install
+  $inst = @('.agents/skills', '.claude/skills') | Where-Object { Test-Path (Join-Path $_ 'adf-project-install/scripts/project.mjs') } | Select-Object -First 1
+  if (-not $inst) { Fail '安裝後找不到 adf-project-install；請確認 Agent 名稱是否正確' }
+  $tool = Join-Path $inst 'adf-project-install/scripts/project.mjs'
+
+  # 6. 逐檔比對：每支 Skill 的 SKILL.md、scripts/、assets/、references/ 都必須在正確位置且內容一致
+  Say '檢查安裝檔案完整性'
+  $bad = 0; $total = 0
+  foreach ($f in Get-ChildItem $srcSkills -Recurse -File) {
+    $total++
+    $rel = $f.FullName.Substring($srcSkills.Length + 1)
+    $dst = Join-Path $inst $rel
+    if (-not (Test-Path $dst -PathType Leaf)) { Write-Host "        缺少：$dst"; $bad++ }
+    elseif ((Get-FileHash $f.FullName).Hash -ne (Get-FileHash $dst).Hash) { Write-Host "        內容不同：$dst"; $bad++ }
+  }
+  if ($bad -gt 0) { Fail "$bad 個檔案缺少或不一致（共 $total 個）。請重新執行；不要手動複製，否則與 skills-lock.json 不符。" }
+  Say "檔案完整：$total 個檔案已就位於 $inst/"
+
+  # 7. PLAN → APPLY → VERIFY（計畫檔放在專案外）
   $plan = Join-Path $work 'plan.json'
   Say 'PLAN（唯讀）'
   $out = node $tool PLAN $root
@@ -75,5 +103,5 @@ try {
 } finally { Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue }
 
 Say "完成：ADF $Version 已安裝並通過 VERIFY。"
-Say '建議 commit：skills-lock.json、Skill 安裝目錄、.adf/'
+Say "建議 commit：skills-lock.json、$inst/、.adf/"
 Say '下一步：在 Agent 中呼叫 adf-ask 或 adf-develop（NEW）開始第一個 Module。'
