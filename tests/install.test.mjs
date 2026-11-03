@@ -65,3 +65,8 @@ test('curl | bash style execution completes even when npx consumes stdin',{skip}
  const {project,piped}=setup(t);const r=piped();assert.equal(r.status,0,r.stderr+r.stdout);
  assert.match(r.stdout,/通過 VERIFY/);assert.equal(JSON.parse(fs.readFileSync(path.join(project,'.adf/migration.json'))).status,'verified');
 });
+test('install.ps1 does not pass double quotes inside arguments to native commands (stripped by Windows PowerShell 5.1)',()=>{
+ const ps=fs.readFileSync(path.join(repo,'scripts/install.ps1'),'utf8').split(/\r?\n/);
+ const bad=ps.map((l,i)=>[i+1,l]).filter(([,l])=>!l.trim().startsWith('#')&&/\b(node|npx|npm)(\.exe)?\s+[^#\n]*'[^']*"[^']*'/.test(l));
+ assert.deepEqual(bad,[],'Windows PowerShell 5.1 會去掉傳給外部程式參數中的雙引號；請改在 PowerShell 內處理');
+});
