@@ -22,8 +22,11 @@ if (-not $Version.StartsWith('v')) { $Version = "v$Version" }
 # 1. 前置條件
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Fail '找不到 Node.js；請安裝 Node.js 18 以上版本' }
 if (-not (Get-Command npx -ErrorAction SilentlyContinue)) { Fail '找不到 npx；請安裝含 npm 的 Node.js' }
-$major = [int](node -p 'process.versions.node.split(".")[0]')
-if ($major -lt 18) { Fail "Node.js 版本為 $(node -v)，需要 18 以上" }
+# 由 node -v 在 PowerShell 內解析版號：Windows PowerShell 5.1 傳參數給外部程式時會去掉內含的雙引號，
+# 不能用 node -p 'process.versions.node.split(".")[0]'（Node 收到 split(.) 而語法錯誤）
+$nodeVersion = "$(node -v)".Trim()
+if ($nodeVersion -notmatch '^v(\d+)\.') { Fail "無法判斷 Node.js 版本（node -v 輸出：$nodeVersion）" }
+if ([int]$Matches[1] -lt 18) { Fail "Node.js 版本為 $nodeVersion，需要 18 以上" }
 if (-not (Test-Path $Project -PathType Container)) { Fail "專案目錄不存在：$Project" }
 Set-Location $Project
 $root = (Get-Location).Path
