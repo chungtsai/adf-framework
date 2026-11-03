@@ -10,6 +10,10 @@
 #   bash install.sh [--agent claude-code|codex|...] [--version v5.2.0] [--copy] [--project <dir>]
 set -euo pipefail
 
+# 整支包在 main()：用 curl | bash 執行時，bash 會先讀完整支腳本再執行，
+# 避免子程序（如 npx）讀走 stdin 中尚未執行的腳本內容。
+main() {
+
 REPO="https://github.com/chungtsai/adf-framework"
 VERSION="${ADF_VERSION:-v5.2.0}"
 AGENT="${ADF_AGENT:-claude-code}"
@@ -80,7 +84,7 @@ fi
 # 4. 專案層級安裝全部 Skill（不加 -g，明確指定 Agent，不用 --all）
 say "安裝 ADF $VERSION 到 $PROJECT（Agent：$AGENT）"
 # shellcheck disable=SC2086
-npx -y skills add "$REPO/tree/$VERSION" --skill '*' -a "$AGENT" -y $COPY
+npx -y skills add "$REPO/tree/$VERSION" --skill '*' -a "$AGENT" -y $COPY </dev/null
 
 # 5. 找到 adf-project-install
 TOOL=""
@@ -119,3 +123,6 @@ node "$TOOL" VERIFY "$PROJECT" >/dev/null || fail "VERIFY 失敗，安裝不可�
 say "完成：ADF $VERSION 已安裝並通過 VERIFY。"
 say "建議 commit：skills-lock.json、$INST/、.adf/"
 say "下一步：在 Agent 中呼叫 adf-ask 或 adf-develop（NEW）開始第一個 Module。"
+}
+
+main "$@"

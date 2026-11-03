@@ -14,6 +14,8 @@ const stub=`#!/usr/bin/env node
 const fs=require('fs'),path=require('path'),crypto=require('crypto');
 const repo=${JSON.stringify(repo)},version=JSON.parse(fs.readFileSync(path.join(repo,'skills/adf-project-install/references/release.json'))).version;
 fs.appendFileSync(process.env.NPX_LOG,process.argv.slice(2).join(' ')+'\\n');
+try{fs.readFileSync(0);}catch{} // real npx reads stdin; under curl | bash that is the rest of the script
+
 const dst=path.join(process.cwd(),'.claude/skills');fs.mkdirSync(dst,{recursive:true});
 const lock={version:1,skills:{}};
 for(const name of fs.readdirSync(path.join(repo,'skills'))){
@@ -30,8 +32,10 @@ function setup(t){
  const bin=path.join(base,'bin'),project=path.join(base,'project');fs.mkdirSync(bin);fs.mkdirSync(project);
  fs.writeFileSync(path.join(bin,'npx'),stub,{mode:0o755});
  const home=path.join(base,'home');fs.mkdirSync(home);
+ const env=extra=>({...process.env,PATH:`${bin}${path.delimiter}${process.env.PATH}`,HOME:home,NPX_LOG:path.join(base,'npx.log'),ADF_SOURCE_DIR:repo,...extra});
+ const piped=()=>spawnSync('bash',['-s','--','--project',project],{encoding:'utf8',input:fs.readFileSync(script),env:env({})});
  const run=(extra={})=>spawnSync('bash',[script,'--project',project],{encoding:'utf8',env:{...process.env,PATH:`${bin}${path.delimiter}${process.env.PATH}`,HOME:home,NPX_LOG:path.join(base,'npx.log'),ADF_SOURCE_DIR:repo,...extra}});
- return {base,project,run};
+ return {base,project,run,piped};
 }
 test('fresh project installs, plans, applies and verifies in one command',{skip},t=>{
  const {base,project,run}=setup(t);fs.writeFileSync(path.join(project,'README.md'),'app');
@@ -56,4 +60,8 @@ test('installation missing a skill script is detected before any .adf write',{sk
  const {project,run}=setup(t);
  const r=run({NPX_SKIP:'adf-feature-init/references/release.json'});assert.notEqual(r.status,0);
  assert.match(r.stderr,/缺少：.*adf-feature-init\/references\/release\.json/);assert.ok(!fs.existsSync(path.join(project,'.adf')));
+});
+test('curl | bash style execution completes even when npx consumes stdin',{skip},t=>{
+ const {project,piped}=setup(t);const r=piped();assert.equal(r.status,0,r.stderr+r.stdout);
+ assert.match(r.stdout,/通過 VERIFY/);assert.equal(JSON.parse(fs.readFileSync(path.join(project,'.adf/migration.json'))).status,'verified');
 });
