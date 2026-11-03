@@ -169,13 +169,59 @@ Development Standards 定義 Target 應如何設計；Migration Standards 定義
 
 # 安裝與移轉
 
+## 全新專案：一鍵安裝
+
+專案**從未使用過 ADF**（沒有 `.adf/`、`modules/`、`standards/`、任何 `adf-*` Skill 或舊版引用）時，在專案根目錄執行一行即可。前置條件：Node.js 18 以上（含 npx）。
+
+```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/install.sh | bash
+
+# Windows PowerShell
+irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/install.ps1 | iex
+```
+
+也可以一次下載整包（所有 Skill、腳本、文件）再執行，不依賴單一檔案網址：
+
+```bash
+# macOS / Linux：下載到暫存目錄 → 執行 → 清除
+ADF_REF=main; t=$(mktemp -d) && curl -fsSL "https://codeload.github.com/chungtsai/adf-framework/tar.gz/$ADF_REF" | tar -xz -C "$t" --strip-components=1 && bash "$t/scripts/install.sh"; rm -rf "$t"
+```
+
+```powershell
+# Windows PowerShell
+$r='main'; $t=Join-Path $env:TEMP "adf-$(New-Guid)"; Invoke-WebRequest -UseBasicParsing "https://codeload.github.com/chungtsai/adf-framework/zip/$r" -OutFile "$t.zip"; Expand-Archive "$t.zip" $t; & (Get-ChildItem "$t\*\scripts\install.ps1").FullName; Remove-Item -Recurse -Force $t, "$t.zip"
+```
+
+`ADF_REF` 只決定安裝腳本取自哪個分支／tag；Skill 本身一律由 `npx skills` 從正式 tag（預設 v5.2.0）安裝，才能留下 `skills-lock.json` 來源紀錄。
+
+腳本會依序：檢查是否為全新專案 → 下載同版本原始檔 → 專案層級 `npx skills add`（v5.2.0 全部 33 支）→ **逐檔比對每支 Skill 的 `SKILL.md`、`scripts/`、`assets/`、`references/` 都已放在正確位置且內容一致** → `PLAN`（計畫檔存在專案外暫存目錄）→ `APPLY` → `VERIFY`。只新增 Skill、`skills-lock.json` 與 `.adf/`，不碰其他檔案。有缺檔會停止並列出，不會自行補檔（補檔會與 `skills-lock.json` 雜湊不符）。
+
+安裝完成後的位置（Claude Code 預設）：
+
+```text
+<project>/
+├── .claude/skills/adf-*/        # 33 支 Skill，含 SKILL.md、scripts/、assets/、references/
+├── skills-lock.json            # npx skills 來源與雜湊紀錄
+└── .adf/project.yaml、migration.json、backups/
+```
+
+Codex 等其他 Agent 會放在 `.agents/skills/`。repo 根目錄的 `scripts/`、`tests/`、`docs/` 是框架維護用，不需要放進專案。
+
+- 其他 Agent：`bash install.sh --agent codex`（PowerShell：`-Agent codex`），或設定環境變數 `ADF_AGENT`。
+- 指定版本：`--version v5.2.0` 或 `ADF_VERSION`。Windows 無法建立符號連結時加 `--copy` / `-Copy`。
+- 想先看腳本內容：先下載 `install.sh` 檢查後再以 `bash install.sh` 執行。
+- 偵測到任何舊版 ADF 痕跡會在安裝前停止、不寫入任何檔案，請改用下方移轉 SOP。
+
+## 既有專案：移轉與升級
+
 統一使用專案層級 `npx skills`。正式版本指令、手動來源轉接、前置備份與回復，從 v5.0 導入見 [v5.0 → v5.1 SOP](docs/upgrades/5.0-to-5.1.md)，從 v5.1 升級見 [v5.1 → v5.2 SOP](docs/upgrades/5.1-to-5.2.md)。v5.2.0 tag 發佈前，此分支僅為候選版。
 
 官方範本各自只有一個 owner，資源清單位於 `skills/adf-project-install/references/resources.json`；不建立專案 `.adf/templates/` 或客製範本。共用 Review 也採單一來源。規範範例歸位至 authoring Skills 的 assets，專案實際規範維持 `standards/`。
 
 專案保留 `standards/`、`modules/`、CLAUDE.md、AGENTS.md；移轉記錄位於 `.adf/project.yaml` 與 `.adf/migration.json`。不新增 Issue Tracking。更新 Skill 不重產既有文件、不撤銷已核准狀態。
 
-repository 維護檢查：`npm run validate`、`npm test`。舊 `scripts/init.js` 現在只讀取，不再初始化或複製檔案。
+repository 維護檢查：`npm run validate`、`npm test`（含一鍵安裝腳本的離線測試）。舊 `scripts/init.js` 現在只讀取，不再初始化或複製檔案。
 
 # 最重要的原則
 
