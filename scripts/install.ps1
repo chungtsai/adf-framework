@@ -4,12 +4,15 @@
 #
 # 用法（在專案根目錄）：
 #   irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/install.ps1 | iex
-#   .\install.ps1 [-Agent claude-code] [-Version v5.2.0] [-Copy] [-Project <dir>]
+#   .\install.ps1 [-Agent claude-code] [-Version v5.2.0] [-Copy] [-Yes] [-Project <dir>]
+# 已安裝 ADF 的專案會自動改執行 update.ps1（同一個指令即可更新）。
+# 寫入任何檔案前會列出摘要並詢問確認；-Yes 或 ADF_YES=1 可略過（CI 使用）。
 param(
   [string]$Agent = $(if ($env:ADF_AGENT) { $env:ADF_AGENT } else { 'claude-code' }),
   [string]$Version = $(if ($env:ADF_VERSION) { $env:ADF_VERSION } else { 'v5.2.0' }),
   [string]$Project = '.',
-  [switch]$Copy
+  [switch]$Copy,
+  [switch]$Yes = [bool]$env:ADF_YES
 )
 $ErrorActionPreference = 'Stop'
 $Repo = 'https://github.com/chungtsai/adf-framework'
@@ -33,7 +36,22 @@ $root = (Get-Location).Path
 if ($root -eq $HOME) { Fail '不可直接安裝在 home 目錄；請在專案根目錄執行' }
 
 # 2. 全新專案檢查
-if (Test-Path '.adf/migration.json') { Fail '此專案已安裝 ADF。驗收請執行 node <skill-root>/scripts/project.mjs VERIFY .；升級請依 docs/upgrades 的 SOP。' }
+if (Test-Path '.adf/migration.json') {
+  # 已安裝：自動改走一鍵更新（同一個指令）
+  Say '此專案已安裝 ADF，改執行一鍵更新'
+  $fwd = @{ Project = $root; Version = $Version; Yes = $Yes }
+  if ($PSBoundParameters.ContainsKey('Agent') -or $env:ADF_AGENT) { $fwd.Agent = $Agent }
+  if ($Copy) { $fwd.Copy = $true }
+  $local = if ($PSScriptRoot) { Join-Path $PSScriptRoot 'update.ps1' } else { '' }
+  if ($local -and (Test-Path $local)) { & $local @fwd }
+  else {
+    $ref = if ($env:ADF_REF) { $env:ADF_REF } else { 'main' }
+    try { $code = Invoke-RestMethod "https://raw.githubusercontent.com/chungtsai/adf-framework/$ref/scripts/update.ps1" }
+    catch { Fail '無法下載 update.ps1；請確認網路可連到 GitHub' }
+    & ([scriptblock]::Create($code)) @fwd
+  }
+  return
+}
 $found = @()
 foreach ($p in '.adf', 'modules', 'standards') { if (Test-Path $p) { $found += $p } }
 foreach ($d in '.agents/skills', '.claude/skills', '.codex/skills', '.agent/skills', '.gemini/skills', '.opencode/skills') {
@@ -47,6 +65,14 @@ if ($found.Count -gt 0) {
   Write-Host '[ADF] 偵測到既有 ADF 痕跡：' -ForegroundColor Yellow
   $found | ForEach-Object { Write-Host "        - $_" }
   Fail "這不是全新專案。請依 $Repo/tree/main/docs/upgrades 的 SOP 移轉，不要用一鍵安裝覆寫。"
+}
+
+# 寫入前確認
+Say "即將安裝 ADF $Version 到 $root（Agent：$Agent$(if ($Copy) { '，copy 模式' })）"
+Say '會新增：Skill 目錄、skills-lock.json、.adf/；不修改其他檔案'
+if (-not $Yes) {
+  $ans = try { Read-Host '[ADF] 確定要繼續嗎？[y/N]' } catch { Fail '無法互動確認；確認要執行請加 -Yes 或設定 ADF_YES=1' }
+  if ($ans -notmatch '^(y|yes)$') { Say '已取消，未寫入任何檔案。'; return }
 }
 
 # 3. 下載同版本原始檔（專案外暫存），用來比對安裝結果是否完整

@@ -173,6 +173,8 @@ Development Standards 定義 Target 應如何設計；Migration Standards 定義
 
 專案**從未使用過 ADF**（沒有 `.adf/`、`modules/`、`standards/`、任何 `adf-*` Skill 或舊版引用）時，在專案根目錄執行一行即可。前置條件：Node.js 18 以上（含 npx）。
 
+**同一行指令會自動判斷**：全新專案 → 安裝；已安裝的專案 → 自動改執行[一鍵更新](#已安裝專案一鍵更新)；有舊版痕跡 → 停止並指向移轉 SOP。寫入任何檔案前都會列出摘要並詢問 `確定要繼續嗎？[y/N]`，回答 `y` 才執行。CI 等沒有終端機的環境請加 `--yes`（PowerShell：`-Yes`）或設定 `ADF_YES=1`。
+
 ```bash
 # macOS / Linux
 curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/install.sh | bash
@@ -211,7 +213,30 @@ Codex 等其他 Agent 會放在 `.agents/skills/`。repo 根目錄的 `scripts/`
 - 其他 Agent：`bash install.sh --agent codex`（PowerShell：`-Agent codex`），或設定環境變數 `ADF_AGENT`。
 - 指定版本：`--version v5.2.0` 或 `ADF_VERSION`。Windows 無法建立符號連結時加 `--copy` / `-Copy`。
 - 想先看腳本內容：先下載 `install.sh` 檢查後再以 `bash install.sh` 執行。
+- 略過確認提示：`--yes`（`-Yes`）或 `ADF_YES=1`。
 - 偵測到任何舊版 ADF 痕跡會在安裝前停止、不寫入任何檔案，請改用下方移轉 SOP。
+
+## 已安裝專案：一鍵更新
+
+已用一鍵安裝或 `adf-project-install` 完成導入（有 `.adf/migration.json`）的專案，直接再執行上面的一鍵安裝指令就會自動更新；也可以直接呼叫更新腳本：
+
+```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/update.sh | bash
+
+# Windows PowerShell
+irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/update.ps1 | iex
+```
+
+腳本會依序：確認專案已完成導入 → 以目前版本 `VERIFY`（Skill 被手動修改就停止，避免覆蓋客製內容）→ 已是最新版就直接結束 → 下載目標版原始檔並確認新版接受目前 `.adf/project.yaml` → **顯示 `v舊 → v新` 並詢問確認** → **備份目前 Skill 與 `skills-lock.json` 到專案外** → 沿用原本的 Agent 與 copy／symlink 模式執行 `npx skills add` → 逐檔比對 → 以新版工具 `VERIFY`。任何一步失敗都會**自動還原為更新前版本**並重新 VERIFY。
+
+只更新 Skill 與 `skills-lock.json`；不碰 `standards/`、`modules/`、CLAUDE.md、AGENTS.md、`.adf/`，不撤銷核准狀態。
+
+- 指定版本：`--version v5.2.0`（PowerShell：`-Version`）或 `ADF_VERSION`；預設為 main 分支腳本所記錄的最新正式版。
+- 覆寫自動偵測：`--agent codex`、`--copy` / `--no-copy`（PowerShell：`-Agent`、`-Copy` / `-NoCopy`）。
+- 確定要覆蓋手動修改過的 Skill，或同版本重新安裝：`--force`（`-Force`）。
+- 略過確認提示：`--yes`（`-Yes`）或 `ADF_YES=1`。
+- 新版不相容目前專案設定時會在寫入前停止，改依下方 SOP。
 
 ## 既有專案：移轉與升級
 
@@ -221,7 +246,7 @@ Codex 等其他 Agent 會放在 `.agents/skills/`。repo 根目錄的 `scripts/`
 
 專案保留 `standards/`、`modules/`、CLAUDE.md、AGENTS.md；移轉記錄位於 `.adf/project.yaml` 與 `.adf/migration.json`。不新增 Issue Tracking。更新 Skill 不重產既有文件、不撤銷已核准狀態。
 
-repository 維護檢查：`npm run validate`、`npm test`（含一鍵安裝腳本的離線測試）。舊 `scripts/init.js` 現在只讀取，不再初始化或複製檔案。
+repository 維護檢查：`npm run validate`、`npm test`（含一鍵安裝與一鍵更新腳本的離線測試）。舊 `scripts/init.js` 現在只讀取，不再初始化或複製檔案。
 
 # 最重要的原則
 

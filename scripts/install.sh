@@ -7,7 +7,9 @@
 # 用法（在專案根目錄）：
 #   curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/install.sh | bash
 #   或下載整包後執行（見 README「全新專案：一鍵安裝」）
-#   bash install.sh [--agent claude-code|codex|...] [--version v5.2.0] [--copy] [--project <dir>]
+#   bash install.sh [--agent claude-code|codex|...] [--version v5.2.0] [--copy] [--yes] [--project <dir>]
+# 已安裝 ADF 的專案會自動改執行 update.sh（同一個指令即可更新）。
+# 寫入任何檔案前會列出摘要並詢問確認；--yes 或 ADF_YES=1 可略過（CI 使用）。
 set -euo pipefail
 
 # 整支包在 main()：用 curl | bash 執行時，bash 會先讀完整支腳本再執行，
@@ -19,17 +21,20 @@ VERSION="${ADF_VERSION:-v5.2.0}"
 AGENT="${ADF_AGENT:-claude-code}"
 PROJECT="."
 COPY=""
+YES="${ADF_YES:-}"
+FWD=()   # 轉交給 update.sh 的參數
 
 say()  { printf '[ADF] %s\n' "$*"; }
 fail() { printf '[ADF] 停止：%s\n' "$*" >&2; exit 1; }
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --agent)   AGENT="${2:?--agent 需要值}"; shift 2 ;;
-    --version) VERSION="${2:?--version 需要值}"; shift 2 ;;
+    --agent)   AGENT="${2:?--agent 需要值}"; FWD+=(--agent "$2"); shift 2 ;;
+    --version) VERSION="${2:?--version 需要值}"; FWD+=(--version "$2"); shift 2 ;;
     --project) PROJECT="${2:?--project 需要值}"; shift 2 ;;
-    --copy)    COPY="--copy"; shift ;;
-    -h|--help) sed -n '2,10p' "$0" 2>/dev/null || true; exit 0 ;;
+    --copy)    COPY="--copy"; FWD+=(--copy); shift ;;
+    -y|--yes)  YES=1; shift ;;
+    -h|--help) sed -n '2,13p' "$0" 2>/dev/null || true; exit 0 ;;
     *) fail "未知參數：$1" ;;
   esac
 done
@@ -47,7 +52,23 @@ PROJECT="$(pwd -P)"
 
 # 2. 全新專案檢查（任何一項存在都代表已用過 ADF，需走移轉 SOP）
 if [ -f .adf/migration.json ]; then
-  fail "此專案已安裝 ADF。驗收請執行 node <skill-root>/scripts/project.mjs VERIFY .；升級請依 docs/upgrades 的 SOP。"
+  # 已安裝：自動改走一鍵更新（同一個指令）
+  say "此專案已安裝 ADF，改執行一鍵更新"
+  [ -n "$YES" ] && FWD+=(--yes)
+  UPDATER=""
+  SELF="${BASH_SOURCE[0]:-}"
+  if [ -n "$SELF" ] && [ -f "$SELF" ] && [ -f "$(dirname "$SELF")/update.sh" ]; then
+    UPDATER="$(cd "$(dirname "$SELF")" && pwd -P)/update.sh"
+  else
+    command -v curl >/dev/null 2>&1 || fail "找不到 curl"
+    UPDATER="$(mktemp "${TMPDIR:-/tmp}/adf-update.XXXXXX")"
+    trap 'rm -f "$UPDATER"' EXIT
+    curl -fsSL "https://raw.githubusercontent.com/chungtsai/adf-framework/${ADF_REF:-main}/scripts/update.sh" -o "$UPDATER" \
+      || fail "無法下載 update.sh；請確認網路可連到 GitHub"
+  fi
+  status=0
+  bash "$UPDATER" "${FWD[@]}" --project "$PROJECT" || status=$?
+  exit "$status"
 fi
 found=()
 for p in .adf modules standards; do [ -e "$p" ] && found+=("$p"); done
@@ -64,6 +85,16 @@ if [ ${#found[@]} -gt 0 ]; then
   printf '[ADF] 偵測到既有 ADF 痕跡：\n' >&2
   printf '        - %s\n' "${found[@]}" >&2
   fail "這不是全新專案。請依 $REPO/tree/main/docs/upgrades 的 SOP 移轉，不要用一鍵安裝覆寫。"
+fi
+
+# 寫入前確認
+say "即將安裝 ADF $VERSION 到 $PROJECT（Agent：$AGENT${COPY:+，copy 模式}）"
+say "會新增：Skill 目錄、skills-lock.json、.adf/；不修改其他檔案"
+if [ -z "$YES" ]; then
+  { : </dev/tty; } 2>/dev/null || fail "無法互動確認（沒有終端機）；確認要執行請加 --yes 或設定 ADF_YES=1"
+  printf '[ADF] 確定要繼續嗎？[y/N] ' >/dev/tty
+  read -r ans </dev/tty || ans=""
+  case "$ans" in y|Y|yes|YES) ;; *) say "已取消，未寫入任何檔案。"; exit 0 ;; esac
 fi
 
 # 3. 下載同版本原始檔（專案外暫存），用來比對安裝結果是否完整

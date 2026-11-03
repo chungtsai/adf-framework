@@ -32,9 +32,9 @@ function setup(t){
  const bin=path.join(base,'bin'),project=path.join(base,'project');fs.mkdirSync(bin);fs.mkdirSync(project);
  fs.writeFileSync(path.join(bin,'npx'),stub,{mode:0o755});
  const home=path.join(base,'home');fs.mkdirSync(home);
- const env=extra=>({...process.env,PATH:`${bin}${path.delimiter}${process.env.PATH}`,HOME:home,NPX_LOG:path.join(base,'npx.log'),ADF_SOURCE_DIR:repo,...extra});
+ const env=extra=>({...process.env,PATH:`${bin}${path.delimiter}${process.env.PATH}`,HOME:home,NPX_LOG:path.join(base,'npx.log'),ADF_SOURCE_DIR:repo,ADF_YES:'1',...extra});
  const piped=()=>spawnSync('bash',['-s','--','--project',project],{encoding:'utf8',input:fs.readFileSync(script),env:env({})});
- const run=(extra={})=>spawnSync('bash',[script,'--project',project],{encoding:'utf8',env:{...process.env,PATH:`${bin}${path.delimiter}${process.env.PATH}`,HOME:home,NPX_LOG:path.join(base,'npx.log'),ADF_SOURCE_DIR:repo,...extra}});
+ const run=(extra={})=>spawnSync('bash',[script,'--project',project],{encoding:'utf8',env:env(extra)});
  return {base,project,run,piped};
 }
 test('fresh project installs, plans, applies and verifies in one command',{skip},t=>{
@@ -44,7 +44,8 @@ test('fresh project installs, plans, applies and verifies in one command',{skip}
  const cfg=JSON.parse(fs.readFileSync(path.join(project,'.adf/project.yaml')));assert.equal(cfg.document_schema,'5.1');
  assert.equal(JSON.parse(fs.readFileSync(path.join(project,'.adf/migration.json'))).status,'verified');
  assert.equal(fs.readFileSync(path.join(project,'README.md'),'utf8'),'app');
- const again=run();assert.notEqual(again.status,0);assert.match(again.stderr,/已安裝 ADF/);
+ // Same command on an installed project routes to the updater automatically.
+ const again=run();assert.equal(again.status,0,again.stderr+again.stdout);assert.match(again.stdout,/已安裝 ADF，改執行一鍵更新/);assert.match(again.stdout,/已是最新/);
 });
 for(const [label,prepare] of [
  ['legacy modules',p=>fs.mkdirSync(path.join(p,'modules/a'),{recursive:true})],
@@ -69,4 +70,9 @@ test('install.ps1 does not pass double quotes inside arguments to native command
  const ps=fs.readFileSync(path.join(repo,'scripts/install.ps1'),'utf8').split(/\r?\n/);
  const bad=ps.map((l,i)=>[i+1,l]).filter(([,l])=>!l.trim().startsWith('#')&&/\b(node|npx|npm)(\.exe)?\s+[^#\n]*'[^']*"[^']*'/.test(l));
  assert.deepEqual(bad,[],'Windows PowerShell 5.1 會去掉傳給外部程式參數中的雙引號；請改在 PowerShell 內處理');
+});
+test('without --yes and without a terminal, nothing is written',{skip},t=>{
+ const {base,project,run}=setup(t);
+ const r=run({ADF_YES:''});assert.notEqual(r.status,0);assert.match(r.stderr,/--yes/);assert.match(r.stdout,/即將安裝/);
+ assert.ok(!fs.existsSync(path.join(base,'npx.log')));assert.ok(!fs.existsSync(path.join(project,'.adf')));
 });
