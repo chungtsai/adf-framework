@@ -7,7 +7,7 @@
 # 用法（在專案根目錄）：
 #   curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/install.sh | bash
 #   或下載整包後執行（見 README「全新專案：一鍵安裝」）
-#   bash install.sh [--agent claude-code|codex|...] [--version v5.2.0] [--copy] [--yes] [--project <dir>]
+#   bash install.sh [--agent claude-code|codex|...] [--version v5.3.0] [--copy] [--yes] [--project <dir>]
 # 已安裝 ADF 的專案會自動改執行 update.sh（同一個指令即可更新）。
 # 寫入任何檔案前會列出摘要並詢問確認；--yes 或 ADF_YES=1 可略過（CI 使用）。
 set -euo pipefail
@@ -17,7 +17,7 @@ set -euo pipefail
 main() {
 
 REPO="https://github.com/chungtsai/adf-framework"
-VERSION="${ADF_VERSION:-v5.2.0}"
+VERSION="${ADF_VERSION:-v5.3.0}"
 AGENT="${ADF_AGENT:-claude-code}"
 PROJECT="."
 COPY=""
