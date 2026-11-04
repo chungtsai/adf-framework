@@ -35,6 +35,48 @@
       "summary": "明細、編輯、刪除、匯出等第二層與清單套用相同資料範圍；WHERE 必須同時含 PK 與範圍條件。",
       "applies": ["NEW", "CHANGE", "MIGRATION"],
       "resources": ["standard/development/security/data-scope.md"]
+    },
+    {
+      "id": "authorization",
+      "title": "功能權限：無權限必須限制存取",
+      "summary": "每個頁面、API、下載由後端檢查功能權限；預設拒絕，查詢與異動、匯出分開授權，不靠畫面隱藏。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security.md"]
+    },
+    {
+      "id": "pagination",
+      "title": "大量資料：分頁查詢與最大筆數限制",
+      "summary": "清單由資料庫分頁、每頁有上限；匯出與批次處理先算筆數、超過上限不執行，允許的大量處理分批進行。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/pagination.md"]
+    },
+    {
+      "id": "write-condition",
+      "title": "修改與刪除：至少一個強制條件",
+      "summary": "UPDATE／DELETE 不得條件全選填；強制條件由後端檢查、不放在 <if> 中，並檢查影響筆數。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/write-condition.md"]
+    },
+    {
+      "id": "file-path",
+      "title": "檔案路徑保護：避免 Path Traversal，參數加 Token",
+      "summary": "不接受實體路徑，以檔案代碼加 Token 查表；限定根目錄、正規化後檢查、檔名白名單。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/file-path.md", "standard/development/security/param-token.md"]
+    },
+    {
+      "id": "param-token",
+      "title": "有順序性的 API：以 Token 傳遞結果並限制資料範圍",
+      "summary": "前一步結果由後端簽發 Token，後續步驟只收 Token、依 Token 範圍處理；綁定使用者與期限，異動步驟一次性。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/param-token.md"]
+    },
+    {
+      "id": "legacy-vulnerability",
+      "title": "移轉：舊程式有弱點不得照搬，必須修復",
+      "summary": "舊系統弱點不以「與舊系統一致」保留；依 DEV-SEC 規範修復，行為差異列為核准的變更。",
+      "applies": ["MIGRATION"],
+      "resources": ["standard/migration/legacy-vulnerability.md"]
     }
   ]
 }

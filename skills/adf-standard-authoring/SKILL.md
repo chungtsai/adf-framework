@@ -22,6 +22,9 @@ description: 建立或修訂跨 Module 可重用的 Development Standard。
 - `standard/development/message.md` → `assets/standards/development/message.md`。
 - `standard/development/security/sql-injection.md` → `assets/standards/development/security/sql-injection.md`。
 - `standard/development/security/data-scope.md` → `assets/standards/development/security/data-scope.md`。
+- `standard/development/security/write-condition.md` → `assets/standards/development/security/write-condition.md`。
+- `standard/development/security/file-path.md` → `assets/standards/development/security/file-path.md`。
+- `standard/development/security/param-token.md` → `assets/standards/development/security/param-token.md`。
 - `standard/development/frontend/dialog.md` → `assets/standards/development/frontend/dialog.md`。
 - `standard/development/frontend/master-detail.md` → `assets/standards/development/frontend/master-detail.md`。
 - `standard/development/pagination.md` → `assets/standards/development/pagination.md`。

@@ -1,6 +1,6 @@
 ---
 id: DEV-SEC-SQL-001
-version: 1.0
+version: 1.1
 status: DRAFT
 change_policy: REQUIRED
 ---
@@ -18,6 +18,7 @@ change_policy: REQUIRED
 - **DEV-SEC-SQL-001-R6 LIKE**：搜尋值用參數綁定，並跳脫 `%`、`_`、`\`，寫成 `LIKE ? ESCAPE '\'`。
 - **DEV-SEC-SQL-001-R7 動態條件**：使用 MyBatis `<if>`／`<where>`、Criteria API 或 Query Builder 組條件，不以字串拼接。
 - **DEV-SEC-SQL-001-R8 錯誤訊息**：不得把 SQL 或資料庫錯誤內容回傳給前端（配合 `DEV-MSG-001`）。
+- **DEV-SEC-SQL-001-R9 LIKE 不得繞過必填**：必填或限縮範圍用的查詢條件若以 `LIKE` 比對，後端必須先去除前後空白，並在去掉 `%`、`_`、`*` 後仍至少有專案規定的有效字元數（例如 2 個）才可查詢；只輸入 `%`、`_`、`%%`、空白等萬用字元時，視同未輸入，回應必填錯誤，不得執行查詢。前端檢查只是輔助，後端必須再檢查一次。
 
 ## 範例
 ```java
@@ -36,9 +37,10 @@ SELECT * FROM account WHERE name LIKE #{keywordEscaped} ESCAPE '\' ORDER BY ${so
 ```
 
 ## 移轉專案
-Legacy 以串接方式組 SQL 時，不得照搬到 Target；改為參數綁定，查詢結果仍須與 Legacy 一致。若 Legacy 對 `%`、`_` 等特殊字元的查詢行為因此改變，標 `REVIEW_REQUIRED`，核准後列為 `APPROVED_BEHAVIOR_CHANGE`。
+Legacy 以串接方式組 SQL，或必填的 `LIKE` 條件可用 `%` 繞過時，不得照搬到 Target（依 `MIG-SEC-001`）；改為參數綁定並補上 R9 檢查，查詢結果仍須與 Legacy 一致。若 Legacy 對 `%`、`_` 等特殊字元的查詢行為因此改變，標 `REVIEW_REQUIRED`，核准後列為 `APPROVED_BEHAVIOR_CHANGE`。
 
 ## 驗證方式
 - Code Review：搜尋 SQL 字串中的 `+` 串接、`String.format`、MyBatis `${`，逐一確認符合 R3、R4。
 - 測試輸入：`' OR '1'='1`、`'; DROP TABLE x; --`、`%`、`_`、`\`；結果只能是正常查詢或查無資料，不可出現 SQL 錯誤或多出資料。
+- 必填的 `LIKE` 條件只輸入 `%`、`_`、`%%`、空白，或直接呼叫 API 傳入這些值：回應必填錯誤，不執行查詢、不回傳任何資料（R9）。
 - 弱點掃描沒有 SQL Injection Finding。

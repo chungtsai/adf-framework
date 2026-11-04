@@ -20,7 +20,7 @@ const sh=(r,args,extra={})=>spawnSync('bash',[script,'--project',r,...args],{enc
 
 test('every pack lists the official standards it installs',t=>{
  const l=standardsList(project(t));
- assert.deepEqual(l.packs.map(p=>p.id),['date','display-parity','shared-message','sql-injection','data-scope']);
+ assert.deepEqual(l.packs.map(p=>p.id),['date','display-parity','shared-message','sql-injection','data-scope','authorization','pagination','write-condition','file-path','param-token','legacy-vulnerability']);
  assert.ok(l.packs.every(p=>p.state==='available'&&p.standards.every(s=>s.id&&s.target.startsWith('standards/'))));
  assert.deepEqual(l.packs[0].standards.map(s=>s.id),['DEV-DATE-001','MIG-DATE-001']);
 });
@@ -30,7 +30,7 @@ test('selected packs are written as DRAFT with their source, nothing else change
  const text=read(r,'standards/development/security/data-scope.md');
  assert.match(text,/^status: DRAFT$/m);assert.match(text,/^source: adf-framework\/standard\/development\/security\/data-scope\.md@main$/m);assert.doesNotMatch(text,/approved_at/);
  assert.ok(!fs.existsSync(path.join(r,'standards/development/message.md')));
- assert.deepEqual(standardsList(r).packs.map(p=>p.state),['installed','available','available','available','installed']);
+ assert.deepEqual(standardsList(r).packs.map(p=>p.state),['installed','available','available','available','installed',...Array(6).fill('available')]);
 });
 test('APPROVED records when and how it was approved',t=>{
  const r=project(t);standardsInstall(r,['sql-injection'],{status:'APPROVED',date:'2026-11-04'});
@@ -72,7 +72,7 @@ test('standards.sh without a terminal or selection writes nothing',{skip:skipSh}
  const r=project(t);
  const a=sh(r,[]);assert.notEqual(a.status,0);assert.match(a.stderr,/--select/);
  const b=sh(r,['--select','2']);assert.notEqual(b.status,0);assert.match(b.stderr,/--yes/);assert.match(b.stdout,/display-parity\.md/);
- const c=sh(r,['--select','9','--yes']);assert.notEqual(c.status,0);
+ const c=sh(r,['--select','99','--yes']);assert.notEqual(c.status,0);
  assert.ok(!fs.existsSync(path.join(r,'standards')));
 });
 test('standards.sh requires an installed ADF project and supports --list',{skip:skipSh},t=>{

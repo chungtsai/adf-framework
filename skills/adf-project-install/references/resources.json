@@ -120,6 +120,22 @@
     "standard/migration/display-parity.md": {
       "skill": "adf-migration-rule-authoring",
       "path": "assets/standards/migration/display-parity.md"
+    },
+    "standard/development/security/write-condition.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security/write-condition.md"
+    },
+    "standard/development/security/file-path.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security/file-path.md"
+    },
+    "standard/development/security/param-token.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security/param-token.md"
+    },
+    "standard/migration/legacy-vulnerability.md": {
+      "skill": "adf-migration-rule-authoring",
+      "path": "assets/standards/migration/legacy-vulnerability.md"
     }
   },
   "legacy_template_hashes": {
