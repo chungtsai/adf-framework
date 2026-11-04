@@ -45,5 +45,12 @@ for(const [key,r] of Object.entries(registry.resources)) {
  if(seen.has(p))errors.push(`${key}: duplicate owner`);seen.add(p);
  if(!fs.existsSync(path.join(root,p)))errors.push(`${key}: missing resource`);
 }
+// Starter standard packs may only install official standard/* resources.
+const packs=JSON.parse(fs.readFileSync(path.join(root,'skills/adf-project-install/references/standard-packs.json'))).packs,packIds=new Set();
+for(const p of packs) {
+ if(!/^[a-z0-9-]+$/.test(p.id)||packIds.has(p.id)) errors.push(`standard-packs.json: invalid or duplicate id ${p.id}`);packIds.add(p.id);
+ for(const k of p.resources||[]) if(!k.startsWith('standard/')||!registry.resources[k]) errors.push(`standard-packs.json: ${p.id} references unknown standard ${k}`);
+ for(const k of p.resources||[]) {const r=registry.resources[k];if(r&&!/^---\n[\s\S]*?^id:\s*\S+[\s\S]*?^status:\s*DRAFT$/m.test(fs.readFileSync(path.join(root,'skills',r.skill,r.path),'utf8'))) errors.push(`${k}: starter standard needs frontmatter id and status: DRAFT`);}
+}
 if(fs.existsSync(path.join(root,'framework/templates'))||fs.existsSync(path.join(root,'framework/review'))) errors.push('Duplicate legacy resources');
 if(errors.length){console.error(errors.join('\n'));process.exitCode=1;}else console.log(`Validated ${dirs.length} skills and ${seen.size} single-source resources.`);

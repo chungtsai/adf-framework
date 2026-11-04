@@ -104,6 +104,22 @@
     "standard/migration/roc-calendar.md": {
       "skill": "adf-migration-rule-authoring",
       "path": "assets/standards/migration/roc-calendar.md"
+    },
+    "standard/development/message.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/message.md"
+    },
+    "standard/development/security/sql-injection.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security/sql-injection.md"
+    },
+    "standard/development/security/data-scope.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security/data-scope.md"
+    },
+    "standard/migration/display-parity.md": {
+      "skill": "adf-migration-rule-authoring",
+      "path": "assets/standards/migration/display-parity.md"
     }
   },
   "legacy_template_hashes": {

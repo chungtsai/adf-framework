@@ -1,0 +1,40 @@
+{
+  "description": "專案起始規範組合：由 project.mjs STANDARDS 安裝到專案 standards/；內容來源為 resources.json 的 standard/* 官方範例。",
+  "packs": [
+    {
+      "id": "date",
+      "title": "年度：舊系統民國年 → 新系統西元年",
+      "summary": "新系統日期與年度一律西元年；移轉時核准民國年↔西元年的表示轉換與比對正規化。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/date-time.md", "standard/migration/roc-calendar.md"]
+    },
+    {
+      "id": "display-parity",
+      "title": "顯示規範（移轉）：新系統與舊系統一致即可",
+      "summary": "移轉時訊息、標籤、代碼與數字顯示與舊系統相同即可通過；版面樣式可不同；不自行修正舊文字。",
+      "applies": ["MIGRATION"],
+      "resources": ["standard/migration/display-parity.md"]
+    },
+    {
+      "id": "shared-message",
+      "title": "顯示規範（新專案）：採用共用訊息",
+      "summary": "新專案的使用者訊息由共用訊息目錄以代碼引用，不硬寫文字、可參數化、不洩漏系統細節。",
+      "applies": ["NEW", "CHANGE"],
+      "resources": ["standard/development/message.md"]
+    },
+    {
+      "id": "sql-injection",
+      "title": "安全性檢查：禁止以串接方式撰寫 SQL（SQL Injection）",
+      "summary": "所有 SQL 參數綁定；禁止串接與 MyBatis ${}；排序欄位走白名單；LIKE 跳脫；附測試輸入。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/sql-injection.md"]
+    },
+    {
+      "id": "data-scope",
+      "title": "資料範圍保護：第一層與第二層範圍相同，第二層不得只用 PK",
+      "summary": "明細、編輯、刪除、匯出等第二層與清單套用相同資料範圍；WHERE 必須同時含 PK 與範圍條件。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/data-scope.md"]
+    }
+  ]
+}

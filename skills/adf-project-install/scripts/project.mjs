@@ -190,11 +190,54 @@ export function restore(root,id) {
   if(fs.existsSync(state)) fs.unlinkSync(state);
   return {status:'restored',backup:id};
 }
+// Starter standards: copy selected official standard/* examples into the project's standards/.
+// Sources are read from this tool's own skill tree (repository or installed layout), never from a global copy.
+const STANDARD_PACKS=path.join(here,'../references/standard-packs.json');
+const standardId=text=>text.match(/^---\n[\s\S]*?^id:\s*(\S+)/m)?.[1]||text.match(/^#\s+((?:DEV|MIG)-[A-Z0-9-]+)\s*$/m)?.[1]||null;
+function standardSource(key) {
+  const r=registry.resources[key];if(!r||!key.startsWith('standard/')) fail(`Unknown standard resource: ${key}`);
+  const p=path.resolve(here,'../..',r.skill,r.path);if(!fs.existsSync(p)) fail(`Missing standard source: ${key}`);return p;
+}
+function projectStandardIds(root) {
+  const ids={};
+  for(const rel of Object.keys(files(root,'standards'))) if(rel.endsWith('.md')) {const id=standardId(fs.readFileSync(safe(root,rel),'utf8'));if(id) ids[id]=rel;}
+  return ids;
+}
+export function standardsList(root) {
+  root=path.resolve(root);const ids=projectStandardIds(root);
+  return {version:VERSION,packs:json(STANDARD_PACKS).packs.map(p=>({...p,standards:p.resources.map(key=>{
+    const id=standardId(fs.readFileSync(standardSource(key),'utf8')),target='standards/'+key.slice('standard/'.length),dest=safe(root,target);
+    const state=fs.existsSync(dest)?(standardId(fs.readFileSync(dest,'utf8'))===id?'installed':'conflict'):(ids[id]?'conflict':'available');
+    return {key,id,target,state,...(state==='conflict'?{existing:fs.existsSync(dest)?target:ids[id]}:{})};
+  })})).map(p=>({...p,state:p.standards.every(s=>s.state==='installed')?'installed':p.standards.some(s=>s.state==='available')?'available':'conflict'}))};
+}
+export function standardsInstall(root,ids,{status='DRAFT',ref=`v${VERSION}`,date=new Date().toISOString().slice(0,10)}={}) {
+  root=path.resolve(root);
+  if(!['DRAFT','APPROVED'].includes(status)) fail('Status must be DRAFT or APPROVED');
+  if(!/^[A-Za-z0-9._/-]+$/.test(ref)) fail('Invalid source ref');
+  if(!fs.existsSync(safe(root,'.adf/migration.json'))) fail('ADF is not installed in this project; run install.sh first');
+  const list=standardsList(root),known=new Map(list.packs.map(p=>[p.id,p]));
+  if(!Array.isArray(ids)||!ids.length) fail('Select at least one standard pack');
+  for(const id of ids) if(!known.has(id)) fail(`Unknown standard pack: ${id}`);
+  const written=[],skipped=[],seen=new Set();
+  for(const id of ids) for(const s of known.get(id).standards) {
+    if(seen.has(s.key)) continue;seen.add(s.key);
+    if(s.state!=='available') {skipped.push({target:s.target,id:s.id,reason:s.state==='installed'?'already installed':`conflict with ${s.existing}`});continue;}
+    let text=fs.readFileSync(standardSource(s.key),'utf8');
+    const extra=[`source: adf-framework/${s.key}@${ref}`,...(status==='APPROVED'?[`approved_at: ${date}`,'approved_via: STANDARDS install (human selected and confirmed)']:[])];
+    text=text.replace(/^status:\s*\S+$/m,`status: ${status}`).replace(/^(---\n[\s\S]*?\n)---\n/,(m,head)=>`${head}${extra.join('\n')}\n---\n`);
+    const dest=safe(root,s.target);fs.mkdirSync(path.dirname(dest),{recursive:true});safe(root,s.target);
+    fs.writeFileSync(dest,text,{flag:'wx'});written.push({target:s.target,id:s.id,status});
+  }
+  return {status:written.length?'installed':'nothing_to_install',written,skipped};
+}
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
   try {
-    const [mode,target,arg]=process.argv.slice(2);if(!target) fail('Usage: project.mjs CHECK|PLAN|APPLY|VERIFY|RESTORE|resolve <project> [argument]');
+    const argv=process.argv.slice(2),opt=name=>{const i=argv.indexOf(name);if(i<0) return undefined;const v=argv[i+1];if(!v||v.startsWith('--')) fail(`${name} requires a value`);argv.splice(i,2);return v;};
+    const status=opt('--status'),ref=opt('--ref');
+    const [mode,target,arg]=argv;if(!target) fail('Usage: project.mjs CHECK|PLAN|APPLY|VERIFY|RESTORE|resolve|STANDARDS <project> [argument]');
     const root=path.resolve(target);
-    const result=mode==='CHECK'?plan(root):mode==='PLAN'?plan(root,arg?json(arg):undefined):mode==='APPLY'?apply(root,json(arg)):mode==='VERIFY'?verify(root):mode==='RESTORE'?restore(root,arg):mode==='resolve'?{path:resolveResource(root,arg)}:fail('Unknown mode');
+    const result=mode==='STANDARDS'?(arg?standardsInstall(root,arg.split(',').map(x=>x.trim()).filter(Boolean),{status,ref}):standardsList(root)):mode==='CHECK'?plan(root):mode==='PLAN'?plan(root,arg?json(arg):undefined):mode==='APPLY'?apply(root,json(arg)):mode==='VERIFY'?verify(root):mode==='RESTORE'?restore(root,arg):mode==='resolve'?{path:resolveResource(root,arg)}:fail('Unknown mode');
     console.log(JSON.stringify(result,null,2));if(result.blockers?.length) process.exitCode=1;
   }catch(e){console.error(e.message);process.exitCode=1;}
 }

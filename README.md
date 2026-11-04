@@ -238,6 +238,31 @@ irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/updat
 - 略過確認提示：`--yes`（`-Yes`）或 `ADF_YES=1`。
 - 新版不相容目前專案設定時會在寫入前停止，改依下方 SOP。
 
+## 專案起始規範：一鍵勾選安裝
+
+ADF 安裝完成後，可以勾選要採用的起始規範，寫入專案 `standards/`，作為新專案或移轉專案的初始基礎規則：
+
+| 編號 | 規範 | 寫入 | 適用 |
+|---|---|---|---|
+| 1 | 年度：舊系統民國年 → 新系統西元年 | `DEV-DATE-001`、`MIG-DATE-001` | NEW／CHANGE／MIGRATION |
+| 2 | 顯示規範（移轉）：新系統與舊系統一致即可 | `MIG-DISP-001` | MIGRATION |
+| 3 | 顯示規範（新專案）：採用共用訊息 | `DEV-MSG-001` | NEW／CHANGE |
+| 4 | 安全性檢查：禁止以串接方式撰寫 SQL（SQL Injection） | `DEV-SEC-SQL-001` | 全部 |
+| 5 | 資料範圍保護：第一層與第二層範圍相同，第二層不得只用 PK | `DEV-SEC-SCOPE-001` | 全部 |
+
+```bash
+# macOS / Linux：列出規範 → 輸入編號勾選 → 選 DRAFT／APPROVED → 確認後寫入
+curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/standards.sh | bash
+
+# Windows PowerShell
+irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/standards.ps1 | iex
+```
+
+- 非互動（CI）：`bash -s -- --select 1,4,5 --status DRAFT --yes`（也可用代號 `date,display-parity,shared-message,sql-injection,data-scope`）；PowerShell 用 `& ([scriptblock]::Create((irm …/standards.ps1))) -Select 1,4,5 -Yes`。只看清單：`--list`／`-List`。
+- 寫入狀態：`DRAFT`（預設，之後由 `adf-standard-authoring`／`adf-migration-rule-authoring` 審查後核准）或 `APPROVED`（確認已審閱內容，檔案會記錄 `approved_at`）。每個檔案都會記錄 `source`。
+- 只新增檔案：同路徑或同 ID（含舊範例 `# DEV-…` 標題）已存在就略過，不覆蓋；不修改 Skill、`modules/`、`.adf/`。必須先完成 ADF 安裝（有 `.adf/migration.json`）。
+- 規範內容來源是 `adf-standard-authoring`／`adf-migration-rule-authoring` 的 `assets/standards/`，清單在 `adf-project-install/references/standard-packs.json`；預設取自 main，可用 `--ref`／`-Ref` 指定 tag。
+
 ## 既有專案：移轉與升級
 
 統一使用專案層級 `npx skills`。正式版本指令、手動來源轉接、前置備份與回復，從 v5.0 導入見 [v5.0 → v5.1 SOP](docs/upgrades/5.0-to-5.1.md)，從 v5.1 升級見 [v5.1 → v5.2 SOP](docs/upgrades/5.1-to-5.2.md)。v5.2.0 tag 發佈前，此分支僅為候選版。
