@@ -45,10 +45,12 @@ for(const [key,r] of Object.entries(registry.resources)) {
  if(seen.has(p))errors.push(`${key}: duplicate owner`);seen.add(p);
  if(!fs.existsSync(path.join(root,p)))errors.push(`${key}: missing resource`);
 }
-// Starter standard packs may only install official standard/* resources.
+// Starter standard packs may only install official standard/* resources; recommended packs come first (list numbers follow file order).
 const packs=JSON.parse(fs.readFileSync(path.join(root,'skills/adf-project-install/references/standard-packs.json'))).packs,packIds=new Set();
+if(packs.findIndex(p=>p.category==='optional')>=0&&packs.slice(packs.findIndex(p=>p.category==='optional')).some(p=>p.category==='recommended')) errors.push('standard-packs.json: recommended packs must come before optional packs');
 for(const p of packs) {
  if(!/^[a-z0-9-]+$/.test(p.id)||packIds.has(p.id)) errors.push(`standard-packs.json: invalid or duplicate id ${p.id}`);packIds.add(p.id);
+ if(!['recommended','optional'].includes(p.category)) errors.push(`standard-packs.json: ${p.id} category must be recommended or optional`);
  for(const k of p.resources||[]) if(!k.startsWith('standard/')||!registry.resources[k]) errors.push(`standard-packs.json: ${p.id} references unknown standard ${k}`);
  for(const k of p.resources||[]) {const r=registry.resources[k];if(r&&!/^---\n[\s\S]*?^id:\s*\S+[\s\S]*?^status:\s*DRAFT$/m.test(fs.readFileSync(path.join(root,'skills',r.skill,r.path),'utf8'))) errors.push(`${k}: starter standard needs frontmatter id and status: DRAFT`);}
 }

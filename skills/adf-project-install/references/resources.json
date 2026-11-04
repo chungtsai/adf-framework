@@ -136,6 +136,70 @@
     "standard/migration/legacy-vulnerability.md": {
       "skill": "adf-migration-rule-authoring",
       "path": "assets/standards/migration/legacy-vulnerability.md"
+    },
+    "standard/development/security/xss.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security/xss.md"
+    },
+    "standard/development/security/csrf.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security/csrf.md"
+    },
+    "standard/development/security/auth-session.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security/auth-session.md"
+    },
+    "standard/development/security/mass-assignment.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security/mass-assignment.md"
+    },
+    "standard/development/security/input-validation.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security/input-validation.md"
+    },
+    "standard/development/security/personal-data.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security/personal-data.md"
+    },
+    "standard/development/security/file-upload.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security/file-upload.md"
+    },
+    "standard/development/security/secrets.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security/secrets.md"
+    },
+    "standard/development/security/audit-log.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security/audit-log.md"
+    },
+    "standard/development/security/dependency.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security/dependency.md"
+    },
+    "standard/development/security/redirect.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security/redirect.md"
+    },
+    "standard/development/security/xml-deserialization.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security/xml-deserialization.md"
+    },
+    "standard/development/security/command.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security/command.md"
+    },
+    "standard/development/security/http-header.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security/http-header.md"
+    },
+    "standard/development/security/concurrency.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security/concurrency.md"
+    },
+    "standard/development/security/rate-limit.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/security/rate-limit.md"
     }
   },
   "legacy_template_hashes": {
