@@ -154,6 +154,7 @@ node "$TOOL" VERIFY "$PROJECT" >/dev/null || fail "VERIFY 失敗，安裝不可�
 say "完成：ADF $VERSION 已安裝並通過 VERIFY。"
 say "建議 commit：skills-lock.json、$INST/、.adf/"
 say "下一步：在 Agent 中呼叫 adf-ask 或 adf-develop（NEW）開始第一個 Module。"
+say "可選：安裝起始規範（民國年→西元年、顯示、SQL Injection、資料範圍）：curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/standards.sh | bash"
 }
 
 main "$@"

@@ -19,7 +19,13 @@ description: 建立或修訂跨 Module 可重用的 Development Standard。
 ## 本 Skill 官方資源
 - `standard/development/date-time.md` → `assets/standards/development/date-time.md`。
 - `standard/development/error-handling.md` → `assets/standards/development/error-handling.md`。
+- `standard/development/message.md` → `assets/standards/development/message.md`。
+- `standard/development/security/sql-injection.md` → `assets/standards/development/security/sql-injection.md`。
+- `standard/development/security/data-scope.md` → `assets/standards/development/security/data-scope.md`。
 - `standard/development/frontend/dialog.md` → `assets/standards/development/frontend/dialog.md`。
 - `standard/development/frontend/master-detail.md` → `assets/standards/development/frontend/master-detail.md`。
 - `standard/development/pagination.md` → `assets/standards/development/pagination.md`。
 - `standard/development/security.md` → `assets/standards/development/security.md`。
+
+## 起始規範
+專案可用一鍵規範安裝（`scripts/standards.sh`／`standards.ps1`，內部為 `project.mjs STANDARDS`）勾選上列部分範例寫入專案 `standards/`。以 `DRAFT` 寫入者，依本 Skill 審查後再改為 `APPROVED`；既有同路徑或同 ID 的規範不會被覆蓋。

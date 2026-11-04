@@ -134,3 +134,4 @@ try {
 Say "完成：ADF $Version 已安裝並通過 VERIFY。"
 Say "建議 commit：skills-lock.json、$inst/、.adf/"
 Say '下一步：在 Agent 中呼叫 adf-ask 或 adf-develop（NEW）開始第一個 Module。'
+Say '可選：安裝起始規範（民國年→西元年、顯示、SQL Injection、資料範圍）：irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/standards.ps1 | iex'
