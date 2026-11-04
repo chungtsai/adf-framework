@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # ADF 專案起始規範一鍵安裝（macOS / Linux）
 #
-# 適用：已安裝 ADF（有 .adf/migration.json）的專案。勾選要採用的起始規範，寫入專案 standards/。
+# 適用：已安裝 ADF（有 .adf/migration.json）的專案。選擇要採用的起始規範，寫入專案 standards/。
 # 只新增檔案；既有同路徑或同 ID 的規範一律略過，不覆蓋。不修改 Skill、modules/、.adf/。
+# 規範分兩類：建議項目預設全部安裝，輸入編號排除；選填項目輸入編號才安裝。
 #
 # 用法（在專案根目錄）：
 #   curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/standards.sh | bash
-#   bash standards.sh [--select date,sql-injection|1,4] [--status DRAFT|APPROVED] [--list] [--yes] [--project <dir>] [--ref main]
-# 沒有 --select 時以編號互動勾選；寫入前會列出摘要並詢問確認；--yes 或 ADF_YES=1 可略過（CI 使用）。
+#   bash standards.sh [--recommended] [--exclude 8,xss] [--add 19,date] [--status DRAFT|APPROVED] [--list] [--yes] [--project <dir>] [--ref main]
+#   bash standards.sh --select date,sql-injection|1,4   # 只安裝指定項目（不套用建議項目）
+# 沒有選擇參數時以編號互動選擇；寫入前會列出摘要並詢問確認；--yes 或 ADF_YES=1 可略過（CI 使用）。
 set -euo pipefail
 
 # 整支包在 main()：curl | bash 時先讀完整支腳本，避免互動讀取吃到尚未執行的內容。
@@ -16,6 +18,9 @@ main() {
 REF="${ADF_REF:-main}"
 PROJECT="."
 SELECT=""
+EXCLUDE=""
+ADD=""
+RECOMMENDED=""
 STATUS=""
 LIST_ONLY=""
 YES="${ADF_YES:-}"
@@ -26,16 +31,20 @@ fail() { printf '[ADF] 停止：%s\n' "$*" >&2; exit 1; }
 while [ $# -gt 0 ]; do
   case "$1" in
     --select)  SELECT="${2:?--select 需要值}"; shift 2 ;;
+    --exclude) EXCLUDE="${2:?--exclude 需要值}"; RECOMMENDED=1; shift 2 ;;
+    --add)     ADD="${2:?--add 需要值}"; RECOMMENDED=1; shift 2 ;;
+    --recommended) RECOMMENDED=1; shift ;;
     --status)  STATUS="${2:?--status 需要值}"; shift 2 ;;
     --approve) STATUS="APPROVED"; shift ;;
     --project) PROJECT="${2:?--project 需要值}"; shift 2 ;;
     --ref)     REF="${2:?--ref 需要值}"; shift 2 ;;
     --list)    LIST_ONLY=1; shift ;;
     -y|--yes)  YES=1; shift ;;
-    -h|--help) sed -n '2,11p' "$0" 2>/dev/null || true; exit 0 ;;
+    -h|--help) sed -n '2,13p' "$0" 2>/dev/null || true; exit 0 ;;
     *) fail "未知參數：$1" ;;
   esac
 done
+[ -z "$SELECT" ] || [ -z "$RECOMMENDED" ] || fail "--select 不能與 --recommended、--exclude、--add 同時使用"
 case "$STATUS" in ""|DRAFT|APPROVED) ;; draft) STATUS=DRAFT ;; approved) STATUS=APPROVED ;; *) fail "--status 只能是 DRAFT 或 APPROVED" ;; esac
 
 # 1. 前置條件
@@ -69,26 +78,31 @@ node "$TOOL" STANDARDS "$PROJECT" > "$WORK/list.json" || fail "無法讀取起�
 STATE_LABEL='{"available":"可安裝","installed":"已安裝","conflict":"已有同名規範，略過"}'
 node -e '
 const l=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")),lab=JSON.parse(process.argv[2]);
-console.log("[ADF] 可選擇的起始規範：");
-l.packs.forEach((p,i)=>{console.log(`  [${i+1}] ${p.title}（${lab[p.state]}）`);console.log(`      ${p.summary}`);
+const head={recommended:"建議項目（預設全部安裝；不需要的輸入編號排除）",optional:"選填項目（輸入編號才安裝）"};let cat="";
+l.packs.forEach((p,i)=>{if(p.category!==cat){cat=p.category;console.log(`[ADF] ${head[cat]}：`);}
+ console.log(`  [${i+1}] ${p.title}（${lab[p.state]}）`);console.log(`      ${p.summary}`);
  console.log(`      適用：${p.applies.join("、")}；寫入：${p.standards.map(s=>s.target+(s.state==="available"?"":"（"+lab[s.state]+(s.existing?"："+s.existing:"")+"）")).join("、")}`);});
 ' "$WORK/list.json" "$STATE_LABEL"
 [ -z "$LIST_ONLY" ] || exit 0
 
-# 4. 勾選
-if [ -z "$SELECT" ]; then
-  { : </dev/tty; } 2>/dev/null || fail "無法互動勾選（沒有終端機）；請用 --select 指定，例如 --select date,sql-injection"
-  printf '[ADF] 請輸入要安裝的編號（逗號或空白分隔，例如 1,4,5；a＝全部可安裝項目）：' >/dev/tty
-  read -r SELECT </dev/tty || SELECT=""
+# 4. 選擇：建議項目以編號排除，選填項目以編號加入（或 --select 指定完整清單）
+if [ -z "$SELECT" ] && [ -z "$RECOMMENDED" ]; then
+  { : </dev/tty; } 2>/dev/null || fail "無法互動選擇（沒有終端機）；請用 --recommended、--exclude、--add 或 --select 指定，例如 --recommended --add date"
+  printf '[ADF] 要排除的建議項目編號（逗號或空白分隔；直接 Enter＝全部安裝；all＝全部不裝）：' >/dev/tty
+  read -r EXCLUDE </dev/tty || EXCLUDE=""
+  printf '[ADF] 要加入的選填項目編號（逗號或空白分隔；直接 Enter＝不加入；all＝全部加入）：' >/dev/tty
+  read -r ADD </dev/tty || ADD=""
+  RECOMMENDED=1
 fi
-IDS="$(node -e '
-const l=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")),raw=process.argv[2].trim();
-const all=l.packs.filter(p=>p.state==="available").map(p=>p.id);
-const out=[];for(const t of (raw==="a"||raw==="A"||raw==="all")?all:raw.split(/[\s,，、]+/).filter(Boolean)){
- const p=/^\d+$/.test(t)?l.packs[Number(t)-1]:l.packs.find(p=>p.id===t);
- if(!p){console.error(`沒有這個選項：${t}`);process.exit(2);} if(!out.includes(p.id)) out.push(p.id);}
-if(!out.length){console.error("沒有選擇任何規範");process.exit(2);}
-console.log(out.join(","));' "$WORK/list.json" "$SELECT")" || fail "選擇無效，請重新執行"
+set -- --dry-run
+if [ -n "$SELECT" ]; then set -- "$@" --select "$SELECT"
+else
+  set -- "$@" --recommended
+  [ -z "${EXCLUDE// /}" ] || set -- "$@" --exclude "$EXCLUDE"
+  [ -z "${ADD// /}" ] || set -- "$@" --add "$ADD"
+fi
+node "$TOOL" STANDARDS "$PROJECT" "$@" > "$WORK/plan.json" || fail "選擇無效，請重新執行"
+IDS="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).ids.join(","))' "$WORK/plan.json")"
 
 # 5. 寫入狀態
 if [ -z "$STATUS" ]; then
@@ -105,12 +119,12 @@ fi
 
 # 6. 寫入前確認
 node -e '
-const l=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")),ids=process.argv[2].split(",");
-const seen=new Set();let w=0;console.log(`[ADF] 即將以 ${process.argv[3]} 狀態寫入 ${process.argv[4]}：`);
-for(const id of ids) for(const s of l.packs.find(p=>p.id===id).standards){if(seen.has(s.key))continue;seen.add(s.key);
- if(s.state==="available"){w++;console.log(`        + ${s.target}（${s.id}）`);} else console.log(`        - 略過 ${s.target}（${s.state==="installed"?"已安裝":"已有同名規範"+(s.existing?"："+s.existing:"")}）`);}
-if(!w){console.log("[ADF] 選擇的規範都已存在，沒有需要寫入的檔案。");process.exit(3);}
-' "$WORK/list.json" "$IDS" "$STATUS" "$PROJECT" || { [ $? -eq 3 ] && exit 0; fail "無法產生摘要"; }
+const fs=require("fs"),l=JSON.parse(fs.readFileSync(process.argv[1],"utf8")),pl=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
+console.log("[ADF] 已選擇：");for(const id of pl.ids){const i=l.packs.findIndex(p=>p.id===id);console.log(`        [${i+1}] ${l.packs[i].title}`);}
+console.log(`[ADF] 即將以 ${process.argv[3]} 狀態寫入 ${process.argv[4]}：`);
+for(const s of pl.standards){if(s.state==="available") console.log(`        + ${s.target}（${s.id}）`); else console.log(`        - 略過 ${s.target}（${s.state==="installed"?"已安裝":"已有同名規範"+(s.existing?"："+s.existing:"")}）`);}
+if(!pl.write){console.log("[ADF] 選擇的規範都已存在，沒有需要寫入的檔案。");process.exit(3);}
+' "$WORK/list.json" "$WORK/plan.json" "$STATUS" "$PROJECT" || { [ $? -eq 3 ] && exit 0; fail "無法產生摘要"; }
 say "只新增上列檔案，不覆蓋既有規範，不修改 Skill、modules/、.adf/"
 if [ -z "$YES" ]; then
   { : </dev/tty; } 2>/dev/null || fail "無法互動確認（沒有終端機）；確認要執行請加 --yes 或設定 ADF_YES=1"

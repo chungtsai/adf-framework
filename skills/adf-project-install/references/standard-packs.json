@@ -1,8 +1,153 @@
 {
-  "description": "專案起始規範組合：由 project.mjs STANDARDS 安裝到專案 standards/；內容來源為 resources.json 的 standard/* 官方範例。",
+  "description": "專案起始規範組合：由 project.mjs STANDARDS 安裝到專案 standards/；內容來源為 resources.json 的 standard/* 官方範例。category=recommended 為建議項目（一鍵安裝預設全部安裝，以編號排除），optional 為選填項目（以編號加入）；建議項目必須排在選填項目之前，編號即清單順序。",
   "packs": [
     {
+      "id": "sql-injection",
+      "category": "recommended",
+      "title": "安全性檢查：禁止以串接方式撰寫 SQL（SQL Injection）",
+      "summary": "所有 SQL 參數綁定；禁止串接與 MyBatis ${}；排序欄位走白名單；LIKE 跳脫；必填的 LIKE 不可只輸入 %。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/sql-injection.md"]
+    },
+    {
+      "id": "data-scope",
+      "category": "recommended",
+      "title": "資料範圍保護：第一層與第二層範圍相同，第二層不得只用 PK",
+      "summary": "明細、編輯、刪除、匯出等第二層與清單套用相同資料範圍；WHERE 必須同時含 PK 與範圍條件。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/data-scope.md"]
+    },
+    {
+      "id": "authorization",
+      "category": "recommended",
+      "title": "功能權限：無權限必須限制存取",
+      "summary": "每個頁面、API、下載由後端檢查功能權限；預設拒絕，查詢與異動、匯出分開授權，不靠畫面隱藏。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security.md"]
+    },
+    {
+      "id": "pagination",
+      "category": "recommended",
+      "title": "大量資料：分頁查詢與最大筆數限制",
+      "summary": "清單由資料庫分頁、每頁有上限；匯出與批次處理先算筆數、超過上限不執行，允許的大量處理分批進行。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/pagination.md"]
+    },
+    {
+      "id": "write-condition",
+      "category": "recommended",
+      "title": "修改與刪除：至少一個強制條件",
+      "summary": "UPDATE／DELETE 不得條件全選填；強制條件由後端檢查、不放在 <if> 中，並檢查影響筆數。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/write-condition.md"]
+    },
+    {
+      "id": "file-path",
+      "category": "recommended",
+      "title": "檔案路徑保護：避免 Path Traversal，參數加 Token",
+      "summary": "不接受實體路徑，以檔案代碼加 Token 查表；限定根目錄、正規化後檢查、檔名白名單。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/file-path.md", "standard/development/security/param-token.md"]
+    },
+    {
+      "id": "param-token",
+      "category": "recommended",
+      "title": "有順序性的 API：以 Token 傳遞結果並限制資料範圍",
+      "summary": "前一步結果由後端簽發 Token，後續步驟只收 Token、依 Token 範圍處理；綁定使用者與期限，異動步驟一次性。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/param-token.md"]
+    },
+    {
+      "id": "legacy-vulnerability",
+      "category": "recommended",
+      "title": "移轉：舊程式有弱點不得照搬，必須修復",
+      "summary": "舊系統弱點不以「與舊系統一致」保留；依 DEV-SEC 規範修復，行為差異列為核准的變更。",
+      "applies": ["MIGRATION"],
+      "resources": ["standard/migration/legacy-vulnerability.md"]
+    },
+    {
+      "id": "xss",
+      "category": "recommended",
+      "title": "輸出編碼：防止 XSS",
+      "summary": "JSP 與前端輸出一律依情境編碼；禁止未清理資料進 innerHTML／v-html；富文字白名單清理。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/xss.md"]
+    },
+    {
+      "id": "csrf",
+      "category": "recommended",
+      "title": "跨站請求偽造：GET 不異動，異動請求驗證 CSRF Token",
+      "summary": "新增、修改、刪除不用 GET；異動請求驗證與 Session 綁定的 CSRF Token；Cookie SameSite。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/csrf.md"]
+    },
+    {
+      "id": "auth-session",
+      "category": "recommended",
+      "title": "登入、密碼與 Session 管理",
+      "summary": "密碼以 bcrypt 等雜湊；登入失敗鎖定；登入後換發 Session；逾時與登出失效；Cookie HttpOnly／Secure；HTTPS。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/auth-session.md"]
+    },
+    {
+      "id": "mass-assignment",
+      "category": "recommended",
+      "title": "參數綁定白名單：不得把請求直接綁到 Entity",
+      "summary": "每個 API 使用專用 DTO；部門、建立者、狀態、金額等由後端決定；修改先讀後改，只覆寫允許欄位。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/mass-assignment.md"]
+    },
+    {
+      "id": "input-validation",
+      "category": "recommended",
+      "title": "後端輸入驗證：前端驗證不能取代後端",
+      "summary": "型別、長度、格式、代碼值、業務規則都在後端再驗一次；前端計算的金額由後端重新計算。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/input-validation.md"]
+    },
+    {
+      "id": "personal-data",
+      "category": "recommended",
+      "title": "個人資料與敏感資料保護",
+      "summary": "個資預設遮罩、完整資料需權限並留紀錄；高敏感欄位加密儲存；不進日誌與網址；匯出控管。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/personal-data.md"]
+    },
+    {
+      "id": "file-upload",
+      "category": "recommended",
+      "title": "檔案上傳與匯出：類型、大小、存放位置與公式注入",
+      "summary": "副檔名與檔案內容白名單、限制大小、存放在網站根目錄外；匯出 Excel／CSV 防公式注入。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/file-upload.md"]
+    },
+    {
+      "id": "secrets",
+      "category": "recommended",
+      "title": "機密資訊與設定管理",
+      "summary": "密碼與金鑰不寫在程式與版控；各環境分開；資料庫帳號最小權限；外洩立即更換。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/secrets.md"]
+    },
+    {
+      "id": "audit-log",
+      "category": "recommended",
+      "title": "稽核日誌：誰在何時對哪筆資料做了什麼",
+      "summary": "登入、權限失敗、異動、匯出、查閱個資都要記錄；不記錄密碼與完整個資；防日誌注入與竄改。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/audit-log.md"]
+    },
+    {
+      "id": "dependency",
+      "category": "recommended",
+      "title": "第三方元件：不得使用含已知高風險弱點的版本",
+      "summary": "相依套件由建置工具管理；CI 加入元件弱點掃描；不帶入 Struts、log4j 1.x 等舊元件。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/dependency.md"]
+    },
+    {
       "id": "date",
+      "category": "optional",
       "title": "年度：舊系統民國年 → 新系統西元年",
       "summary": "新系統日期與年度一律西元年；移轉時核准民國年↔西元年的表示轉換與比對正規化。",
       "applies": ["NEW", "CHANGE", "MIGRATION"],
@@ -10,6 +155,7 @@
     },
     {
       "id": "display-parity",
+      "category": "optional",
       "title": "顯示規範（移轉）：新系統與舊系統一致即可",
       "summary": "移轉時訊息、標籤、代碼與數字顯示與舊系統相同即可通過；版面樣式可不同；不自行修正舊文字。",
       "applies": ["MIGRATION"],
@@ -17,24 +163,59 @@
     },
     {
       "id": "shared-message",
+      "category": "optional",
       "title": "顯示規範（新專案）：採用共用訊息",
       "summary": "新專案的使用者訊息由共用訊息目錄以代碼引用，不硬寫文字、可參數化、不洩漏系統細節。",
       "applies": ["NEW", "CHANGE"],
       "resources": ["standard/development/message.md"]
     },
     {
-      "id": "sql-injection",
-      "title": "安全性檢查：禁止以串接方式撰寫 SQL（SQL Injection）",
-      "summary": "所有 SQL 參數綁定；禁止串接與 MyBatis ${}；排序欄位走白名單；LIKE 跳脫；附測試輸入。",
+      "id": "redirect",
+      "category": "optional",
+      "title": "導向網址與伺服器端請求：Open Redirect、SSRF",
+      "summary": "導向只接受本系統路徑或白名單網域；後端依輸入呼叫外部網址時限制網域並拒絕內部位址。",
       "applies": ["NEW", "CHANGE", "MIGRATION"],
-      "resources": ["standard/development/security/sql-injection.md"]
+      "resources": ["standard/development/security/redirect.md"]
     },
     {
-      "id": "data-scope",
-      "title": "資料範圍保護：第一層與第二層範圍相同，第二層不得只用 PK",
-      "summary": "明細、編輯、刪除、匯出等第二層與清單套用相同資料範圍；WHERE 必須同時含 PK 與範圍條件。",
+      "id": "xml",
+      "category": "optional",
+      "title": "XML 外部實體（XXE）與不安全的反序列化",
+      "summary": "XML 解析器停用 DTD 與外部實體；禁止對外部資料使用 Java 原生反序列化；JSON 不允許任意型別。",
       "applies": ["NEW", "CHANGE", "MIGRATION"],
-      "resources": ["standard/development/security/data-scope.md"]
+      "resources": ["standard/development/security/xml-deserialization.md"]
+    },
+    {
+      "id": "command",
+      "category": "optional",
+      "title": "作業系統指令：防止 Command Injection",
+      "summary": "優先用函式庫；必須執行指令時不經 Shell、以參數陣列呼叫；不動態執行使用者輸入。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/command.md"]
+    },
+    {
+      "id": "http-header",
+      "category": "optional",
+      "title": "HTTP 安全標頭與伺服器設定",
+      "summary": "CSP、nosniff、X-Frame-Options、HSTS、no-store；隱藏伺服器版本；關閉目錄列表與預設管理介面。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/http-header.md"]
+    },
+    {
+      "id": "concurrency",
+      "category": "optional",
+      "title": "重複送出與同時修改",
+      "summary": "樂觀鎖防止後寫覆蓋；一次性送出 Token 防重複；狀態轉換與額度扣減使用條件更新。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/concurrency.md"]
+    },
+    {
+      "id": "rate-limit",
+      "category": "optional",
+      "title": "請求頻率限制",
+      "summary": "登入、驗證碼、匯出、對外 API 依帳號與 IP 限制頻率；超過回應 429 並記錄。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/security/rate-limit.md"]
     }
   ]
 }

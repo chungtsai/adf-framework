@@ -1,14 +1,19 @@
 # ADF 專案起始規範一鍵安裝（Windows PowerShell）
 #
-# 適用：已安裝 ADF（有 .adf/migration.json）的專案。勾選要採用的起始規範，寫入專案 standards/。
+# 適用：已安裝 ADF（有 .adf/migration.json）的專案。選擇要採用的起始規範，寫入專案 standards/。
 # 只新增檔案；既有同路徑或同 ID 的規範一律略過，不覆蓋。不修改 Skill、modules/、.adf/。
+# 規範分兩類：建議項目預設全部安裝，輸入編號排除；選填項目輸入編號才安裝。
 #
 # 用法（在專案根目錄）：
 #   irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/standards.ps1 | iex
-#   .\standards.ps1 [-Select date,sql-injection|1,4] [-Status DRAFT|APPROVED] [-List] [-Yes] [-Project <dir>] [-Ref main]
-# 沒有 -Select 時以編號互動勾選；寫入前會列出摘要並詢問確認；-Yes 或 ADF_YES=1 可略過（CI 使用）。
+#   .\standards.ps1 [-Recommended] [-Exclude 8,xss] [-Add 19,date] [-Status DRAFT|APPROVED] [-List] [-Yes] [-Project <dir>] [-Ref main]
+#   .\standards.ps1 -Select date,sql-injection|1,4   # 只安裝指定項目（不套用建議項目）
+# 沒有選擇參數時以編號互動選擇；寫入前會列出摘要並詢問確認；-Yes 或 ADF_YES=1 可略過（CI 使用）。
 param(
   [string]$Select = '',
+  [string]$Exclude = '',
+  [string]$Add = '',
+  [switch]$Recommended,
   [string]$Status = '',
   [string]$Project = '.',
   [string]$Ref = $(if ($env:ADF_REF) { $env:ADF_REF } else { 'main' }),
@@ -22,6 +27,8 @@ function Fail($m) { throw "[ADF] 停止：$m" }
 [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
 $Status = $Status.ToUpper()
 if ($Status -and $Status -notin @('DRAFT', 'APPROVED')) { Fail '-Status 只能是 DRAFT 或 APPROVED' }
+if ($Exclude -or $Add) { $Recommended = $true }
+if ($Select -and $Recommended) { Fail '-Select 不能與 -Recommended、-Exclude、-Add 同時使用' }
 
 # 1. 前置條件
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Fail '找不到 Node.js；請安裝 Node.js 18 以上版本' }
@@ -57,9 +64,11 @@ try {
 
   # 3. 列出可選規範
   $label = @{ available = '可安裝'; installed = '已安裝'; conflict = '已有同名規範，略過' }
-  Say '可選擇的起始規範：'
+  $heading = @{ recommended = '建議項目（預設全部安裝；不需要的輸入編號排除）'; optional = '選填項目（輸入編號才安裝）' }
+  $cat = ''
   for ($i = 0; $i -lt $packs.Count; $i++) {
     $p = $packs[$i]
+    if ($p.category -ne $cat) { $cat = $p.category; Say "$($heading[$cat])：" }
     Write-Host "  [$($i + 1)] $($p.title)（$($label[$p.state])）"
     Write-Host "      $($p.summary)"
     $targets = $p.standards | ForEach-Object { if ($_.state -eq 'available') { $_.target } else { "$($_.target)（$($label[$_.state])）" } }
@@ -67,18 +76,23 @@ try {
   }
   if ($List) { return }
 
-  # 4. 勾選
-  if (-not $Select) {
-    $Select = try { Read-Host '[ADF] 請輸入要安裝的編號（逗號或空白分隔，例如 1,4,5；a＝全部可安裝項目）' } catch { Fail '無法互動勾選；請用 -Select 指定，例如 -Select date,sql-injection' }
+  # 4. 選擇：建議項目以編號排除，選填項目以編號加入（或 -Select 指定完整清單）
+  if (-not $Select -and -not $Recommended) {
+    $Exclude = try { Read-Host '[ADF] 要排除的建議項目編號（逗號或空白分隔；直接 Enter＝全部安裝；all＝全部不裝）' } catch { Fail '無法互動選擇；請用 -Recommended、-Exclude、-Add 或 -Select 指定，例如 -Recommended -Add date' }
+    $Add = try { Read-Host '[ADF] 要加入的選填項目編號（逗號或空白分隔；直接 Enter＝不加入；all＝全部加入）' } catch { Fail '無法互動選擇；請用 -Recommended、-Exclude、-Add 或 -Select 指定' }
+    $Recommended = $true
   }
-  $tokens = if ($Select.Trim() -in @('a', 'A', 'all')) { @($packs | Where-Object { $_.state -eq 'available' } | ForEach-Object { $_.id }) } else { @($Select -split '[\s,，、]+' | Where-Object { $_ }) }
-  $ids = @()
-  foreach ($t in $tokens) {
-    $p = if ($t -match '^\d+$' -and [int]$t -ge 1 -and [int]$t -le $packs.Count) { $packs[[int]$t - 1] } else { $packs | Where-Object { $_.id -eq $t } | Select-Object -First 1 }
-    if (-not $p) { Fail "沒有這個選項：$t" }
-    if ($ids -notcontains $p.id) { $ids += $p.id }
+  $selArgs = @('--dry-run')
+  if ($Select) { $selArgs += @('--select', $Select) }
+  else {
+    $selArgs += '--recommended'
+    if ("$Exclude".Trim()) { $selArgs += @('--exclude', "$Exclude".Trim()) }
+    if ("$Add".Trim()) { $selArgs += @('--add', "$Add".Trim()) }
   }
-  if ($ids.Count -eq 0) { Fail '沒有選擇任何規範' }
+  $planRaw = & node $tool STANDARDS $root @selArgs
+  if ($LASTEXITCODE -ne 0) { Fail '選擇無效，請重新執行' }
+  $plan = $planRaw -join "`n" | ConvertFrom-Json
+  $ids = @($plan.ids)
 
   # 5. 寫入狀態
   if (-not $Status) {
@@ -93,14 +107,13 @@ try {
   }
 
   # 6. 寫入前確認
+  Say '已選擇：'
+  foreach ($id in $ids) { for ($i = 0; $i -lt $packs.Count; $i++) { if ($packs[$i].id -eq $id) { Write-Host "        [$($i + 1)] $($packs[$i].title)" } } }
   Say "即將以 $Status 狀態寫入 ${root}："
-  $seen = @{}; $count = 0
-  foreach ($id in $ids) {
-    foreach ($s in ($packs | Where-Object { $_.id -eq $id }).standards) {
-      if ($seen.ContainsKey($s.key)) { continue }; $seen[$s.key] = $true
-      if ($s.state -eq 'available') { $count++; Write-Host "        + $($s.target)（$($s.id)）" }
-      else { Write-Host "        - 略過 $($s.target)（$($label[$s.state])）" }
-    }
+  $count = 0
+  foreach ($s in $plan.standards) {
+    if ($s.state -eq 'available') { $count++; Write-Host "        + $($s.target)（$($s.id)）" }
+    else { Write-Host "        - 略過 $($s.target)（$($label[$s.state])）" }
   }
   if ($count -eq 0) { Say '選擇的規範都已存在，沒有需要寫入的檔案。'; return }
   Say '只新增上列檔案，不覆蓋既有規範，不修改 Skill、modules/、.adf/'

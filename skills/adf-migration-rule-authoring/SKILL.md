@@ -19,5 +19,9 @@ description: 建立或修訂 Legacy 到 Target 的 Migration Rule。
 ## 本 Skill 官方資源
 - `standard/migration/frontend/page-to-dialog.md` → `assets/standards/migration/frontend/page-to-dialog.md`。
 - `standard/migration/display-parity.md` → `assets/standards/migration/display-parity.md`。
+- `standard/migration/legacy-vulnerability.md` → `assets/standards/migration/legacy-vulnerability.md`。
 - `standard/migration/null-empty.md` → `assets/standards/migration/null-empty.md`。
 - `standard/migration/roc-calendar.md` → `assets/standards/migration/roc-calendar.md`。
+
+## 後續加入官方規範
+`MIG-*` 官方範例的後續加入，依 `adf-standard-authoring`「後續加入官方規範」的步驟進行（同一支 `project.mjs STANDARDS`）。

@@ -32,7 +32,7 @@ node --test --test-name-pattern="rolls back" tests/update.test.mjs   # 單一測
 - `scripts/install.sh` / `install.ps1`：全新專案一鍵安裝（npx → 逐檔比對 → PLAN → APPLY → VERIFY）；偵測到已安裝（`.adf/migration.json`）時轉交 `update.*`，有舊版痕跡則在寫入前停止。
 - `scripts/update.sh` / `update.ps1`：一鍵更新（更新前 VERIFY → 相容性檢查 → 專案外備份 → npx 重裝 → 逐檔比對 → VERIFY，失敗自動還原）。
 - 兩組腳本寫入前都要詢問 `[y/N]`，`--yes` / `-Yes` / `ADF_YES=1` 略過。sh 與 ps1 必須保持行為一致。
-- `scripts/standards.sh` / `standards.ps1`：起始規範一鍵勾選安裝。下載 `ADF_REF`（預設 main）的原始檔，執行其中的 `project.mjs STANDARDS <project> [ids] --status DRAFT|APPROVED`，把 `references/standard-packs.json` 選定 pack 的 `standard/*` 資源寫入專案 `standards/`（只新增、同路徑或同 ID 略過）。`STANDARDS` 從工具自己的 Skill 樹讀規範（repo 與安裝後目錄結構相同），不經過專案的 `resolve`；需專案已有 `.adf/migration.json`。新增 pack 時，規範檔需有 frontmatter `id` 與 `status: DRAFT`（validate 會檢查），並同步網站「專案規範安裝」與 README 表格。由 `tests/standards.test.mjs` 涵蓋。
+- `scripts/standards.sh` / `standards.ps1`：起始規範一鍵勾選安裝。下載 `ADF_REF`（預設 main）的原始檔，執行其中的 `project.mjs STANDARDS <project> [ids] --status DRAFT|APPROVED`，把 `references/standard-packs.json` 選定 pack 的 `standard/*` 資源寫入專案 `standards/`（只新增、同路徑或同 ID 略過）。`STANDARDS` 從工具自己的 Skill 樹讀規範（repo 與安裝後目錄結構相同），不經過專案的 `resolve`；需專案已有 `.adf/migration.json`。pack 有 `category`：`recommended`（預設安裝，以 `--exclude` 排除）或 `optional`（以 `--add` 加入），建議項目必須排在選填項目前面（編號即清單順序，validate 會檢查）；選擇邏輯集中在 `project.mjs` 的 `standardsSelect`（`--recommended`／`--exclude`／`--add`／`--select`，`--dry-run` 只預覽），sh 與 ps1 不自行解析編號。新增 pack 時，規範檔需有 frontmatter `id` 與 `status: DRAFT`（validate 會檢查），並同步網站「專案規範安裝」與 README 表格。由 `tests/standards.test.mjs` 涵蓋。
 - `scripts/init.js`、`doctor.js` 僅為唯讀相容入口，不是安裝器。
 
 ### 版本號出現的位置（升版時全部要改）

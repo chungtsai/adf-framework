@@ -238,30 +238,73 @@ irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/updat
 - 略過確認提示：`--yes`（`-Yes`）或 `ADF_YES=1`。
 - 新版不相容目前專案設定時會在寫入前停止，改依下方 SOP。
 
-## 專案起始規範：一鍵勾選安裝
+## 專案起始規範：一鍵安裝
 
-ADF 安裝完成後，可以勾選要採用的起始規範，寫入專案 `standards/`，作為新專案或移轉專案的初始基礎規則：
+ADF 安裝完成後，選擇要採用的起始規範，寫入專案 `standards/`，作為新專案或移轉專案的初始基礎規則。規範分兩類，先處理建議項目，再處理選填項目：
+
+1. **建議項目**：預設全部安裝，輸入不需要的編號排除（例如新專案排除第 8 項「移轉：舊程式有弱點不得照搬」）。
+2. **選填項目**：預設不安裝，輸入編號才加入。
+
+**建議項目（預設全部安裝，以編號排除）**
 
 | 編號 | 規範 | 寫入 | 適用 |
 |---|---|---|---|
-| 1 | 年度：舊系統民國年 → 新系統西元年 | `DEV-DATE-001`、`MIG-DATE-001` | NEW／CHANGE／MIGRATION |
-| 2 | 顯示規範（移轉）：新系統與舊系統一致即可 | `MIG-DISP-001` | MIGRATION |
-| 3 | 顯示規範（新專案）：採用共用訊息 | `DEV-MSG-001` | NEW／CHANGE |
-| 4 | 安全性檢查：禁止以串接方式撰寫 SQL（SQL Injection） | `DEV-SEC-SQL-001` | 全部 |
-| 5 | 資料範圍保護：第一層與第二層範圍相同，第二層不得只用 PK | `DEV-SEC-SCOPE-001` | 全部 |
+| 1 | 安全性檢查：禁止以串接方式撰寫 SQL（SQL Injection） | `DEV-SEC-SQL-001` | 全部 |
+| 2 | 資料範圍保護：第一層與第二層範圍相同，第二層不得只用 PK | `DEV-SEC-SCOPE-001` | 全部 |
+| 3 | 功能權限：無權限必須限制存取 | `DEV-SEC-001` | 全部 |
+| 4 | 大量資料：分頁查詢與最大筆數限制 | `DEV-PAGE-001` | 全部 |
+| 5 | 修改與刪除：至少一個強制條件 | `DEV-SEC-WRITE-001` | 全部 |
+| 6 | 檔案路徑保護：避免 Path Traversal，參數加 Token | `DEV-SEC-PATH-001`、`DEV-SEC-TOKEN-001` | 全部 |
+| 7 | 有順序性的 API：以 Token 傳遞結果並限制資料範圍 | `DEV-SEC-TOKEN-001` | 全部 |
+| 8 | 移轉：舊程式有弱點不得照搬，必須修復 | `MIG-SEC-001` | MIGRATION |
+| 9 | 輸出編碼：防止 XSS | `DEV-SEC-XSS-001` | 全部 |
+| 10 | 跨站請求偽造：GET 不異動，異動請求驗證 CSRF Token | `DEV-SEC-CSRF-001` | 全部 |
+| 11 | 登入、密碼與 Session 管理 | `DEV-SEC-AUTH-001` | 全部 |
+| 12 | 參數綁定白名單：不得把請求直接綁到 Entity | `DEV-SEC-BIND-001` | 全部 |
+| 13 | 後端輸入驗證：前端驗證不能取代後端 | `DEV-SEC-INPUT-001` | 全部 |
+| 14 | 個人資料與敏感資料保護 | `DEV-SEC-PII-001` | 全部 |
+| 15 | 檔案上傳與匯出：類型、大小、存放位置與公式注入 | `DEV-SEC-UPLOAD-001` | 全部 |
+| 16 | 機密資訊與設定管理 | `DEV-SEC-SECRET-001` | 全部 |
+| 17 | 稽核日誌：誰在何時對哪筆資料做了什麼 | `DEV-SEC-AUDIT-001` | 全部 |
+| 18 | 第三方元件：不得使用含已知高風險弱點的版本 | `DEV-SEC-DEP-001` | 全部 |
+
+**選填項目（輸入編號才安裝）**
+
+| 編號 | 規範 | 寫入 | 適用 |
+|---|---|---|---|
+| 19 | 年度：舊系統民國年 → 新系統西元年 | `DEV-DATE-001`、`MIG-DATE-001` | 全部 |
+| 20 | 顯示規範（移轉）：新系統與舊系統一致即可 | `MIG-DISP-001` | MIGRATION |
+| 21 | 顯示規範（新專案）：採用共用訊息 | `DEV-MSG-001` | NEW／CHANGE |
+| 22 | 導向網址與伺服器端請求：Open Redirect、SSRF | `DEV-SEC-REDIRECT-001` | 全部 |
+| 23 | XML 外部實體（XXE）與不安全的反序列化 | `DEV-SEC-XML-001` | 全部 |
+| 24 | 作業系統指令：防止 Command Injection | `DEV-SEC-CMD-001` | 全部 |
+| 25 | HTTP 安全標頭與伺服器設定 | `DEV-SEC-HEADER-001` | 全部 |
+| 26 | 重複送出與同時修改 | `DEV-SEC-CONC-001` | 全部 |
+| 27 | 請求頻率限制 | `DEV-SEC-RATE-001` | 全部 |
 
 ```bash
-# macOS / Linux：列出規範 → 輸入編號勾選 → 選 DRAFT／APPROVED → 確認後寫入
+# macOS / Linux：列出規範 → 輸入要排除的建議項目 → 輸入要加入的選填項目 → 選 DRAFT／APPROVED → 確認後寫入
 curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/standards.sh | bash
 
 # Windows PowerShell
 irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/standards.ps1 | iex
 ```
 
-- 非互動（CI）：`bash -s -- --select 1,4,5 --status DRAFT --yes`（也可用代號 `date,display-parity,shared-message,sql-injection,data-scope`）；PowerShell 用 `& ([scriptblock]::Create((irm …/standards.ps1))) -Select 1,4,5 -Yes`。只看清單：`--list`／`-List`。
+- 非互動（CI）：`bash -s -- --recommended --exclude 8 --add 19 --status DRAFT --yes`；`--exclude`、`--add` 可用編號、pack 代號或規範 ID（例如 `--add date,DEV-SEC-RATE-001`），`--exclude all` 表示建議項目全部不裝。PowerShell 用 `& ([scriptblock]::Create((irm …/standards.ps1))) -Recommended -Exclude 8 -Add 19 -Yes`。只看清單：`--list`／`-List`。
+- 只安裝指定項目（不套用建議項目）：`--select 1,19`／`-Select 1,19`。
+- 第 6、7 項共用 `DEV-SEC-TOKEN-001`，兩項都選時只寫入一次。
 - 寫入狀態：`DRAFT`（預設，之後由 `adf-standard-authoring`／`adf-migration-rule-authoring` 審查後核准）或 `APPROVED`（確認已審閱內容，檔案會記錄 `approved_at`）。每個檔案都會記錄 `source`。
-- 只新增檔案：同路徑或同 ID（含舊範例 `# DEV-…` 標題）已存在就略過，不覆蓋；不修改 Skill、`modules/`、`.adf/`。必須先完成 ADF 安裝（有 `.adf/migration.json`）。
-- 規範內容來源是 `adf-standard-authoring`／`adf-migration-rule-authoring` 的 `assets/standards/`，清單在 `adf-project-install/references/standard-packs.json`；預設取自 main，可用 `--ref`／`-Ref` 指定 tag。
+- 只新增檔案：同路徑或同 ID（含舊範例 `# DEV-…` 標題）已存在就略過，不覆蓋；不修改 Skill、`modules/`、`.adf/`。必須先完成 ADF 安裝（有 `.adf/migration.json`）。重新執行時已安裝的項目會略過，可用來補裝。
+- 規範內容來源是 `adf-standard-authoring`／`adf-migration-rule-authoring` 的 `assets/standards/`，清單與分類在 `adf-project-install/references/standard-packs.json`（`category`）；預設取自 main，可用 `--ref`／`-Ref` 指定 tag。
+
+### 之後再加入規範（提示詞）
+
+初次安裝沒選的項目，或 ADF 更新後才新增的官方範例，可直接在 Agent 中要求加入，不必重跑一鍵安裝：
+
+```text
+請用 adf-standard-authoring 把官方規範【DEV-SEC-XSS-001、DEV-SEC-RATE-001】加入本專案 standards/：
+先列出清單與狀態，以 --dry-run 告訴我會寫入哪些檔案，我確認後以 DRAFT 寫入；已有同 ID 的規範不要覆蓋。
+```
 
 ## 既有專案：移轉與升級
 

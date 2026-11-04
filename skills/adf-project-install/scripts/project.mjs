@@ -211,6 +211,39 @@ export function standardsList(root) {
     return {key,id,target,state,...(state==='conflict'?{existing:fs.existsSync(dest)?target:ids[id]}:{})};
   })})).map(p=>({...p,state:p.standards.every(s=>s.state==='installed')?'installed':p.standards.some(s=>s.state==='available')?'available':'conflict'}))};
 }
+// Resolve a selection to pack IDs. Tokens may be list numbers (1-based), pack IDs or standard IDs (DEV-*/MIG-*).
+// select = exact list ('all' = every available pack). Otherwise the recommended packs minus `exclude` ('all' = none),
+// plus optional packs in `add` ('all' = every optional pack). Returned in list order.
+export function standardsSelect(root,{select,exclude,add,recommended}={}) {
+  const packs=standardsList(root).packs,tokens=v=>String(v??'').split(/[\s,，、]+/).filter(Boolean);
+  const find=t=>{
+    if(/^\d+$/.test(t)) {const p=packs[Number(t)-1];if(p) return p;}
+    const byId=packs.find(p=>p.id===t);if(byId) return byId;
+    const byStd=packs.filter(p=>p.standards.some(s=>s.id===t.toUpperCase())).sort((a,b)=>a.standards.length-b.standards.length)[0];
+    return byStd||fail(`Unknown standard pack: ${t}`);
+  };
+  const pick=(v,pool)=>{const t=tokens(v);return t.length===1&&/^(a|all)$/i.test(t[0])?pool:t.map(find);};
+  let chosen;
+  if(select!==undefined) {
+    if(exclude!==undefined||add!==undefined||recommended) fail('--select cannot be combined with --recommended, --exclude or --add');
+    chosen=pick(select,packs.filter(p=>p.state==='available'));
+  } else {
+    const rec=packs.filter(p=>p.category==='recommended'),opt=packs.filter(p=>p.category==='optional');
+    const ex=pick(exclude,rec),ad=pick(add,opt);
+    for(const p of ex) if(p.category!=='recommended') fail(`Not a recommended pack (use --add): ${p.id}`);
+    for(const p of ad) if(p.category!=='optional') fail(`Not an optional pack (recommended packs are included unless excluded): ${p.id}`);
+    chosen=[...rec.filter(p=>!ex.includes(p)),...ad];
+  }
+  const ids=packs.filter(p=>chosen.includes(p)).map(p=>p.id);
+  if(!ids.length) fail('Select at least one standard pack');
+  return ids;
+}
+// Dry run: which files the selection would write or skip (each standard once).
+export function standardsPreview(root,ids) {
+  const known=new Map(standardsList(root).packs.map(p=>[p.id,p])),seen=new Set(),standards=[];
+  for(const id of ids) for(const s of (known.get(id)||fail(`Unknown standard pack: ${id}`)).standards) if(!seen.has(s.key)) {seen.add(s.key);standards.push(s);}
+  return {ids,standards,write:standards.filter(s=>s.state==='available').length};
+}
 export function standardsInstall(root,ids,{status='DRAFT',ref=`v${VERSION}`,date=new Date().toISOString().slice(0,10)}={}) {
   root=path.resolve(root);
   if(!['DRAFT','APPROVED'].includes(status)) fail('Status must be DRAFT or APPROVED');
@@ -234,10 +267,12 @@ export function standardsInstall(root,ids,{status='DRAFT',ref=`v${VERSION}`,date
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
   try {
     const argv=process.argv.slice(2),opt=name=>{const i=argv.indexOf(name);if(i<0) return undefined;const v=argv[i+1];if(!v||v.startsWith('--')) fail(`${name} requires a value`);argv.splice(i,2);return v;};
-    const status=opt('--status'),ref=opt('--ref');
+    const flag=name=>{const i=argv.indexOf(name);if(i<0) return false;argv.splice(i,1);return true;};
+    const status=opt('--status'),ref=opt('--ref'),sel={select:opt('--select'),exclude:opt('--exclude'),add:opt('--add'),recommended:flag('--recommended')},dry=flag('--dry-run');
     const [mode,target,arg]=argv;if(!target) fail('Usage: project.mjs CHECK|PLAN|APPLY|VERIFY|RESTORE|resolve|STANDARDS <project> [argument]');
     const root=path.resolve(target);
-    const result=mode==='STANDARDS'?(arg?standardsInstall(root,arg.split(',').map(x=>x.trim()).filter(Boolean),{status,ref}):standardsList(root)):mode==='CHECK'?plan(root):mode==='PLAN'?plan(root,arg?json(arg):undefined):mode==='APPLY'?apply(root,json(arg)):mode==='VERIFY'?verify(root):mode==='RESTORE'?restore(root,arg):mode==='resolve'?{path:resolveResource(root,arg)}:fail('Unknown mode');
+    const picked=mode!=='STANDARDS'?null:arg!==undefined?(Object.values(sel).some(v=>v)?fail('Give pack IDs or selection options, not both'):arg.split(',').map(x=>x.trim()).filter(Boolean)):Object.values(sel).some(v=>v)?standardsSelect(root,sel):null;
+    const result=mode==='STANDARDS'?(!picked?standardsList(root):dry?standardsPreview(root,picked):standardsInstall(root,picked,{status,ref})):mode==='CHECK'?plan(root):mode==='PLAN'?plan(root,arg?json(arg):undefined):mode==='APPLY'?apply(root,json(arg)):mode==='VERIFY'?verify(root):mode==='RESTORE'?restore(root,arg):mode==='resolve'?{path:resolveResource(root,arg)}:fail('Unknown mode');
     console.log(JSON.stringify(result,null,2));if(result.blockers?.length) process.exitCode=1;
   }catch(e){console.error(e.message);process.exitCode=1;}
 }
