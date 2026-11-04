@@ -7,7 +7,7 @@
 #
 # 用法（在專案根目錄）：
 #   curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/update.sh | bash
-#   bash update.sh [--version v5.2.0] [--agent claude-code|codex|...] [--copy|--no-copy] [--force] [--yes] [--project <dir>]
+#   bash update.sh [--version v5.3.0] [--agent claude-code|codex|...] [--copy|--no-copy] [--force] [--yes] [--project <dir>]
 # 寫入任何檔案前會列出摘要並詢問確認；--yes 或 ADF_YES=1 可略過（CI 使用）。
 set -euo pipefail
 
@@ -15,7 +15,7 @@ set -euo pipefail
 main() {
 
 REPO="https://github.com/chungtsai/adf-framework"
-VERSION="${ADF_VERSION:-v5.2.0}"
+VERSION="${ADF_VERSION:-v5.3.0}"
 AGENT="${ADF_AGENT:-}"
 PROJECT="."
 COPY_MODE=""   # 空白＝沿用目前安裝方式；copy / link

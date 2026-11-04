@@ -4,12 +4,12 @@
 #
 # 用法（在專案根目錄）：
 #   irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/install.ps1 | iex
-#   .\install.ps1 [-Agent claude-code] [-Version v5.2.0] [-Copy] [-Yes] [-Project <dir>]
+#   .\install.ps1 [-Agent claude-code] [-Version v5.3.0] [-Copy] [-Yes] [-Project <dir>]
 # 已安裝 ADF 的專案會自動改執行 update.ps1（同一個指令即可更新）。
 # 寫入任何檔案前會列出摘要並詢問確認；-Yes 或 ADF_YES=1 可略過（CI 使用）。
 param(
   [string]$Agent = $(if ($env:ADF_AGENT) { $env:ADF_AGENT } else { 'claude-code' }),
-  [string]$Version = $(if ($env:ADF_VERSION) { $env:ADF_VERSION } else { 'v5.2.0' }),
+  [string]$Version = $(if ($env:ADF_VERSION) { $env:ADF_VERSION } else { 'v5.3.0' }),
   [string]$Project = '.',
   [switch]$Copy,
   [switch]$Yes = [bool]$env:ADF_YES
