@@ -8,7 +8,7 @@
 
 ## 規則
 
-- `Source` 連結 `REQ-*`、`BR-*`、`VAL-*`、`Q-*`、`UI-*` 或 Approved Baseline。
+- `Source` 連結 `REQ-*`、`BR-*`、`VAL-*`、`Q-*`、`UI-*` 或 Approved Baseline；MIGRATION／RETROFIT_VERIFY 另連結對應的 `LB-*`，供 `adf-result-comparison` 計算涵蓋率。
 - 使用者操作型測試應填入 `Scenario`，連結至 `FS-*`。
 - 測試人員需要輸入資料時，應提供具體 `Test Input`，避免只寫「輸入有效資料」。
 - 新增、修改、刪除等資料異動案例，應提供 `Verification SQL / Method` 與明確的 `Expected Data Result`。

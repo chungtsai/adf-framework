@@ -38,6 +38,10 @@
       "skill": "adf-development-design",
       "path": "assets/design.md"
     },
+    "template/analysis/legacy-behavior.md": {
+      "skill": "adf-legacy-analysis",
+      "path": "assets/legacy-behavior.md"
+    },
     "template/manifest.yaml": {
       "skill": "adf-feature-init",
       "path": "assets/manifest.yaml"
@@ -69,6 +73,10 @@
     "template/verification/traceability.md": {
       "skill": "adf-traceability-check",
       "path": "assets/traceability.md"
+    },
+    "template/verification/comparison.md": {
+      "skill": "adf-result-comparison",
+      "path": "assets/comparison.md"
     },
     "standard/development/date-time.md": {
       "skill": "adf-standard-authoring",

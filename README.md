@@ -91,7 +91,7 @@ Migration 不以「新系統能跑」為完成條件。ADF 先從 Legacy 建立�
 
 - **`adf-feature-init`** — 初始化 Module、manifest、spec/design/verification 基本結構與工作狀態。
 - **`adf-requirement-analysis`** — 將 NEW/CHANGE Requirement 分析成可追蹤需求，CHANGE 聚焦 Requirement Delta。
-- **`adf-legacy-analysis`** — 從 JSP/Servlet/Service/DAO/SQL 等 Legacy Source 萃取實際行為；不確定必須標 UNKNOWN / REVIEW_REQUIRED。
+- **`adf-legacy-analysis`** — 從 JSP/Servlet/Service/DAO/SQL 等 Legacy Source 逐入口追到 SQL 或副作用，以 8 類必查清單建立 `analysis/legacy-behavior.md`（`LB-*`，附證據位置）；不確定必須標 UNKNOWN / REVIEW_REQUIRED。
 - **`adf-target-analysis`** — 從既有 Target 程式反向建立 Current-State Evidence；OBSERVED 不等於 APPROVED。
 - **`adf-business-rule`** — 建立/更新 BR-* Business Rules 與 VAL-* Validation Rules。
 - **`adf-query-analysis`** — 建立 Q-*，分析條件、Null/Empty、日期、Join、排序、分頁、權限範圍與組合測試策略。
@@ -121,7 +121,7 @@ Migration 不以「新系統能跑」為完成條件。ADF 先從 Legacy 建立�
 - **`adf-legacy-baseline`** — 執行/保存 Legacy Golden Baseline；Legacy 無法執行就 BLOCKED，不虛構 Expected Result。
 - **`adf-new-test`** — 執行 Target Test 與必要 Regression，保存 Raw Result。
 - **`adf-result-normalization`** — 只依核准 MIG-* Rule 正規化合法表示差異，例如民國年與西元年。
-- **`adf-result-comparison`** — 比較 Legacy/Target Business Semantics，並分類 MIGRATION_DEFECT、SPEC_GAP、LEGACY_UNKNOWN、APPROVED_BEHAVIOR_CHANGE、TEST_DATA_PROBLEM、REVIEW_REQUIRED。
+- **`adf-result-comparison`** — 以比對腳本逐欄比較 Legacy/Target Business Semantics，依固定順序分類 MIGRATION_DEFECT、SPEC_GAP、LEGACY_UNKNOWN、APPROVED_BEHAVIOR_CHANGE、TEST_DATA_PROBLEM、REVIEW_REQUIRED，並在 `verification/comparison.md` 回報 `LB-*` 涵蓋率。
 
 ## Quality Gate
 
