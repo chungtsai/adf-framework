@@ -64,7 +64,7 @@ description: 以程式逐欄比對 Legacy 與 Target 的正規化結果，依固
 - 不得只回報通過率而省略涵蓋率。
 
 ## 既有 Module 補填
-v5.3.0 以前已完成比對、但沒有 `verification/comparison.md` 或涵蓋率的 Module：
+v5.4.0 之前已完成比對、但沒有 `verification/comparison.md` 或涵蓋率的 Module：
 1. 若沒有 `analysis/legacy-behavior.md`，先依 `adf-legacy-analysis` 的「既有 Module 補填」補行為清單。
 2. 沿用既有的雙邊 Raw Result，不重新執行 Legacy；Raw Result 已遺失的案例標 `TEST_DATA_PROBLEM`，由 Human 決定是否重跑。
 3. 依步驟 2 到 5 重新比對與分類，結果寫入 `verification/comparison.md`；與過去分類不同的差異標 `REVIEW_REQUIRED`，不自動推翻已核准的決定。

@@ -65,7 +65,7 @@ description: 從 Legacy 原始碼（JSP、Servlet、Service、DAO、SQL、設定
 - 本 Stage 不產生 `BR-*`、`VAL-*`、`Q-*`、`UI-*` 定稿，也不寫 Expected Result。
 
 ## 既有 Module 補填
-v5.3.0 以前建立的 MIGRATION／RETROFIT_VERIFY Module 沒有 `analysis/legacy-behavior.md` 時：
+v5.4.0 之前建立的 MIGRATION／RETROFIT_VERIFY Module 沒有 `analysis/legacy-behavior.md` 時：
 1. 進行中的 Module 在目前 Work Item 內補填；已完成的 Module 開 `CHANGE` 只補文件，不修改程式與已核准的規則。
 2. 先讀既有 Legacy Evidence、`spec/rules.md`、`verification/test-cases.md`，把已記錄的行為轉成 `LB-*`，證據位置沿用原紀錄；原紀錄沒有位置的，回 Legacy 原始碼補上，補不到標 `UNKNOWN`。
 3. 再依步驟 3 對每個入口補做 8 類盤點，新發現的行為標 `REVIEW_REQUIRED`。

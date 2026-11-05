@@ -1,8 +1,14 @@
-# ADF — AI Development Framework v5.3
+# ADF — AI Development Framework v5.4
 
 > **語言政策：人看的內容使用繁體中文；機器識別碼與程式代碼維持英文。**
 
 ADF 的目的不是讓 AI 單純寫得更快，而是把「相信 AI」轉成「相信可驗證的證據」。透過分析、規格、標準、設計、開發、測試、比對、Traceability 與 Human Gate，降低 AI 誤解需求與 Legacy 行為的風險。
+
+## v5.4 重點
+- `adf-legacy-analysis` 改寫為完整操作契約：逐入口追到 SQL 或副作用，以 8 類必查清單建立 `analysis/legacy-behavior.md`（`LB-*`，附證據位置與確定度），讀不到的來源列入「無法取得清單」。
+- `adf-result-comparison` 改寫為完整操作契約：先檢查可比性，以比對腳本逐欄找差異（含 DB 寫入、錯誤路徑、副作用），依固定順序分類，並在 `verification/comparison.md` 以 `LB-*` 為分母回報涵蓋率。
+- 兩支 Skill 新增「既有 Module 補填」：進行中的 Module 在目前 Work Item 補，已完成的開 `CHANGE` 只補文件；操作台網站提供 3 個補填提示詞。
+- Skill 名稱與數量、Work Type、Gate 規則不變；MIGRATION／RETROFIT_VERIFY Module 新增兩份文件，其他文件格式不變。由 v5.3 升級見 [v5.3 → v5.4 SOP](docs/upgrades/5.3-to-5.4.md)，版本說明見 [docs/releases/5.4.md](docs/releases/5.4.md)。
 
 ## v5.3 重點
 - 一鍵安裝與一鍵更新：`install.sh`／`update.sh`（Windows 為 `.ps1`），一行指令完成安裝或更新、逐檔比對與 VERIFY，失敗自動還原。
@@ -201,9 +207,9 @@ ADF_REF=main; t=$(mktemp -d) && curl -fsSL "https://codeload.github.com/chungtsa
 $r='main'; $t=Join-Path $env:TEMP "adf-$(New-Guid)"; Invoke-WebRequest -UseBasicParsing "https://codeload.github.com/chungtsai/adf-framework/zip/$r" -OutFile "$t.zip"; Expand-Archive "$t.zip" $t; & (Get-ChildItem "$t\*\scripts\install.ps1").FullName; Remove-Item -Recurse -Force $t, "$t.zip"
 ```
 
-`ADF_REF` 只決定安裝腳本取自哪個分支／tag；Skill 本身一律由 `npx skills` 從正式 tag（預設 v5.3.0）安裝，才能留下 `skills-lock.json` 來源紀錄。
+`ADF_REF` 只決定安裝腳本取自哪個分支／tag；Skill 本身一律由 `npx skills` 從正式 tag（預設 v5.4.0）安裝，才能留下 `skills-lock.json` 來源紀錄。
 
-腳本會依序：檢查是否為全新專案 → 下載同版本原始檔 → 專案層級 `npx skills add`（v5.3.0 全部 33 支）→ **逐檔比對每支 Skill 的 `SKILL.md`、`scripts/`、`assets/`、`references/` 都已放在正確位置且內容一致** → `PLAN`（計畫檔存在專案外暫存目錄）→ `APPLY` → `VERIFY`。只新增 Skill、`skills-lock.json` 與 `.adf/`，不碰其他檔案。有缺檔會停止並列出，不會自行補檔（補檔會與 `skills-lock.json` 雜湊不符）。
+腳本會依序：檢查是否為全新專案 → 下載同版本原始檔 → 專案層級 `npx skills add`（v5.4.0 全部 33 支）→ **逐檔比對每支 Skill 的 `SKILL.md`、`scripts/`、`assets/`、`references/` 都已放在正確位置且內容一致** → `PLAN`（計畫檔存在專案外暫存目錄）→ `APPLY` → `VERIFY`。只新增 Skill、`skills-lock.json` 與 `.adf/`，不碰其他檔案。有缺檔會停止並列出，不會自行補檔（補檔會與 `skills-lock.json` 雜湊不符）。
 
 安裝完成後的位置（Claude Code 預設）：
 
@@ -217,7 +223,7 @@ $r='main'; $t=Join-Path $env:TEMP "adf-$(New-Guid)"; Invoke-WebRequest -UseBasic
 Codex 等其他 Agent 會放在 `.agents/skills/`。repo 根目錄的 `scripts/`、`tests/`、`docs/` 是框架維護用，不需要放進專案。
 
 - 其他 Agent：`bash install.sh --agent codex`（PowerShell：`-Agent codex`），或設定環境變數 `ADF_AGENT`。
-- 指定版本：`--version v5.3.0` 或 `ADF_VERSION`。Windows 無法建立符號連結時加 `--copy` / `-Copy`。
+- 指定版本：`--version v5.4.0` 或 `ADF_VERSION`。Windows 無法建立符號連結時加 `--copy` / `-Copy`。
 - 想先看腳本內容：先下載 `install.sh` 檢查後再以 `bash install.sh` 執行。
 - 略過確認提示：`--yes`（`-Yes`）或 `ADF_YES=1`。
 - 偵測到任何舊版 ADF 痕跡會在安裝前停止、不寫入任何檔案，請改用下方移轉 SOP。
@@ -238,7 +244,7 @@ irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/updat
 
 只更新 Skill 與 `skills-lock.json`；不碰 `standards/`、`modules/`、CLAUDE.md、AGENTS.md、`.adf/`，不撤銷核准狀態。
 
-- 指定版本：`--version v5.3.0`（PowerShell：`-Version`）或 `ADF_VERSION`；預設為 main 分支腳本所記錄的最新正式版。
+- 指定版本：`--version v5.4.0`（PowerShell：`-Version`）或 `ADF_VERSION`；預設為 main 分支腳本所記錄的最新正式版。
 - 覆寫自動偵測：`--agent codex`、`--copy` / `--no-copy`（PowerShell：`-Agent`、`-Copy` / `-NoCopy`）。
 - 確定要覆蓋手動修改過的 Skill，或同版本重新安裝：`--force`（`-Force`）。
 - 略過確認提示：`--yes`（`-Yes`）或 `ADF_YES=1`。
@@ -314,7 +320,7 @@ irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/stand
 
 ## 既有專案：移轉與升級
 
-統一使用專案層級 `npx skills`。正式版本指令、手動來源轉接、前置備份與回復，從 v5.0 導入見 [v5.0 → v5.1 SOP](docs/upgrades/5.0-to-5.1.md)，從 v5.1 升級見 [v5.1 → v5.2 SOP](docs/upgrades/5.1-to-5.2.md)，從 v5.2 升級見 [v5.2 → v5.3 SOP](docs/upgrades/5.2-to-5.3.md)。v5.3.0 tag 發佈前，main 分支僅為候選版。
+統一使用專案層級 `npx skills`。正式版本指令、手動來源轉接、前置備份與回復，從 v5.0 導入見 [v5.0 → v5.1 SOP](docs/upgrades/5.0-to-5.1.md)，從 v5.1 升級見 [v5.1 → v5.2 SOP](docs/upgrades/5.1-to-5.2.md)，從 v5.2 升級見 [v5.2 → v5.3 SOP](docs/upgrades/5.2-to-5.3.md)，從 v5.3 升級見 [v5.3 → v5.4 SOP](docs/upgrades/5.3-to-5.4.md)。v5.4.0 tag 發佈前，main 分支僅為候選版。
 
 官方範本各自只有一個 owner，資源清單位於 `skills/adf-project-install/references/resources.json`；不建立專案 `.adf/templates/` 或客製範本。共用 Review 也採單一來源。規範範例歸位至 authoring Skills 的 assets，專案實際規範維持 `standards/`。
 

@@ -6,11 +6,11 @@
 #
 # 用法（在專案根目錄）：
 #   irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/update.ps1 | iex
-#   .\update.ps1 [-Version v5.3.0] [-Agent claude-code] [-Copy|-NoCopy] [-Force] [-Yes] [-Project <dir>]
+#   .\update.ps1 [-Version v5.4.0] [-Agent claude-code] [-Copy|-NoCopy] [-Force] [-Yes] [-Project <dir>]
 # 寫入任何檔案前會列出摘要並詢問確認；-Yes 或 ADF_YES=1 可略過（CI 使用）。
 param(
   [string]$Agent = $env:ADF_AGENT,
-  [string]$Version = $(if ($env:ADF_VERSION) { $env:ADF_VERSION } else { 'v5.3.0' }),
+  [string]$Version = $(if ($env:ADF_VERSION) { $env:ADF_VERSION } else { 'v5.4.0' }),
   [string]$Project = '.',
   [switch]$Copy,
   [switch]$NoCopy,
