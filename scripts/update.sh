@@ -7,7 +7,7 @@
 #
 # 用法（在專案根目錄）：
 #   curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/update.sh | bash
-#   bash update.sh [--version v5.4.0] [--agent claude-code|codex|...] [--copy|--no-copy] [--force] [--yes] [--project <dir>]
+#   bash update.sh [--version v5.4.0|v5.4.0-beta.1] [--agent claude-code|codex|...] [--copy|--no-copy] [--force] [--yes] [--project <dir>]
 # 寫入任何檔案前會列出摘要並詢問確認；--yes 或 ADF_YES=1 可略過（CI 使用）。
 set -euo pipefail
 
@@ -39,7 +39,9 @@ while [ $# -gt 0 ]; do
   esac
 done
 case "$VERSION" in v*) ;; *) VERSION="v$VERSION" ;; esac
+[[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(beta|rc)\.[1-9][0-9]*)?$ ]] || fail "版本格式不正確：$VERSION（正式版 v5.4.0；測試版 v5.4.0-beta.1 或 v5.4.0-rc.1）"
 TARGET="${VERSION#v}"
+BASE="${TARGET%%-*}"   # 測試版 v5.4.0-beta.1 的內容版本為 5.4.0
 
 # 1. 前置條件
 command -v node >/dev/null 2>&1 || fail "找不到 Node.js；請安裝 Node.js 18 以上版本"
@@ -65,6 +67,9 @@ done
 [ -n "$INST" ] || fail "找不到已安裝的 adf-project-install（.claude/skills 或 .agents/skills）；請依 docs/upgrades 的 SOP 處理。"
 TOOL="$INST/adf-project-install/scripts/project.mjs"
 CURRENT="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).version)' "$INST/adf-project-install/references/release.json")"
+# 目前安裝的 tag（正式版或測試版）以 skills-lock.json 為準
+CURRENT_REF="$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync("skills-lock.json","utf8")).skills["adf-project-install"].ref||"")}catch{console.log("")}')"
+[ -n "$CURRENT_REF" ] || CURRENT_REF="v$CURRENT"
 
 # 3. 沿用目前的 Agent 與安裝模式（可用參數覆寫）
 if [ -z "$AGENT" ]; then
@@ -76,7 +81,7 @@ if [ -z "$COPY_MODE" ]; then
   elif [ "$INST" = ".claude/skills" ]; then COPY_MODE="copy"; else COPY_MODE="link"; fi
 fi
 COPY=""; [ "$COPY_MODE" = "copy" ] && COPY="--copy"
-say "目前版本：v$CURRENT；目標版本：$VERSION（Agent：$AGENT，模式：$COPY_MODE）"
+say "目前版本：$CURRENT_REF；目標版本：$VERSION（Agent：$AGENT，模式：$COPY_MODE）"
 
 # 4. 更新前檢查：目前安裝必須通過 VERIFY（含 Skill 未被手動修改），否則更新會覆蓋客製內容
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/adf-update.XXXXXX")"
@@ -88,8 +93,8 @@ if ! node "$TOOL" VERIFY "$PROJECT" >/dev/null 2>"$WORK/pre.err"; then
   [ -n "$FORCE" ] || fail "目前安裝未通過 VERIFY（常見原因：Skill 被手動修改）。請先把客製內容移到 standards/ 或專案外；確認可以覆蓋時加 --force。"
   say "已指定 --force，略過更新前 VERIFY"
 fi
-if [ "$CURRENT" = "$TARGET" ] && [ -z "$FORCE" ]; then
-  say "已是最新：v$CURRENT，且通過 VERIFY；不需要更新。（重新安裝請加 --force）"
+if [ "$CURRENT_REF" = "$VERSION" ] && [ -z "$FORCE" ]; then
+  say "已是最新：$CURRENT_REF，且通過 VERIFY；不需要更新。（重新安裝請加 --force）"
   exit 0
 fi
 
@@ -106,7 +111,7 @@ if [ -z "$SRC" ]; then
 fi
 [ -d "$SRC/skills/adf-project-install" ] || fail "原始檔不完整：$SRC/skills"
 SRC_VERSION="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).version)' "$SRC/skills/adf-project-install/references/release.json")"
-[ "$SRC_VERSION" = "$TARGET" ] || fail "原始檔版本為 $SRC_VERSION，與目標 $VERSION 不符"
+[ "$SRC_VERSION" = "$BASE" ] || fail "原始檔版本為 $SRC_VERSION，與目標 $VERSION 不符"
 # 新版必須接受目前 .adf/project.yaml 的格式，否則需要走移轉 SOP
 TOOL_VERSION="$(node -e 'try{console.log(JSON.parse(require("fs").readFileSync(".adf/project.yaml","utf8")).tool_version||"")}catch{console.log("")}')"
 if ! node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));process.exit((r.compatible_tool_versions||[r.version]).includes(process.argv[2])?0:1)' \
@@ -115,7 +120,8 @@ if ! node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf
 fi
 
 # 寫入前確認
-say "即將更新：v$CURRENT → $VERSION（$PROJECT）"
+case "$VERSION" in *-*) say "注意：$VERSION 是測試版，只建議在測試專案或分支使用；正式版發布後請再執行一次更新。" ;; esac
+say "即將更新：$CURRENT_REF → $VERSION（$PROJECT）"
 say "會改變：$INST/adf-*、skills-lock.json（先備份到專案外，失敗自動還原）；不修改 standards/、modules/、.adf/"
 if [ -z "$YES" ]; then
   { : </dev/tty; } 2>/dev/null || fail "無法互動確認（沒有終端機）；確認要執行請加 --yes 或設定 ADF_YES=1"
@@ -143,7 +149,7 @@ rollback() {
   done
   cp -p "$WORK/backup/skills-lock.json" skills-lock.json || ok=0
   if [ "$ok" = 1 ] && node "$TOOL" VERIFY "$PROJECT" >/dev/null 2>&1; then
-    printf '[ADF] 已還原為 v%s，並通過 VERIFY。\n' "$CURRENT" >&2
+    printf '[ADF] 已還原為 %s，並通過 VERIFY。\n' "$CURRENT_REF" >&2
   else
     KEEP_WORK=1
     printf '[ADF] 自動還原未完成；更新前備份保留在：%s/backup\n' "$WORK" >&2
@@ -179,8 +185,8 @@ if ! node "$TOOL" VERIFY "$PROJECT" >/dev/null 2>"$WORK/post.err"; then
   abort "新版 VERIFY 失敗，更新不可視為完成"
 fi
 
-say "完成：ADF v$CURRENT → $VERSION，已通過 VERIFY。專案文件與核准狀態未變動。"
-say "版本說明：$REPO/blob/$VERSION/docs/releases/${TARGET%.*}.md"
+say "完成：ADF $CURRENT_REF → $VERSION，已通過 VERIFY。專案文件與核准狀態未變動。"
+say "版本說明：$REPO/blob/$VERSION/docs/releases/${BASE%.*}.md"
 say "建議 commit：skills-lock.json、$NEW_INST/"
 }
 

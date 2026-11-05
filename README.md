@@ -7,6 +7,7 @@ ADF 的目的不是讓 AI 單純寫得更快，而是把「相信 AI」轉成「
 ## v5.4 重點
 - `adf-legacy-analysis` 改寫為完整操作契約：逐入口追到 SQL 或副作用，以 8 類必查清單建立 `analysis/legacy-behavior.md`（`LB-*`，附證據位置與確定度），讀不到的來源列入「無法取得清單」。
 - `adf-result-comparison` 改寫為完整操作契約：先檢查可比性，以比對腳本逐欄找差異（含 DB 寫入、錯誤路徑、副作用），依固定順序分類，並在 `verification/comparison.md` 以 `LB-*` 為分母回報涵蓋率。
+- 新增測試版（beta）：正式 tag 前先打 `v5.4.0-beta.N`／`-rc.N` 試裝與試跑，安裝、更新腳本與 `project.mjs` 都支援；見「測試版（beta）」。
 - 兩支 Skill 新增「既有 Module 補填」：進行中的 Module 在目前 Work Item 補，已完成的開 `CHANGE` 只補文件；操作台網站提供 3 個補填提示詞。
 - Skill 名稱與數量、Work Type、Gate 規則不變；MIGRATION／RETROFIT_VERIFY Module 新增兩份文件，其他文件格式不變。由 v5.3 升級見 [v5.3 → v5.4 SOP](docs/upgrades/5.3-to-5.4.md)，版本說明見 [docs/releases/5.4.md](docs/releases/5.4.md)。
 
@@ -244,11 +245,29 @@ irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/updat
 
 只更新 Skill 與 `skills-lock.json`；不碰 `standards/`、`modules/`、CLAUDE.md、AGENTS.md、`.adf/`，不撤銷核准狀態。
 
-- 指定版本：`--version v5.4.0`（PowerShell：`-Version`）或 `ADF_VERSION`；預設為 main 分支腳本所記錄的最新正式版。
+- 指定版本：`--version v5.4.0`（PowerShell：`-Version`）或 `ADF_VERSION`；預設為 main 分支腳本所記錄的最新正式版。測試版見下方「測試版（beta）」。
 - 覆寫自動偵測：`--agent codex`、`--copy` / `--no-copy`（PowerShell：`-Agent`、`-Copy` / `-NoCopy`）。
 - 確定要覆蓋手動修改過的 Skill，或同版本重新安裝：`--force`（`-Force`）。
 - 略過確認提示：`--yes`（`-Yes`）或 `ADF_YES=1`。
 - 新版不相容目前專案設定時會在寫入前停止，改依下方 SOP。
+
+## 測試版（beta）：正式發布前先試裝
+
+每個版本在打正式 tag 前，先從發布分支打測試版 tag（`v5.4.0-beta.1`、`v5.4.0-beta.2`…，接近定版可用 `v5.4.0-rc.1`），在測試專案或分支實際安裝、更新與試跑 Skill；有問題就修正後打下一個 beta，沒問題再打正式 tag。正式版只在測試版驗收後發布，避免使用者裝到有問題的正式版。
+
+```bash
+# 指令取自測試版 tag 本身，再以 --version 指定同一個 tag
+curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/v5.4.0-beta.1/scripts/install.sh | bash -s -- --version v5.4.0-beta.1
+
+# Windows PowerShell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/chungtsai/adf-framework/v5.4.0-beta.1/scripts/install.ps1))) -Version v5.4.0-beta.1
+```
+
+- 已安裝的專案執行同一行指令會自動改為更新到測試版；回到正式版用 `--version v5.3.0`（或正式版發布後 `--version v5.4.0`）。
+- 測試版與正式版的 Skill 內容版本相同（例如都是 `5.4.0`），差別只在 `skills-lock.json` 的 `ref`；`project.mjs` 接受 `v<版本>` 與 `v<版本>-beta.N`／`-rc.N`，但 33 支 Skill 的 `ref` 必須一致。`VERIFY` 會回報 `ref` 與 `prerelease`。
+- 從測試版更新到同版號的正式版，更新腳本以 `skills-lock.json` 的 `ref` 判斷，不會誤判為「已是最新」。
+- 測試版只建議用在測試專案或分支；腳本會在寫入前提示。版號格式不是 `vX.Y.Z`、`vX.Y.Z-beta.N` 或 `vX.Y.Z-rc.N` 時直接停止。
+- 發布流程見 [docs/distribution.md](docs/distribution.md)「測試版與正式發布」。
 
 ## 專案起始規範：一鍵安裝
 

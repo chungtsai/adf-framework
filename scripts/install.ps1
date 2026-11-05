@@ -4,7 +4,7 @@
 #
 # 用法（在專案根目錄）：
 #   irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/install.ps1 | iex
-#   .\install.ps1 [-Agent claude-code] [-Version v5.4.0] [-Copy] [-Yes] [-Project <dir>]
+#   .\install.ps1 [-Agent claude-code] [-Version v5.4.0|v5.4.0-beta.1] [-Copy] [-Yes] [-Project <dir>]
 # 已安裝 ADF 的專案會自動改執行 update.ps1（同一個指令即可更新）。
 # 寫入任何檔案前會列出摘要並詢問確認；-Yes 或 ADF_YES=1 可略過（CI 使用）。
 param(
@@ -21,6 +21,7 @@ function Say($m) { Write-Host "[ADF] $m" }
 function Fail($m) { throw "[ADF] 停止：$m" }
 [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
 if (-not $Version.StartsWith('v')) { $Version = "v$Version" }
+if ($Version -notmatch '^v\d+\.\d+\.\d+(-(beta|rc)\.[1-9]\d*)?$') { Fail "版本格式不正確：$Version（正式版 v5.4.0；測試版 v5.4.0-beta.1 或 v5.4.0-rc.1）" }
 
 # 1. 前置條件
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Fail '找不到 Node.js；請安裝 Node.js 18 以上版本' }
@@ -45,7 +46,8 @@ if (Test-Path '.adf/migration.json') {
   $local = if ($PSScriptRoot) { Join-Path $PSScriptRoot 'update.ps1' } else { '' }
   if ($local -and (Test-Path $local)) { & $local @fwd }
   else {
-    $ref = if ($env:ADF_REF) { $env:ADF_REF } else { 'main' }
+    # 測試版的更新腳本取自同一個測試版 tag（main 的腳本可能還不認得新版）
+    $ref = if ($env:ADF_REF) { $env:ADF_REF } elseif ($Version.Contains('-')) { $Version } else { 'main' }
     try { $code = Invoke-RestMethod "https://raw.githubusercontent.com/chungtsai/adf-framework/$ref/scripts/update.ps1" }
     catch { Fail '無法下載 update.ps1；請確認網路可連到 GitHub' }
     & ([scriptblock]::Create($code)) @fwd
@@ -68,6 +70,7 @@ if ($found.Count -gt 0) {
 }
 
 # 寫入前確認
+if ($Version.Contains('-')) { Say "注意：$Version 是測試版，只建議在測試專案或分支使用；正式版發布後請以一鍵更新換成正式版。" }
 Say "即將安裝 ADF $Version 到 $root（Agent：$Agent$(if ($Copy) { '，copy 模式' })）"
 Say '會新增：Skill 目錄、skills-lock.json、.adf/；不修改其他檔案'
 if (-not $Yes) {

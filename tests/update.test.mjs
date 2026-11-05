@@ -16,6 +16,8 @@ const src=path.join(process.env.ADF_SOURCE_DIR,'skills');
 const version=JSON.parse(fs.readFileSync(path.join(src,'adf-project-install/references/release.json'))).version;
 fs.appendFileSync(process.env.NPX_LOG,process.argv.slice(2).join(' ')+'\\n');
 try{fs.readFileSync(0);}catch{}
+// The lock records the requested tag (formal or pre-release), as npx skills does.
+const tag=(process.argv.find(a=>a.includes('/tree/'))||'').split('/tree/')[1];
 if(process.env.NPX_FAIL) process.exit(1);
 const dst=path.join(process.cwd(),'.claude/skills');fs.mkdirSync(dst,{recursive:true});
 const lock={version:1,skills:{}};
@@ -25,7 +27,7 @@ for(const name of fs.readdirSync(src)){
  if(process.env.NPX_SKIP&&process.env.NPX_SKIP.startsWith(name+'/')) fs.rmSync(path.join(dst,process.env.NPX_SKIP));
  const files=[];(function walk(p){for(const n of fs.readdirSync(p)){const f=path.join(p,n);fs.statSync(f).isDirectory()?walk(f):files.push(path.relative(path.join(dst,name),f).split(path.sep).join('/'));}})(path.join(dst,name));
  const h=crypto.createHash('sha256');for(const rel of files.sort((a,b)=>a.localeCompare(b))){h.update(rel);h.update(fs.readFileSync(path.join(dst,name,rel)));}
- lock.skills[name]={source:'chungtsai/adf-framework',sourceType:'github',ref:'v'+version,skillPath:'skills/'+name+'/SKILL.md',computedHash:h.digest('hex')};
+ lock.skills[name]={source:'chungtsai/adf-framework',sourceType:'github',ref:tag||'v'+version,skillPath:'skills/'+name+'/SKILL.md',computedHash:h.digest('hex')};
 }
 fs.writeFileSync(path.join(process.cwd(),'skills-lock.json'),JSON.stringify(lock,null,2));
 `;
@@ -118,4 +120,26 @@ test('install.sh on an installed project forwards to update.sh with the same opt
  const bin=path.join(base,'bin');
  const r=spawnSync('bash',[install,'--project',project,'--version','9.9.0','--yes'],{encoding:'utf8',env:{...process.env,PATH:`${bin}${path.delimiter}${process.env.PATH}`,HOME:path.join(base,'home'),NPX_LOG:path.join(base,'npx.log'),ADF_SOURCE_DIR:nextRelease(base,'9.9.0',[current])}});
  assert.equal(r.status,0,r.stderr+r.stdout);assert.match(r.stdout,/改執行一鍵更新/);assert.match(npx(),/tree\/v9\.9\.0/);assert.deepEqual(lockRefs(),['v9.9.0']);
+});
+test('beta tag installs for testing, then the formal tag of the same version replaces it',{skip},t=>{
+ const {base,run,npx,lockRefs}=setup(t);
+ const src=nextRelease(base,'9.9.0',[current]);
+ let r=run(['--version','v9.9.0-beta.1'],{ADF_SOURCE_DIR:src});assert.equal(r.status,0,r.stderr+r.stdout);
+ assert.match(r.stdout,/測試版/);assert.match(npx(),/tree\/v9\.9\.0-beta\.1/);assert.deepEqual(lockRefs(),['v9.9.0-beta.1']);
+ r=run(['--version','v9.9.0-beta.1'],{ADF_SOURCE_DIR:src});assert.equal(r.status,0,r.stderr+r.stdout);assert.match(r.stdout,/已是最新：v9\.9\.0-beta\.1/);
+ r=run(['--version','v9.9.0'],{ADF_SOURCE_DIR:src});assert.equal(r.status,0,r.stderr+r.stdout);
+ assert.match(r.stdout,/v9\.9\.0-beta\.1 → v9\.9\.0/);assert.doesNotMatch(r.stdout,/測試版/);assert.deepEqual(lockRefs(),['v9.9.0']);
+});
+test('beta tag whose source content is a different version is refused before npx runs',{skip},t=>{
+ const {base,run,npx,lockRefs}=setup(t);
+ const r=run(['--version','v9.8.0-beta.1'],{ADF_SOURCE_DIR:nextRelease(base,'9.9.0',[current])});
+ assert.notEqual(r.status,0);assert.match(r.stderr,/原始檔版本為 9\.9\.0/);assert.equal(npx(),'');assert.deepEqual(lockRefs(),[`v${current}`]);
+});
+test('unsupported pre-release label is refused before any check',{skip},t=>{
+ const {run,npx}=setup(t);
+ const r=run(['--version','v9.9.0-alpha.1']);assert.notEqual(r.status,0);assert.match(r.stderr,/版本格式不正確/);assert.equal(npx(),'');
+});
+test('update.ps1 and install.ps1 accept the same version formats as the shell scripts',()=>{
+ for(const f of ['update.ps1','install.ps1']){const s=fs.readFileSync(path.join(repo,'scripts',f),'utf8');assert.match(s,/\(-\(beta\|rc\)\\\.\[1-9\]\\d\*\)\?\$/,f);}
+ assert.match(fs.readFileSync(path.join(repo,'scripts/update.ps1'),'utf8'),/\$currentRef -eq \$Version/);
 });

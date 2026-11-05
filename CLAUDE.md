@@ -28,9 +28,10 @@ node --test --test-name-pattern="rolls back" tests/update.test.mjs   # 單一測
 - 新寫或改寫 Skill 依 `core/skill-contract.md` 的操作契約格式（目的、共用規範、輸入、步驟、輸出、完成條件、禁止事項、範例）；`adf-backend-development` 是完整範例。
 
 ### 安裝與移轉工具
-- `skills/adf-project-install/scripts/project.mjs`：`CHECK` / `PLAN` / `APPLY` / `VERIFY` / `RESTORE` / `resolve`。它在**使用者專案**中執行，從專案的 Skill 目錄解析資源（不回退全域、拒絕 symlink 逃逸），並要求 `skills-lock.json` 每支 Skill 的 `ref` 等於 `v<resources.json.version>`。`.adf/project.yaml` 的 `tool_version` 必須在 `resources.json.compatible_tool_versions` 內。由 `tests/migration.test.mjs` 涵蓋。
+- `skills/adf-project-install/scripts/project.mjs`：`CHECK` / `PLAN` / `APPLY` / `VERIFY` / `RESTORE` / `resolve`。它在**使用者專案**中執行，從專案的 Skill 目錄解析資源（不回退全域、拒絕 symlink 逃逸），並要求 `skills-lock.json` 每支 Skill 的 `ref` 等於 `v<resources.json.version>` 或同版號測試版 `-beta.N`／`-rc.N`（33 支一致）。`.adf/project.yaml` 的 `tool_version` 必須在 `resources.json.compatible_tool_versions` 內。由 `tests/migration.test.mjs` 涵蓋。
 - `scripts/install.sh` / `install.ps1`：全新專案一鍵安裝（npx → 逐檔比對 → PLAN → APPLY → VERIFY）；偵測到已安裝（`.adf/migration.json`）時轉交 `update.*`，有舊版痕跡則在寫入前停止。
 - `scripts/update.sh` / `update.ps1`：一鍵更新（更新前 VERIFY → 相容性檢查 → 專案外備份 → npx 重裝 → 逐檔比對 → VERIFY，失敗自動還原）。
+- `--version`／`-Version` 只接受 `vX.Y.Z`、`vX.Y.Z-beta.N`、`vX.Y.Z-rc.N`；測試版與正式版內容版本相同，`project.mjs` 的 `isSupportedRef` 接受同版號的測試版 `ref`（33 支必須一致），`update.*` 以 `skills-lock.json` 的 `ref` 判斷「已是最新」。發布流程：分支升版 → 打 `-beta.N` 驗收 → 合併 `main` → 打正式 tag（`docs/distribution.md`「測試版與正式發布」）。
 - 兩組腳本寫入前都要詢問 `[y/N]`，`--yes` / `-Yes` / `ADF_YES=1` 略過。sh 與 ps1 必須保持行為一致。
 - `scripts/standards.sh` / `standards.ps1`：起始規範一鍵勾選安裝。下載 `ADF_REF`（預設 main）的原始檔，執行其中的 `project.mjs STANDARDS <project> [ids] --status DRAFT|APPROVED`，把 `references/standard-packs.json` 選定 pack 的 `standard/*` 資源寫入專案 `standards/`（只新增、同路徑或同 ID 略過）。`STANDARDS` 從工具自己的 Skill 樹讀規範（repo 與安裝後目錄結構相同），不經過專案的 `resolve`；需專案已有 `.adf/migration.json`。pack 有 `category`：`recommended`（預設安裝，以 `--exclude` 排除）或 `optional`（以 `--add` 加入），建議項目必須排在選填項目前面（編號即清單順序，validate 會檢查）；選擇邏輯集中在 `project.mjs` 的 `standardsSelect`（`--recommended`／`--exclude`／`--add`／`--select`，`--dry-run` 只預覽），sh 與 ps1 不自行解析編號。新增 pack 時，規範檔需有 frontmatter `id` 與 `status: DRAFT`（validate 會檢查），並同步網站「專案規範安裝」與 README 表格。由 `tests/standards.test.mjs` 涵蓋。
 - `scripts/init.js`、`doctor.js` 僅為唯讀相容入口，不是安裝器。
