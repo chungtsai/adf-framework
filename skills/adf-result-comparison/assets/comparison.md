@@ -1,6 +1,6 @@
 # Result Comparison
 
-> 由 `adf-result-comparison` 建立。差異由比對腳本找出，依 SKILL.md 的固定順序分類；通過率必須和涵蓋率一起看。
+> 由 `adf-result-comparison` 建立。差異由比對腳本找出，依 SKILL.md 的固定順序分類；通過率必須和涵蓋率一起看。指標以 `LB-*` 為單位，定義見 SKILL.md 步驟 5。
 
 ## 摘要
 
@@ -14,7 +14,19 @@
 | LEGACY_UNKNOWN | 0 |
 | TEST_DATA_PROBLEM | 0 |
 | REVIEW_REQUIRED | 0 |
-| Legacy 行為涵蓋率 | 已比對 0 ／ LB-* 共 0 |
+
+## 涵蓋率
+
+| 指標 | 分子／分母 | 比例 |
+|---|---|---|
+| 整體涵蓋率（已比對 LB-* ÷ LB-* 總數） | 0／0 | 不適用 |
+| 高風險涵蓋率（已比對的 HIGH ÷ HIGH 總數） | 0／0 | 不適用 |
+| 通過率（通過 LB-* ÷ 已比對 LB-*） | 0／0 | 不適用 |
+| LB-* 中確定度為 UNKNOWN | 0 | — |
+
+- 已比對：至少一個連到的 `TC-*` 有最終分類，且不是 `TEST_DATA_PROBLEM`、`REVIEW_REQUIRED`。
+- 通過：已比對的 `TC-*` 全部為 `PASS` 或 `APPROVED_BEHAVIOR_CHANGE`。
+- 分母為 0 時寫「不適用」，不寫 100%。
 
 ## 比對方式
 

@@ -1,10 +1,11 @@
 {
-  "version": "5.4.0",
+  "version": "5.4.1",
   "compatible_tool_versions": [
     "5.1.0",
     "5.2.0",
     "5.3.0",
-    "5.4.0"
+    "5.4.0",
+    "5.4.1"
   ],
   "resources": {
     "review/approval-gate.md": {

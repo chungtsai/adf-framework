@@ -38,7 +38,8 @@ description: 從 Legacy 原始碼（JSP、Servlet、Service、DAO、SQL、設定
    - **錯誤處理**：catch 後吞掉或改寫的例外、錯誤碼、畫面錯誤訊息文字。
    - **權限**：Session 檢查、選單或按鈕控制、資料範圍（部門、分行等）限制。
    - **隱含行為**：Null 與空字串互轉、民國年、四捨五入與精度、編碼、時區、共用 Util 的轉換。
-4. **登錄行為**：每項行為寫成一列 `LB-*`，包含入口、類別、行為描述、證據位置（`檔案:行號`）與確定度：
+4. **登錄行為**：每項行為寫成一列 `LB-*`，包含入口、類別、行為描述、證據位置（`檔案:行號`）、確定度與風險：
+   - 風險 `HIGH`：類別為交易、權限、副作用，或行為涉及金額、數量計算，或使用者指定；其他為 `NORMAL`。`adf-result-comparison` 以此計算高風險涵蓋率。
    - `CONFIRMED`：程式碼直接證明。
    - `UNKNOWN`：只能由命名、註解或慣例推測，或依賴「無法取得清單」中的來源。
    安全弱點（SQL 串接、未檢查權限等）照實登錄並另標 Finding，交給 `MIG-SEC-001` 處理，不在本 Stage 修正。
@@ -68,7 +69,7 @@ description: 從 Legacy 原始碼（JSP、Servlet、Service、DAO、SQL、設定
 v5.4.0 之前建立的 MIGRATION／RETROFIT_VERIFY Module 沒有 `analysis/legacy-behavior.md` 時：
 1. 進行中的 Module 在目前 Work Item 內補填；已完成的 Module 開 `CHANGE` 只補文件，不修改程式與已核准的規則。
 2. 先讀既有 Legacy Evidence、`spec/rules.md`、`verification/test-cases.md`，把已記錄的行為轉成 `LB-*`，證據位置沿用原紀錄；原紀錄沒有位置的，回 Legacy 原始碼補上，補不到標 `UNKNOWN`。
-3. 再依步驟 3 對每個入口補做 8 類盤點，新發現的行為標 `REVIEW_REQUIRED`。
+3. 再依步驟 3 對每個入口補做 8 類盤點，新發現的行為標 `REVIEW_REQUIRED`；v5.4.0 建立的清單沒有 `風險` 欄時，依步驟 4 補上。
 4. 新發現的行為若尚無對應規則，回到最早受影響的 Stage（通常是 Rules），不撤銷其他已核准 Stage；已完成的 Module 經 Human 確認後另開 `CHANGE` 處理。
 
 ## 範例
@@ -76,12 +77,12 @@ v5.4.0 之前建立的 MIGRATION／RETROFIT_VERIFY Module 沒有 `analysis/legac
 
 輸出（`analysis/legacy-behavior.md` 節錄）：
 
-| ID | 入口 | 類別 | 行為 | 證據位置 | 確定度 |
-|---|---|---|---|---|---|
-| LB-001 | 查詢 | 查詢 | 帳號名稱以 `LIKE '%'+name+'%'` 查詢，空白時不加條件 | `AccountDao.java:88` | CONFIRMED |
-| LB-002 | 查詢 | 查詢 | 未指定排序時依 `ACCT_ID` 遞增 | `AccountDao.java:97` | CONFIRMED |
-| LB-003 | 查詢 | 隱含行為 | `status` 為 Null 時畫面顯示「啟用」 | `AccountUtil.java:41` | CONFIRMED |
-| LB-004 | 查詢 | 權限 | 只能查本部門帳號 | 只有註解「限本部門」，SQL 未見條件 | UNKNOWN → REV-Q-001 |
+| ID | 入口 | 類別 | 行為 | 證據位置 | 確定度 | 風險 |
+|---|---|---|---|---|---|---|
+| LB-001 | 查詢 | 查詢 | 帳號名稱以 `LIKE '%'+name+'%'` 查詢，空白時不加條件 | `AccountDao.java:88` | CONFIRMED | NORMAL |
+| LB-002 | 查詢 | 查詢 | 未指定排序時依 `ACCT_ID` 遞增 | `AccountDao.java:97` | CONFIRMED | NORMAL |
+| LB-003 | 查詢 | 隱含行為 | `status` 為 Null 時畫面顯示「啟用」 | `AccountUtil.java:41` | CONFIRMED | NORMAL |
+| LB-004 | 查詢 | 權限 | 只能查本部門帳號 | 只有註解「限本部門」，SQL 未見條件 | UNKNOWN → REV-Q-001 | HIGH |
 
 `LB-001` 另標 Finding：SQL 串接（交給 `MIG-SEC-001`）。
 

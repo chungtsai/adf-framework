@@ -4,6 +4,11 @@
 
 ADF 的目的不是讓 AI 單純寫得更快，而是把「相信 AI」轉成「相信可驗證的證據」。透過分析、規格、標準、設計、開發、測試、比對、Traceability 與 Human Gate，降低 AI 誤解需求與 Legacy 行為的風險。
 
+## v5.4.1 重點
+- `adf-result-comparison` 的涵蓋率改為三個指標，定義寫死：整體涵蓋率、高風險涵蓋率、通過率，都以 `LB-*` 為單位並寫出分子與分母；`TEST_DATA_PROBLEM`、`REVIEW_REQUIRED` 的案例不算已比對；分母為 0 寫「不適用」。
+- `adf-legacy-analysis` 的行為清單新增 `風險` 欄（`HIGH`／`NORMAL`），作為高風險涵蓋率的分母。
+- 其他內容與 v5.4.0 相同；由 v5.4.0 更新見 [v5.3 → v5.4 SOP](docs/upgrades/5.3-to-5.4.md)「由 v5.4.0 更新到 v5.4.1」。
+
 ## v5.4 重點
 - `adf-legacy-analysis` 改寫為完整操作契約：逐入口追到 SQL 或副作用，以 8 類必查清單建立 `analysis/legacy-behavior.md`（`LB-*`，附證據位置與確定度），讀不到的來源列入「無法取得清單」。
 - `adf-result-comparison` 改寫為完整操作契約：先檢查可比性，以比對腳本逐欄找差異（含 DB 寫入、錯誤路徑、副作用），依固定順序分類，並在 `verification/comparison.md` 以 `LB-*` 為分母回報涵蓋率。
@@ -208,9 +213,9 @@ ADF_REF=main; t=$(mktemp -d) && curl -fsSL "https://codeload.github.com/chungtsa
 $r='main'; $t=Join-Path $env:TEMP "adf-$(New-Guid)"; Invoke-WebRequest -UseBasicParsing "https://codeload.github.com/chungtsai/adf-framework/zip/$r" -OutFile "$t.zip"; Expand-Archive "$t.zip" $t; & (Get-ChildItem "$t\*\scripts\install.ps1").FullName; Remove-Item -Recurse -Force $t, "$t.zip"
 ```
 
-`ADF_REF` 只決定安裝腳本取自哪個分支／tag；Skill 本身一律由 `npx skills` 從正式 tag（預設 v5.4.0）安裝，才能留下 `skills-lock.json` 來源紀錄。
+`ADF_REF` 只決定安裝腳本取自哪個分支／tag；Skill 本身一律由 `npx skills` 從正式 tag（預設 v5.4.1）安裝，才能留下 `skills-lock.json` 來源紀錄。
 
-腳本會依序：檢查是否為全新專案 → 下載同版本原始檔 → 專案層級 `npx skills add`（v5.4.0 全部 33 支）→ **逐檔比對每支 Skill 的 `SKILL.md`、`scripts/`、`assets/`、`references/` 都已放在正確位置且內容一致** → `PLAN`（計畫檔存在專案外暫存目錄）→ `APPLY` → `VERIFY`。只新增 Skill、`skills-lock.json` 與 `.adf/`，不碰其他檔案。有缺檔會停止並列出，不會自行補檔（補檔會與 `skills-lock.json` 雜湊不符）。
+腳本會依序：檢查是否為全新專案 → 下載同版本原始檔 → 專案層級 `npx skills add`（v5.4.1 全部 33 支）→ **逐檔比對每支 Skill 的 `SKILL.md`、`scripts/`、`assets/`、`references/` 都已放在正確位置且內容一致** → `PLAN`（計畫檔存在專案外暫存目錄）→ `APPLY` → `VERIFY`。只新增 Skill、`skills-lock.json` 與 `.adf/`，不碰其他檔案。有缺檔會停止並列出，不會自行補檔（補檔會與 `skills-lock.json` 雜湊不符）。
 
 安裝完成後的位置（Claude Code 預設）：
 
@@ -224,7 +229,7 @@ $r='main'; $t=Join-Path $env:TEMP "adf-$(New-Guid)"; Invoke-WebRequest -UseBasic
 Codex 等其他 Agent 會放在 `.agents/skills/`。repo 根目錄的 `scripts/`、`tests/`、`docs/` 是框架維護用，不需要放進專案。
 
 - 其他 Agent：`bash install.sh --agent codex`（PowerShell：`-Agent codex`），或設定環境變數 `ADF_AGENT`。
-- 指定版本：`--version v5.4.0` 或 `ADF_VERSION`。Windows 無法建立符號連結時加 `--copy` / `-Copy`。
+- 指定版本：`--version v5.4.1` 或 `ADF_VERSION`。Windows 無法建立符號連結時加 `--copy` / `-Copy`。
 - 想先看腳本內容：先下載 `install.sh` 檢查後再以 `bash install.sh` 執行。
 - 略過確認提示：`--yes`（`-Yes`）或 `ADF_YES=1`。
 - 偵測到任何舊版 ADF 痕跡會在安裝前停止、不寫入任何檔案，請改用下方移轉 SOP。
@@ -245,7 +250,7 @@ irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/updat
 
 只更新 Skill 與 `skills-lock.json`；不碰 `standards/`、`modules/`、CLAUDE.md、AGENTS.md、`.adf/`，不撤銷核准狀態。
 
-- 指定版本：`--version v5.4.0`（PowerShell：`-Version`）或 `ADF_VERSION`；預設為 main 分支腳本所記錄的最新正式版。測試版見下方「測試版（beta）」。
+- 指定版本：`--version v5.4.1`（PowerShell：`-Version`）或 `ADF_VERSION`；預設為 main 分支腳本所記錄的最新正式版。測試版見下方「測試版（beta）」。
 - 覆寫自動偵測：`--agent codex`、`--copy` / `--no-copy`（PowerShell：`-Agent`、`-Copy` / `-NoCopy`）。
 - 確定要覆蓋手動修改過的 Skill，或同版本重新安裝：`--force`（`-Force`）。
 - 略過確認提示：`--yes`（`-Yes`）或 `ADF_YES=1`。
@@ -253,18 +258,18 @@ irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/updat
 
 ## 測試版（beta）：正式發布前先試裝
 
-每個版本在打正式 tag 前，先從發布分支打測試版 tag（`v5.4.0-beta.1`、`v5.4.0-beta.2`…，接近定版可用 `v5.4.0-rc.1`），在測試專案或分支實際安裝、更新與試跑 Skill；有問題就修正後打下一個 beta，沒問題再打正式 tag。正式版只在測試版驗收後發布，避免使用者裝到有問題的正式版。
+每個版本在打正式 tag 前，先從發布分支打測試版 tag（`v5.4.1-beta.1`、`v5.4.1-beta.2`…，接近定版可用 `v5.4.1-rc.1`），在測試專案或分支實際安裝、更新與試跑 Skill；有問題就修正後打下一個 beta，沒問題再打正式 tag。正式版只在測試版驗收後發布，避免使用者裝到有問題的正式版。
 
 ```bash
 # 指令取自測試版 tag 本身，再以 --version 指定同一個 tag
-curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/v5.4.0-beta.1/scripts/install.sh | bash -s -- --version v5.4.0-beta.1
+curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/v5.4.1-beta.1/scripts/install.sh | bash -s -- --version v5.4.1-beta.1
 
 # Windows PowerShell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/chungtsai/adf-framework/v5.4.0-beta.1/scripts/install.ps1))) -Version v5.4.0-beta.1
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/chungtsai/adf-framework/v5.4.1-beta.1/scripts/install.ps1))) -Version v5.4.1-beta.1
 ```
 
-- 已安裝的專案執行同一行指令會自動改為更新到測試版；回到正式版用 `--version v5.3.0`（或正式版發布後 `--version v5.4.0`）。
-- 測試版與正式版的 Skill 內容版本相同（例如都是 `5.4.0`），差別只在 `skills-lock.json` 的 `ref`；`project.mjs` 接受 `v<版本>` 與 `v<版本>-beta.N`／`-rc.N`，但 33 支 Skill 的 `ref` 必須一致。`VERIFY` 會回報 `ref` 與 `prerelease`。
+- 已安裝的專案執行同一行指令會自動改為更新到測試版；回到正式版用 `--version v5.4.0`（或正式版發布後 `--version v5.4.1`）。
+- 測試版與正式版的 Skill 內容版本相同（例如都是 `5.4.1`），差別只在 `skills-lock.json` 的 `ref`；`project.mjs` 接受 `v<版本>` 與 `v<版本>-beta.N`／`-rc.N`，但 33 支 Skill 的 `ref` 必須一致。`VERIFY` 會回報 `ref` 與 `prerelease`。
 - 從測試版更新到同版號的正式版，更新腳本以 `skills-lock.json` 的 `ref` 判斷，不會誤判為「已是最新」。
 - 測試版只建議用在測試專案或分支；腳本會在寫入前提示。版號格式不是 `vX.Y.Z`、`vX.Y.Z-beta.N` 或 `vX.Y.Z-rc.N` 時直接停止。
 - 發布流程見 [docs/distribution.md](docs/distribution.md)「測試版與正式發布」。
