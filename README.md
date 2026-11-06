@@ -273,10 +273,10 @@ irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/updat
 
 ```bash
 # 指令取自測試版 tag 本身，再以 --version 指定同一個 tag
-curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/v5.4.1-beta.2/scripts/install.sh | bash -s -- --version v5.4.1-beta.2
+curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/v5.4.1-beta.1/scripts/install.sh | bash -s -- --version v5.4.1-beta.1
 
 # Windows PowerShell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/chungtsai/adf-framework/v5.4.1-beta.2/scripts/install.ps1))) -Version v5.4.1-beta.2
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/chungtsai/adf-framework/v5.4.1-beta.1/scripts/install.ps1))) -Version v5.4.1-beta.1
 ```
 
 - 已安裝的專案執行同一行指令會自動改為更新到測試版；回到正式版用 `--version v5.4.0`（或正式版發布後 `--version v5.4.1`）。
