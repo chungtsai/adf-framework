@@ -39,7 +39,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 case "$VERSION" in v*) ;; *) VERSION="v$VERSION" ;; esac
-[[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(beta|rc)\.[1-9][0-9]*)?$ ]] || fail "版本格式不正確：$VERSION（正式版 v5.4.0；測試版 v5.4.0-beta.1 或 v5.4.0-rc.1）"
+[[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(beta|rc)\.[1-9][0-9]*)?$ ]] || fail "版本格式不正確：${VERSION}（正式版 v5.4.0；測試版 v5.4.0-beta.1 或 v5.4.0-rc.1）"
 
 # 1. 前置條件
 command -v node >/dev/null 2>&1 || fail "找不到 Node.js；請安裝 Node.js 18 以上版本"
@@ -82,7 +82,7 @@ for d in .agents/skills .claude/skills .codex/skills .agent/skills .gemini/skill
 done
 if [ -f skills-lock.json ] && grep -q 'chungtsai/adf-framework' skills-lock.json; then found+=("skills-lock.json（含 ADF 紀錄）"); fi
 for f in CLAUDE.md AGENTS.md; do
-  if [ -f "$f" ] && grep -Eq 'framework/(review|templates)' "$f"; then found+=("$f（含舊版 ADF 引用）"); fi
+  if [ -f "$f" ] && grep -Eq 'framework/(review|templates)' "$f"; then found+=("${f}（含舊版 ADF 引用）"); fi
 done
 if [ ${#found[@]} -gt 0 ]; then
   printf '[ADF] 偵測到既有 ADF 痕跡：\n' >&2
@@ -92,7 +92,7 @@ fi
 
 # 寫入前確認
 case "$VERSION" in *-*) say "注意：$VERSION 是測試版，只建議在測試專案或分支使用；正式版發布後請以一鍵更新換成正式版。" ;; esac
-say "即將安裝 ADF $VERSION 到 $PROJECT（Agent：$AGENT${COPY:+，copy 模式}）"
+say "即將安裝 ADF $VERSION 到 ${PROJECT}（Agent：$AGENT${COPY:+，copy 模式}）"
 say "會新增：Skill 目錄、skills-lock.json、.adf/；不修改其他檔案"
 if [ -z "$YES" ]; then
   { : </dev/tty; } 2>/dev/null || fail "無法互動確認（沒有終端機）；確認要執行請加 --yes 或設定 ADF_YES=1"
@@ -111,13 +111,13 @@ if [ -z "$SRC" ]; then
   say "下載 $VERSION 原始檔以供比對"
   mkdir -p "$WORK/src"
   curl -fsSL "https://codeload.github.com/chungtsai/adf-framework/tar.gz/refs/tags/$VERSION" \
-    | tar -xz -C "$WORK/src" --strip-components=1 || fail "無法下載 $VERSION；請確認版本存在且網路可連到 GitHub"
+    | tar -xz -C "$WORK/src" --strip-components=1 || fail "無法下載 ${VERSION}；請確認版本存在且網路可連到 GitHub"
   SRC="$WORK/src"
 fi
 [ -d "$SRC/skills/adf-project-install" ] || fail "原始檔不完整：$SRC/skills"
 
 # 4. 專案層級安裝全部 Skill（不加 -g，明確指定 Agent，不用 --all）
-say "安裝 ADF $VERSION 到 $PROJECT（Agent：$AGENT）"
+say "安裝 ADF $VERSION 到 ${PROJECT}（Agent：${AGENT}）"
 # shellcheck disable=SC2086
 npx -y skills add "$REPO/tree/$VERSION" --skill '*' -a "$AGENT" -y $COPY </dev/null
 
