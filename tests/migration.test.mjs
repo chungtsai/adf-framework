@@ -13,7 +13,7 @@ function fixture(t){const root=fs.mkdtempSync(path.join(os.tmpdir(),'adf-test-')
 function write(r,p,s){fs.mkdirSync(path.dirname(path.join(r,p)),{recursive:true});fs.writeFileSync(path.join(r,p),s);}
 test('v5.0 migration preserves approved module and custom standard; backups restore old templates',t=>{
  const r=fixture(t);write(r,'modules/a/manifest.yaml','status: APPROVED\n');write(r,'standards/date.md','CUSTOM');write(r,'CLAUDE.md','Custom instructions');
- const resource=registry.resources['template/manifest.yaml'];write(r,'.adf/templates/module/manifest.yaml',fs.readFileSync(path.join(repo,'skills',resource.skill,resource.path)));
+ write(r,'.adf/templates/module/manifest.yaml',fs.readFileSync(path.join(repo,'tests/fixtures/manifest-v5.0.yaml')));
  const p=plan(r);assert.deepEqual(p.blockers,[]);const result=apply(r,p);assert.equal(verify(r).status,'verified');
  assert.equal(fs.readFileSync(path.join(r,'modules/a/manifest.yaml'),'utf8'),'status: APPROVED\n');assert.equal(fs.readFileSync(path.join(r,'standards/date.md'),'utf8'),'CUSTOM');
  assert.equal(JSON.parse(fs.readFileSync(path.join(r,'.adf/project.yaml'))).document_schema,'5.0');assert.ok(!fs.existsSync(path.join(r,'.adf/templates')));
@@ -28,7 +28,7 @@ test('rollback refuses edits made after migration',t=>{const r=fixture(t);write(
 test('arbitrary YAML config is preserved and blocks automatic merge',t=>{const r=fixture(t);write(r,'.adf/project.yaml','custom: true\n');assert.ok(plan(r).blockers.some(s=>s.includes('YAML merge')));assert.equal(fs.readFileSync(path.join(r,'.adf/project.yaml'),'utf8'),'custom: true\n');});
 
 test('manual copies without npx source records cannot claim migration completion',t=>{const r=fixture(t);fs.unlinkSync(path.join(r,'skills-lock.json'));assert.ok(plan(r).blockers.some(s=>s.includes('provenance')));assert.throws(()=>apply(r,plan(r)));});
-test('raw GitHub v5.0 template byte hash is recognized',t=>{const r=fixture(t);const resource=registry.resources['template/manifest.yaml'];let original=fs.readFileSync(path.join(repo,'skills',resource.skill,resource.path),'utf8');original=original.replace(/\n$/,'');write(r,'.adf/templates/module/manifest.yaml',original);assert.deepEqual(plan(r).blockers,[]);});
+test('raw GitHub v5.0 template byte hash is recognized',t=>{const r=fixture(t);let original=fs.readFileSync(path.join(repo,'tests/fixtures/manifest-v5.0.yaml'),'utf8');original=original.replace(/\n$/,'');write(r,'.adf/templates/module/manifest.yaml',original);assert.deepEqual(plan(r).blockers,[]);});
 
 test('obsolete active ADF skill and standard legacy references are blockers',t=>{const r=fixture(t);write(r,'.claude/skills/adf-old-custom/SKILL.md','manual');write(r,'standards/reference.md','Read framework/review/approval-gate.md');const p=plan(r);assert.ok(p.blockers.some(s=>s.includes('obsolete')));assert.ok(p.blockers.some(s=>s.includes('legacy standard')));});
 test('completed migration is idempotent after normal new work',t=>{const r=fixture(t);write(r,'modules/a/spec.md','approved');apply(r,plan(r));write(r,'modules/a/spec.md','approved new CHANGE');assert.equal(apply(r,plan(r)).status,'already_migrated');assert.equal(verify(r).subsequent_project_changes,true);});

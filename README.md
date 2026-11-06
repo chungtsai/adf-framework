@@ -7,6 +7,8 @@ ADF 的目的不是讓 AI 單純寫得更快，而是把「相信 AI」轉成「
 ## v5.4.1 重點
 - `adf-result-comparison` 的涵蓋率改為三個指標，定義寫死：整體涵蓋率、高風險涵蓋率、通過率，都以 `LB-*` 為單位並寫出分子與分母；`TEST_DATA_PROBLEM`、`REVIEW_REQUIRED` 的案例不算已比對；分母為 0 寫「不適用」。
 - `adf-legacy-analysis` 的行為清單新增 `風險` 欄（`HIGH`／`NORMAL`），作為高風險涵蓋率的分母。
+- 既有系統導入的 manifest 寫法定案：`RETROFIT_VERIFY` 為 `type: MIGRATION` + `intents: [RETROFIT_VERIFY]`，`BASELINE_ADOPTION` 為 `type: NEW` + `intents: [BASELINE_ADOPTION]`（見「Work Model」）；manifest 範本、`adf-feature-init`、`adf-retrofit-verification`、`adf-baseline-adoption`、`adf-legacy-analysis` 同步。
+- README 補充安裝後要 commit 的檔案；修正 macOS 內建 bash 3.2 執行安裝／更新腳本出現 `unbound variable`。
 - 其他內容與 v5.4.0 相同；由 v5.4.0 更新見 [v5.3 → v5.4 SOP](docs/upgrades/5.3-to-5.4.md)「由 v5.4.0 更新到 v5.4.1」。
 
 ## v5.4 重點
@@ -69,7 +71,14 @@ ADF 卡住時不只回報 `BLOCKED`。遇到 `UNKNOWN`、`REVIEW_REQUIRED`、`CO
 
 ## Work Model
 
-ADF 保持三種主要 Work Type：`NEW`、`CHANGE`、`MIGRATION`。CHANGE 可搭配 `FEATURE`、`BUGFIX`、`SECURITY_FIX`、`REFACTOR`、`PERFORMANCE` 等 Intent。既有系統導入另外支援 `RETROFIT_VERIFY` 與 `BASELINE_ADOPTION` 情境。`STANDARD_CHANGE` 是 Framework-level trigger，不是一般功能 Work Type。
+ADF 保持三種主要 Work Type：`NEW`、`CHANGE`、`MIGRATION`。CHANGE 可搭配 `FEATURE`、`BUGFIX`、`SECURITY_FIX`、`REFACTOR`、`PERFORMANCE` 等 Intent。既有系統導入另外支援 `RETROFIT_VERIFY` 與 `BASELINE_ADOPTION` 情境，以 Intent 表示、不新增 Work Type。`STANDARD_CHANGE` 是 Framework-level trigger，不是一般功能 Work Type。
+
+| 情境 | `work_item.type` | `work_item.intents` | `module.origin` | `behavior.change_allowed` |
+|---|---|---|---|---|
+| `RETROFIT_VERIFY`（已移轉、Legacy 仍在） | `MIGRATION` | `[RETROFIT_VERIFY]` | `MIGRATION` | `false` |
+| `BASELINE_ADOPTION`（既有系統、沒有 Legacy） | `NEW` | `[BASELINE_ADOPTION]` | `NEW` | `false` |
+
+兩種情境都只驗證、不修改 Target；之後的修改另開 `CHANGE`。`status` 的調整見 manifest 範本末端註解。
 
 ## 為什麼 Migration 可靠度較高
 
@@ -227,6 +236,8 @@ $r='main'; $t=Join-Path $env:TEMP "adf-$(New-Guid)"; Invoke-WebRequest -UseBasic
 ```
 
 Codex 等其他 Agent 會放在 `.agents/skills/`。repo 根目錄的 `scripts/`、`tests/`、`docs/` 是框架維護用，不需要放進專案。
+
+**安裝完成後請 commit 進版控**：Skill 目錄（`.claude/skills/`，以及存在時的 `.agents/skills/`）、`skills-lock.json`、整個 `.adf/`，之後的 `modules/`、`standards/` 也一樣。沒進版控時，團隊成員 clone 下來沒有 Skill，`git worktree` 開出的工作目錄也不會有這些檔案，Agent 會改讀主 checkout 的實體路徑。要用丟棄式副本試跑，先 commit 再開 worktree，或直接複製整個專案資料夾。
 
 - 其他 Agent：`bash install.sh --agent codex`（PowerShell：`-Agent codex`），或設定環境變數 `ADF_AGENT`。
 - 指定版本：`--version v5.4.1` 或 `ADF_VERSION`。Windows 無法建立符號連結時加 `--copy` / `-Copy`。

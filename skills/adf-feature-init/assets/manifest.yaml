@@ -44,11 +44,22 @@ status:
     traceability: pending
 blockers: []
 
-# Adoption intents supported by ADF v3:
-# - RETROFIT_VERIFY: target already migrated and legacy is available; verify only first.
-# - BASELINE_ADOPTION: existing target with no legacy; establish approved current baseline.
-# For the first adoption pass, keep implementation modification disabled by process policy.
-
+# 既有系統導入情境（對應 core/invariants.md「Work Model」）：
+# - RETROFIT_VERIFY（已移轉、Legacy 仍在，只驗證）：
+#     module.origin: MIGRATION
+#     work_item.type: MIGRATION
+#     work_item.intents: [RETROFIT_VERIFY]
+#     behavior.change_allowed: false
+#     status.development.backend／frontend: not_applicable
+#     status.verification.legacy_baseline／normalization／comparison: pending
+# - BASELINE_ADOPTION（既有系統、沒有 Legacy，建立 Approved Baseline）：
+#     module.origin: NEW
+#     work_item.type: NEW
+#     work_item.intents: [BASELINE_ADOPTION]
+#     behavior.change_allowed: false
+#     status.development.backend／frontend: not_applicable
+#     review.approval.required: true
+# 之後的修改另開 CHANGE Work Item，module.origin 保持不變。
 
 review:
   status: IN_PROGRESS

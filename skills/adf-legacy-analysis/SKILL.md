@@ -20,7 +20,7 @@ description: 從 Legacy 原始碼（JSP、Servlet、Service、DAO、SQL、設定
 
 | 來源 | 最低要求 | 缺少時 |
 |---|---|---|
-| `manifest.yaml` | Active Work Item 為 `MIGRATION`，或 `RETROFIT_VERIFY` 情境 | 停止，改用 `adf-migrate`、`adf-retrofit-verification` 或 `adf-feature-init` |
+| `manifest.yaml` | Active Work Item 的 `type` 為 `MIGRATION`（一般 Migration，或 `intents` 含 `RETROFIT_VERIFY`） | 停止，改用 `adf-migrate`、`adf-retrofit-verification` 或 `adf-feature-init` |
 | Legacy 入口 | 使用者指定的畫面、URL、Action 或批次名稱 | 停止並詢問；不自行擴大範圍 |
 | Legacy 原始碼 | 入口到 DAO／SQL 的程式與設定檔（XML、properties） | 可讀到的部分照常分析，讀不到的列入「無法取得清單」 |
 | DB 物件 | Table、Trigger、Stored Procedure、Sequence、View 定義 | 列入「無法取得清單」，相關行為標 `UNKNOWN` |

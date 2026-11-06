@@ -4,7 +4,16 @@
 
 ## Work Model
 - Work Type 僅使用 `NEW`、`CHANGE`、`MIGRATION`。
-- `CHANGE` 可搭配 Intent：`FEATURE`、`BUGFIX`、`SECURITY_FIX`、`REFACTOR`、`PERFORMANCE`。既有系統導入另支援 `RETROFIT_VERIFY` 與 `BASELINE_ADOPTION` 情境。
+- `CHANGE` 可搭配 Intent：`FEATURE`、`BUGFIX`、`SECURITY_FIX`、`REFACTOR`、`PERFORMANCE`。
+- 既有系統導入的兩種情境以 Intent 表示，不新增 Work Type。`manifest.yaml` 依下表填寫：
+
+| 情境 | `work_item.type` | `work_item.intents` | `module.origin` | `behavior.change_allowed` |
+|---|---|---|---|---|
+| `RETROFIT_VERIFY`（已移轉、Legacy 仍在） | `MIGRATION` | `[RETROFIT_VERIFY]` | `MIGRATION` | `false` |
+| `BASELINE_ADOPTION`（既有系統、沒有 Legacy） | `NEW` | `[BASELINE_ADOPTION]` | `NEW` | `false` |
+
+- 判斷情境一律看 `work_item.intents`，不看 Module 名稱或對話內容。`type: MIGRATION` 但 `intents` 不含 `RETROFIT_VERIFY` 時是一般 Migration；`type: NEW` 且含 `BASELINE_ADOPTION` 時不得進入開發 Stage。
+- 兩種情境都只驗證、不修改 Target。之後的修改另開 `CHANGE` Work Item 重用同一 Module，`module.origin` 保持不變。
 - `STANDARD_CHANGE` 是 Framework-level Trigger，不是 Work Type。
 - 每個 Module 同一時間只允許一個 Active Work Item；Module 是主要隔離邊界。
 

@@ -16,5 +16,8 @@ description: 對已完成移轉且 Legacy 仍存在的 Target 補做事後語意
 
 來源缺少或版本不相容時停止，不回退全域，不保留本地副本。
 
+## 啟動條件
+Active Work Item 必須是 `type: MIGRATION` 且 `intents` 含 `RETROFIT_VERIFY`（填法見 `core/invariants.md`「Work Model」）。manifest 不存在時先交 `adf-feature-init` 依該表建立；`type` 或 `intents` 不符時停止並說明，不自行改寫既有 manifest。
+
 ## Verify Only
 第一階段禁止自動修改 Target。發現差異先保存 Evidence 與分類；確認為 `MIGRATION_DEFECT` 後，經 Human Gate 決定是否建立獨立 `CHANGE` 進行修復與 Re-Verify。
