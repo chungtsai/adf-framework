@@ -1,9 +1,10 @@
 {
-  "version": "5.3.0",
+  "version": "5.4.0",
   "compatible_tool_versions": [
     "5.1.0",
     "5.2.0",
-    "5.3.0"
+    "5.3.0",
+    "5.4.0"
   ],
   "resources": {
     "review/approval-gate.md": {
@@ -38,6 +39,10 @@
       "skill": "adf-development-design",
       "path": "assets/design.md"
     },
+    "template/analysis/legacy-behavior.md": {
+      "skill": "adf-legacy-analysis",
+      "path": "assets/legacy-behavior.md"
+    },
     "template/manifest.yaml": {
       "skill": "adf-feature-init",
       "path": "assets/manifest.yaml"
@@ -69,6 +74,10 @@
     "template/verification/traceability.md": {
       "skill": "adf-traceability-check",
       "path": "assets/traceability.md"
+    },
+    "template/verification/comparison.md": {
+      "skill": "adf-result-comparison",
+      "path": "assets/comparison.md"
     },
     "standard/development/date-time.md": {
       "skill": "adf-standard-authoring",

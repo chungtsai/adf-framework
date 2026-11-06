@@ -8,6 +8,9 @@ const registry = JSON.parse(fs.readFileSync(path.join(here, '../references/resou
 const VERSION = registry.version;
 // Project configuration written by these tool versions has the same format and is accepted as-is.
 const COMPATIBLE_TOOL_VERSIONS = registry.compatible_tool_versions || [VERSION];
+// Install source tag: formal v<version>, or a pre-release v<version>-beta.N / -rc.N cut from the same content.
+const REF_PATTERN = new RegExp(`^v${VERSION.replace(/\./g,'\\.')}(?:-(?:beta|rc)\\.[1-9][0-9]*)?$`);
+export function isSupportedRef(ref) { return typeof ref==='string'&&REF_PATTERN.test(ref); }
 const hash = b => crypto.createHash('sha256').update(b).digest('hex');
 const json = p => JSON.parse(fs.readFileSync(p, 'utf8'));
 const equal = (a,b) => JSON.stringify(a) === JSON.stringify(b);
@@ -68,13 +71,15 @@ function inventory(root) {
   const names=json(path.join(here,'../references/skills.json'));
   for(const name of [...new Set([...owners,...names])]) try {const p=skillLocation(root,name);sources[name]=files(p,'');} catch(e){blockers.push(e.message);}
   for(const key of Object.keys(registry.resources)) try {resolveResource(root,key);}catch(e){blockers.push(e.message);}
-  let lock=null;
+  let lock=null, ref=null;
   try {
     lock=json(safe(root,'skills-lock.json'));
     if(lock.version!==1||!lock.skills) fail('Unsupported npx skills lock format');
     for(const name of names) {
       const entry=lock.skills[name];
-      if(!entry||entry.sourceType!=='github'||entry.source!=='chungtsai/adf-framework'||entry.ref!==`v${VERSION}`||entry.skillPath!==`skills/${name}/SKILL.md`) fail(`Missing/unsupported formal npx source: ${name}`);
+      if(!entry||entry.sourceType!=='github'||entry.source!=='chungtsai/adf-framework'||!isSupportedRef(entry.ref)||entry.skillPath!==`skills/${name}/SKILL.md`) fail(`Missing/unsupported formal npx source: ${name}`);
+      if(ref&&entry.ref!==ref) fail(`Mixed npx source refs: ${ref} and ${entry.ref} (${name})`);
+      ref=entry.ref;
       if(sources[name]) {
         const folder=skillLocation(root,name),h=crypto.createHash('sha256');
         for(const rel of Object.keys(sources[name]).sort((a,b)=>a.localeCompare(b))) {h.update(rel);h.update(fs.readFileSync(safe(folder,rel)));}
@@ -108,7 +113,7 @@ function inventory(root) {
   let config=null;
   const cfg=safe(root,'.adf/project.yaml');
   if(fs.existsSync(cfg)) try {config=json(cfg);if(config.manager!=='adf-project-install'||!['5.0','5.1'].includes(config.document_schema)||!COMPATIBLE_TOOL_VERSIONS.includes(config.tool_version)||config.scope!=='project') blockers.push('Unsupported project configuration; preserve and merge manually');}catch{blockers.push('Existing project.yaml requires manual YAML merge; no overwrite');}
-  return {blockers:[...new Set(blockers)],sources,global_skills:globals,config};
+  return {blockers:[...new Set(blockers)],sources,global_skills:globals,config,ref};
 }
 export function plan(root,resolutions={entries:[]}) {
   root=path.resolve(root);const inv=inventory(root), before=snapshot(root), relocations=[];
@@ -170,7 +175,7 @@ export function verify(root) {
   if(hash(fs.readFileSync(safe(root,'.adf/project.yaml')))!==r.after_config) fail('Project configuration changed');
   checkBackup(root,r.id);
   // VERIFY itself stays read-only. Completion is represented by its successful result.
-  return {status:'verified',version:VERSION,backup:r.id,subsequent_project_changes:!equal(protectedSnapshot(root),r.protected)};
+  return {status:'verified',version:VERSION,ref:inv.ref,prerelease:/-/.test(inv.ref||''),backup:r.id,subsequent_project_changes:!equal(protectedSnapshot(root),r.protected)};
 }
 function checkBackup(root,id) {
   if(typeof id!=='string'||! /^[0-9a-f-]{36}$/.test(id)) fail('Invalid backup ID');

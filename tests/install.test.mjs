@@ -15,6 +15,8 @@ const fs=require('fs'),path=require('path'),crypto=require('crypto');
 const repo=${JSON.stringify(repo)},version=JSON.parse(fs.readFileSync(path.join(repo,'skills/adf-project-install/references/release.json'))).version;
 fs.appendFileSync(process.env.NPX_LOG,process.argv.slice(2).join(' ')+'\\n');
 try{fs.readFileSync(0);}catch{} // real npx reads stdin; under curl | bash that is the rest of the script
+// The lock records the requested tag (formal or pre-release), as npx skills does.
+const tag=(process.argv.find(a=>a.includes('/tree/'))||'').split('/tree/')[1];
 
 const dst=path.join(process.cwd(),'.claude/skills');fs.mkdirSync(dst,{recursive:true});
 const lock={version:1,skills:{}};
@@ -23,7 +25,7 @@ for(const name of fs.readdirSync(path.join(repo,'skills'))){
  if(process.env.NPX_SKIP&&process.env.NPX_SKIP.startsWith(name+'/')) fs.rmSync(path.join(dst,process.env.NPX_SKIP));
  const files=[];(function walk(p){for(const n of fs.readdirSync(p)){const f=path.join(p,n);fs.statSync(f).isDirectory()?walk(f):files.push(path.relative(path.join(dst,name),f).split(path.sep).join('/'));}})(path.join(dst,name));
  const h=crypto.createHash('sha256');for(const rel of files.sort((a,b)=>a.localeCompare(b))){h.update(rel);h.update(fs.readFileSync(path.join(dst,name,rel)));}
- lock.skills[name]={source:'chungtsai/adf-framework',sourceType:'github',ref:'v'+version,skillPath:'skills/'+name+'/SKILL.md',computedHash:h.digest('hex')};
+ lock.skills[name]={source:'chungtsai/adf-framework',sourceType:'github',ref:tag||'v'+version,skillPath:'skills/'+name+'/SKILL.md',computedHash:h.digest('hex')};
 }
 fs.writeFileSync(path.join(process.cwd(),'skills-lock.json'),JSON.stringify(lock,null,2));
 `;
@@ -34,7 +36,7 @@ function setup(t){
  const home=path.join(base,'home');fs.mkdirSync(home);
  const env=extra=>({...process.env,PATH:`${bin}${path.delimiter}${process.env.PATH}`,HOME:home,NPX_LOG:path.join(base,'npx.log'),ADF_SOURCE_DIR:repo,ADF_YES:'1',...extra});
  const piped=()=>spawnSync('bash',['-s','--','--project',project],{encoding:'utf8',input:fs.readFileSync(script),env:env({})});
- const run=(extra={})=>spawnSync('bash',[script,'--project',project],{encoding:'utf8',env:env(extra)});
+ const run=(extra={},args=[])=>spawnSync('bash',[script,'--project',project,...args],{encoding:'utf8',env:env(extra)});
  return {base,project,run,piped};
 }
 test('fresh project installs, plans, applies and verifies in one command',{skip},t=>{
@@ -75,4 +77,16 @@ test('without --yes and without a terminal, nothing is written',{skip},t=>{
  const {base,project,run}=setup(t);
  const r=run({ADF_YES:''});assert.notEqual(r.status,0);assert.match(r.stderr,/--yes/);assert.match(r.stdout,/即將安裝/);
  assert.ok(!fs.existsSync(path.join(base,'npx.log')));assert.ok(!fs.existsSync(path.join(project,'.adf')));
+});
+test('pre-release tag installs and verifies with the beta ref recorded in the lock',{skip},t=>{
+ const {project,run}=setup(t);
+ const version=JSON.parse(fs.readFileSync(path.join(repo,'skills/adf-project-install/references/release.json'))).version;
+ const r=run({},['--version',`v${version}-beta.1`]);assert.equal(r.status,0,r.stderr+r.stdout);assert.match(r.stdout,/測試版/);
+ const refs=new Set(Object.values(JSON.parse(fs.readFileSync(path.join(project,'skills-lock.json'))).skills).map(s=>s.ref));
+ assert.deepEqual([...refs],[`v${version}-beta.1`]);
+});
+test('unsupported version format stops before any write',{skip},t=>{
+ const {project,run}=setup(t);
+ const r=run({},['--version','v5.4.0-alpha']);assert.notEqual(r.status,0);assert.match(r.stderr,/版本格式不正確/);
+ assert.deepEqual(fs.readdirSync(project),[]);
 });

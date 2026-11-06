@@ -15,11 +15,13 @@ Module 預設使用以下 Artifact（路徑相對於 Module 根目錄）：
 | Artifact | 路徑 | 主要識別碼 |
 |---|---|---|
 | Requirement | `spec/requirements.md` | `REQ-*` |
+| Legacy 行為清單（MIGRATION、RETROFIT_VERIFY） | `analysis/legacy-behavior.md` | `LB-*` |
 | Rules | `spec/rules.md` | `BR-*`、`VAL-*`、`Q-*`、`UI-*` |
 | Standards 適用性 | `spec/standards.md` | `DEV-*`、`MIG-*` |
 | Design | `design/design.md` | — |
 | Functional Scenario | `verification/functional-scenarios.md` | `FS-*` |
 | Test Case | `verification/test-cases.md` | `TC-*` |
+| 結果比對（MIGRATION、RETROFIT_VERIFY） | `verification/comparison.md` | — |
 | Traceability | `verification/traceability.md` | — |
 | 規格書（Read Model） | `specification.md` | 引用上列 ID |
 
@@ -33,7 +35,7 @@ Module 預設使用以下 Artifact（路徑相對於 Module 根目錄）：
 - AI 不能自行核准；需要 Human Gate 的 Stage 只有 Human 明確確認後才能標記 `APPROVED`。
 
 ## 識別碼與語言
-- 穩定識別碼維持英文：`REQ-*`、`BR-*`、`VAL-*`、`Q-*`、`UI-*`、`FS-*`、`TC-*`、`DEV-*`、`MIG-*`。
+- 穩定識別碼維持英文：`REQ-*`、`LB-*`、`BR-*`、`VAL-*`、`Q-*`、`UI-*`、`FS-*`、`TC-*`、`DEV-*`、`MIG-*`。
 - 人看的內容使用繁體中文；Skill ID、檔名、YAML/JSON Key、Work Type、Intent、Status 與程式代碼維持英文。術語對照見 `review/terminology.md`。
 
 ## Standards

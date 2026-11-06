@@ -7,7 +7,7 @@
 # 用法（在專案根目錄）：
 #   curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/install.sh | bash
 #   或下載整包後執行（見 README「全新專案：一鍵安裝」）
-#   bash install.sh [--agent claude-code|codex|...] [--version v5.3.0] [--copy] [--yes] [--project <dir>]
+#   bash install.sh [--agent claude-code|codex|...] [--version v5.4.0|v5.4.0-beta.1] [--copy] [--yes] [--project <dir>]
 # 已安裝 ADF 的專案會自動改執行 update.sh（同一個指令即可更新）。
 # 寫入任何檔案前會列出摘要並詢問確認；--yes 或 ADF_YES=1 可略過（CI 使用）。
 set -euo pipefail
@@ -17,7 +17,7 @@ set -euo pipefail
 main() {
 
 REPO="https://github.com/chungtsai/adf-framework"
-VERSION="${ADF_VERSION:-v5.3.0}"
+VERSION="${ADF_VERSION:-v5.4.0}"
 AGENT="${ADF_AGENT:-claude-code}"
 PROJECT="."
 COPY=""
@@ -39,6 +39,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 case "$VERSION" in v*) ;; *) VERSION="v$VERSION" ;; esac
+[[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(beta|rc)\.[1-9][0-9]*)?$ ]] || fail "版本格式不正確：$VERSION（正式版 v5.4.0；測試版 v5.4.0-beta.1 或 v5.4.0-rc.1）"
 
 # 1. 前置條件
 command -v node >/dev/null 2>&1 || fail "找不到 Node.js；請安裝 Node.js 18 以上版本"
@@ -63,7 +64,9 @@ if [ -f .adf/migration.json ]; then
     command -v curl >/dev/null 2>&1 || fail "找不到 curl"
     UPDATER="$(mktemp "${TMPDIR:-/tmp}/adf-update.XXXXXX")"
     trap 'rm -f "$UPDATER"' EXIT
-    curl -fsSL "https://raw.githubusercontent.com/chungtsai/adf-framework/${ADF_REF:-main}/scripts/update.sh" -o "$UPDATER" \
+    # 測試版的更新腳本取自同一個測試版 tag（main 的腳本可能還不認得新版）
+    UREF="${ADF_REF:-main}"; case "$VERSION" in *-*) UREF="${ADF_REF:-$VERSION}" ;; esac
+    curl -fsSL "https://raw.githubusercontent.com/chungtsai/adf-framework/$UREF/scripts/update.sh" -o "$UPDATER" \
       || fail "無法下載 update.sh；請確認網路可連到 GitHub"
   fi
   status=0
@@ -88,6 +91,7 @@ if [ ${#found[@]} -gt 0 ]; then
 fi
 
 # 寫入前確認
+case "$VERSION" in *-*) say "注意：$VERSION 是測試版，只建議在測試專案或分支使用；正式版發布後請以一鍵更新換成正式版。" ;; esac
 say "即將安裝 ADF $VERSION 到 $PROJECT（Agent：$AGENT${COPY:+，copy 模式}）"
 say "會新增：Skill 目錄、skills-lock.json、.adf/；不修改其他檔案"
 if [ -z "$YES" ]; then

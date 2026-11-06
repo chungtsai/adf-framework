@@ -6,11 +6,11 @@
 #
 # 用法（在專案根目錄）：
 #   irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/update.ps1 | iex
-#   .\update.ps1 [-Version v5.3.0] [-Agent claude-code] [-Copy|-NoCopy] [-Force] [-Yes] [-Project <dir>]
+#   .\update.ps1 [-Version v5.4.0|v5.4.0-beta.1] [-Agent claude-code] [-Copy|-NoCopy] [-Force] [-Yes] [-Project <dir>]
 # 寫入任何檔案前會列出摘要並詢問確認；-Yes 或 ADF_YES=1 可略過（CI 使用）。
 param(
   [string]$Agent = $env:ADF_AGENT,
-  [string]$Version = $(if ($env:ADF_VERSION) { $env:ADF_VERSION } else { 'v5.3.0' }),
+  [string]$Version = $(if ($env:ADF_VERSION) { $env:ADF_VERSION } else { 'v5.4.0' }),
   [string]$Project = '.',
   [switch]$Copy,
   [switch]$NoCopy,
@@ -25,7 +25,10 @@ function Fail($m) { throw "[ADF] 停止：$m" }
 function ReadJson($p) { [IO.File]::ReadAllText((Resolve-Path $p).Path) | ConvertFrom-Json }
 [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
 if (-not $Version.StartsWith('v')) { $Version = "v$Version" }
+if ($Version -notmatch '^v\d+\.\d+\.\d+(-(beta|rc)\.[1-9]\d*)?$') { Fail "版本格式不正確：$Version（正式版 v5.4.0；測試版 v5.4.0-beta.1 或 v5.4.0-rc.1）" }
 $target = $Version.Substring(1)
+# 測試版 v5.4.0-beta.1 的內容版本為 5.4.0
+$base = $target.Split('-')[0]
 
 # 1. 前置條件
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Fail '找不到 Node.js；請安裝 Node.js 18 以上版本' }
@@ -48,6 +51,10 @@ $inst = @('.claude/skills', '.agents/skills') | Where-Object { Test-Path (Join-P
 if (-not $inst) { Fail '找不到已安裝的 adf-project-install（.claude/skills 或 .agents/skills）；請依 docs/upgrades 的 SOP 處理。' }
 $tool = Join-Path $inst 'adf-project-install/scripts/project.mjs'
 $current = (ReadJson (Join-Path $inst 'adf-project-install/references/release.json')).version
+# 目前安裝的 tag（正式版或測試版）以 skills-lock.json 為準
+$currentRef = ''
+try { $currentRef = (ReadJson 'skills-lock.json').skills.'adf-project-install'.ref } catch { }
+if (-not $currentRef) { $currentRef = "v$current" }
 
 # 3. 沿用目前的 Agent 與安裝模式（可用參數覆寫）
 if (-not $Agent) { $Agent = if (Test-Path '.claude/skills/adf-project-install') { 'claude-code' } else { 'codex' } }
@@ -55,7 +62,7 @@ $item = Get-Item (Join-Path $inst 'adf-project-install') -Force
 $isLink = [bool]($item.Attributes -band [IO.FileAttributes]::ReparsePoint)
 if ($Copy) { $useCopy = $true } elseif ($NoCopy) { $useCopy = $false }
 else { $useCopy = (-not $isLink) -and ($inst -eq '.claude/skills') -and -not (Test-Path '.agents/skills/adf-project-install') }
-Say "目前版本：v$current；目標版本：$Version（Agent：$Agent，模式：$(if ($useCopy) { 'copy' } else { 'link' })）"
+Say "目前版本：$currentRef；目標版本：$Version（Agent：$Agent，模式：$(if ($useCopy) { 'copy' } else { 'link' })）"
 
 $work = Join-Path ([IO.Path]::GetTempPath()) ("adf-update-" + [guid]::NewGuid())
 New-Item -ItemType Directory $work | Out-Null
@@ -68,8 +75,8 @@ try {
     if (-not $Force) { Fail '目前安裝未通過 VERIFY（常見原因：Skill 被手動修改）。請先把客製內容移到 standards/ 或專案外；確認可以覆蓋時加 -Force。' }
     Say '已指定 -Force，略過更新前 VERIFY'
   }
-  if (($current -eq $target) -and -not $Force) {
-    Say "已是最新：v$current，且通過 VERIFY；不需要更新。（重新安裝請加 -Force）"
+  if (($currentRef -eq $Version) -and -not $Force) {
+    Say "已是最新：$currentRef，且通過 VERIFY；不需要更新。（重新安裝請加 -Force）"
     return
   }
 
@@ -85,7 +92,7 @@ try {
   $srcSkills = Join-Path $src 'skills'
   if (-not (Test-Path (Join-Path $srcSkills 'adf-project-install'))) { Fail "原始檔不完整：$srcSkills" }
   $srcVersion = (ReadJson (Join-Path $srcSkills 'adf-project-install/references/release.json')).version
-  if ($srcVersion -ne $target) { Fail "原始檔版本為 $srcVersion，與目標 $Version 不符" }
+  if ($srcVersion -ne $base) { Fail "原始檔版本為 $srcVersion，與目標 $Version 不符" }
   $toolVersion = ''
   try { $toolVersion = (ReadJson '.adf/project.yaml').tool_version } catch { }
   $registry = ReadJson (Join-Path $srcSkills 'adf-project-install/references/resources.json')
@@ -93,7 +100,8 @@ try {
   if ($compatible -notcontains $toolVersion) { Fail "$Version 不接受目前 .adf/project.yaml（tool_version=$toolVersion）；這次升級需要依 $Repo/tree/main/docs/upgrades 的 SOP 進行。" }
 
   # 寫入前確認
-  Say "即將更新：v$current → $Version（$root）"
+  if ($Version.Contains('-')) { Say "注意：$Version 是測試版，只建議在測試專案或分支使用；正式版發布後請再執行一次更新。" }
+  Say "即將更新：$currentRef → $Version（$root）"
   Say "會改變：$inst/adf-*、skills-lock.json（先備份到專案外，失敗自動還原）；不修改 standards/、modules/、.adf/"
   if (-not $Yes) {
     $ans = try { Read-Host '[ADF] 確定要繼續嗎？[y/N]' } catch { Fail '無法互動確認；確認要執行請加 -Yes 或設定 ADF_YES=1' }
@@ -127,7 +135,7 @@ try {
       Copy-Item (Join-Path $backup 'skills-lock.json') 'skills-lock.json' -Force
       node $tool VERIFY $root 2>&1 | Out-Null
       if ($LASTEXITCODE -ne 0) { throw 'VERIFY' }
-      Write-Host "[ADF] 已還原為 v$current，並通過 VERIFY。" -ForegroundColor Yellow
+      Write-Host "[ADF] 已還原為 $currentRef，並通過 VERIFY。" -ForegroundColor Yellow
     } catch {
       $script:keepWork = $true
       Write-Host "[ADF] 自動還原未完成；更新前備份保留在：$backup" -ForegroundColor Yellow
@@ -162,7 +170,7 @@ try {
   $post = node $tool VERIFY $root 2>&1
   if ($LASTEXITCODE -ne 0) { $post | ForEach-Object { Write-Host "        $_" }; Abort '新版 VERIFY 失敗，更新不可視為完成' }
 
-  Say "完成：ADF v$current → $Version，已通過 VERIFY。專案文件與核准狀態未變動。"
-  Say "版本說明：$Repo/blob/$Version/docs/releases/$($target.Substring(0, $target.LastIndexOf('.'))).md"
+  Say "完成：ADF $currentRef → $Version，已通過 VERIFY。專案文件與核准狀態未變動。"
+  Say "版本說明：$Repo/blob/$Version/docs/releases/$($base.Substring(0, $base.LastIndexOf('.'))).md"
   Say "建議 commit：skills-lock.json、$newInst/"
 } finally { if (-not $keepWork) { Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue } }
