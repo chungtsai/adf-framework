@@ -113,3 +113,9 @@ test('standards.ps1 does not pass double quotes inside arguments to native comma
  const bad=ps.map((l,i)=>[i+1,l]).filter(([,l])=>!l.trim().startsWith('#')&&/\b(node|npx|npm)(\.exe)?\s+[^#\n]*'[^']*"[^']*'/.test(l));
  assert.deepEqual(bad,[]);
 });
+test('tool path through a symlink (macOS TMPDIR /var → /private/var) still runs',{skip:skipSh},t=>{
+ const r=project(t),dir=fs.mkdtempSync(path.join(os.tmpdir(),'adf-std-link-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ fs.symlinkSync(repo,path.join(dir,'src'));
+ const res=sh(r,['--list'],{ADF_SOURCE_DIR:path.join(dir,'src')});
+ assert.equal(res.status,0,res.stderr);assert.match(res.stdout,/建議項目/);
+});

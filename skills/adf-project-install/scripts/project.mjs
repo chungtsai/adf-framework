@@ -269,7 +269,9 @@ export function standardsInstall(root,ids,{status='DRAFT',ref=`v${VERSION}`,date
   }
   return {status:written.length?'installed':'nothing_to_install',written,skipped};
 }
-if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
+// 以實際路徑比對：macOS 的 TMPDIR（/var → /private/var）等 symlink 路徑下，argv[1] 與 import.meta.url 會不同，導致不執行也沒有輸出
+const isMain=()=>{try{return fs.realpathSync(process.argv[1])===fs.realpathSync(fileURLToPath(import.meta.url));}catch{return false;}};
+if(process.argv[1]&&isMain()) {
   try {
     const argv=process.argv.slice(2),opt=name=>{const i=argv.indexOf(name);if(i<0) return undefined;const v=argv[i+1];if(!v||v.startsWith('--')) fail(`${name} requires a value`);argv.splice(i,2);return v;};
     const flag=name=>{const i=argv.indexOf(name);if(i<0) return false;argv.splice(i,1);return true;};
