@@ -16,5 +16,8 @@ Target Reverse Analysis 只能建立 Candidate Specification；經 Evidence-Guid
 
 來源缺少或版本不相容時停止，不回退全域，不保留本地副本。
 
+## 啟動條件
+Active Work Item 必須是 `type: NEW` 且 `intents` 含 `BASELINE_ADOPTION`（填法見 `core/invariants.md`「Work Model」）。manifest 不存在時先交 `adf-feature-init` 依該表建立；`type` 或 `intents` 不符時停止並說明，不自行改寫既有 manifest。有 Legacy 可比對時改用 `adf-retrofit-verification`。
+
 ## Mandatory Human Gate
 `BASELINE_ADOPTION` 永遠要求 Human Approval。Target 現況只能標記 `OBSERVED`，不能直接升級為 `APPROVED`；重要 Candidate Rules 必須經人工確認後才能形成 Approved Baseline。後續功能修改改走 `CHANGE`。

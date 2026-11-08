@@ -40,7 +40,14 @@ description: 以程式逐欄比對 Legacy 與 Target 的正規化結果，依固
    6. 規格明確且 Target 不符 → `MIGRATION_DEFECT`
    7. 其他 → `REVIEW_REQUIRED`
    每筆差異記錄：`TC-*`、`LB-*`、欄位、Legacy 值、Target 值、分類、引用的 `MIG-*` 或規則。
-5. **涵蓋率**：以 `analysis/legacy-behavior.md` 的 `LB-*` 為分母，計算有 `TC-*` 且已比對的比例，列出未涵蓋的 `LB-*`。高風險類別（交易、權限、副作用、金額）未涵蓋時標 `REVIEW_REQUIRED`。
+5. **涵蓋率**：以 `LB-*` 為單位計算三個指標，寫入報告摘要，並列出未涵蓋的 `LB-*`：
+   - **已比對**：至少一個連到該 `LB-*` 的 `TC-*`（`test-cases.md` 的 `Source`）有最終分類，且不是 `TEST_DATA_PROBLEM` 或 `REVIEW_REQUIRED`（含結果不穩定）。這兩種案例等於還沒驗證到，不計入。
+   - **通過**：已比對，且連到該 `LB-*` 的已比對 `TC-*` 全部為 `PASS` 或 `APPROVED_BEHAVIOR_CHANGE`。
+   - **高風險**：`analysis/legacy-behavior.md` 的 `風險` 為 `HIGH`。
+   - 整體涵蓋率 = 已比對 `LB-*` ÷ `LB-*` 總數（`CONFIRMED` 與 `UNKNOWN` 都算在分母，另列 `UNKNOWN` 數量）。
+   - 高風險涵蓋率 = 已比對的高風險 `LB-*` ÷ 高風險 `LB-*` 總數。
+   - 通過率 = 通過的 `LB-*` ÷ 已比對 `LB-*`。
+   每個指標都寫出分子與分母（例如 `18／24（75%）`），分母為 0 時寫 `不適用`，不寫 100%。未涵蓋的高風險 `LB-*` 標 `REVIEW_REQUIRED`。涵蓋只代表該行為至少有一個案例驗證過，不代表所有分支與資料組合都測過。
 6. **結果不穩定**：同一案例重跑結果不同時，記錄每次結果並標 `REVIEW_REQUIRED`，不得取其中一次當作結果。
 7. **交付審查**：寫入 `verification/comparison.md`，送 Result Comparison Human Gate。Human 確認分類後才把 manifest `status.verification.comparison` 改為 `done`；`MIGRATION_DEFECT` 交 `adf-verification-fix`，RETROFIT_VERIFY 經 Human 決定後另開 `CHANGE`。
 
@@ -53,7 +60,7 @@ description: 以程式逐欄比對 Legacy 與 Target 的正規化結果，依固
 - 每個 `TC-*` 都有分類，沒有未分類的差異。
 - 每個 `PASS` 都有兩邊的 Raw Result 與比對紀錄，不是只看其中一邊。
 - 每個 `APPROVED_BEHAVIOR_CHANGE` 都引用 `APPROVED` 的 `MIG-*`。
-- 報告列出涵蓋率與未涵蓋的 `LB-*`；高風險未涵蓋項目已交 Human 決定。
+- 報告列出整體涵蓋率、高風險涵蓋率、通過率（含分子與分母）、`UNKNOWN` 數量與未涵蓋的 `LB-*`；高風險未涵蓋項目已交 Human 決定。
 - Result Comparison Human Gate 已明確確認。
 
 ## 禁止事項
@@ -61,7 +68,7 @@ description: 以程式逐欄比對 Legacy 與 Target 的正規化結果，依固
 - 不得修改 Legacy Baseline、Raw Result 或 Expected Result 來消除差異。
 - 不得重跑到通過為止；不穩定結果照實記錄。
 - 不得修改 Target 程式；修正由 `adf-verification-fix` 或另開的 `CHANGE` 處理。
-- 不得只回報通過率而省略涵蓋率。
+- 不得只回報通過率而省略涵蓋率，也不得把 `TEST_DATA_PROBLEM`、`REVIEW_REQUIRED` 的案例算成已比對。
 
 ## 既有 Module 補填
 v5.4.0 之前已完成比對、但沒有 `verification/comparison.md` 或涵蓋率的 Module：
@@ -81,7 +88,10 @@ v5.4.0 之前已完成比對、但沒有 `verification/comparison.md` 或涵蓋�
 | TC-003 | LB-002 | 第 2、3 筆順序 | `A002, A003` | `A003, A002` | MIGRATION_DEFECT | `LB-002` 預設依 `ACCT_ID` 遞增 |
 | TC-007 | LB-003 | `status` 顯示 | `啟用` | 空白 | SPEC_GAP | `spec/rules.md` 未定義 Null 顯示 |
 
-涵蓋率：`LB-*` 共 24 項，已比對 18 項（75%）；未涵蓋：`LB-011`（交易，高風險）、`LB-014`、…。
+- 整體涵蓋率：18／24（75%），其中 `UNKNOWN` 2 項。
+- 高風險涵蓋率：5／7（71%）；未涵蓋：`LB-011`（交易）、`LB-019`（權限），標 `REVIEW_REQUIRED`。
+- 通過率：15／18（83%）；未通過：`LB-002`（`MIGRATION_DEFECT`）、`LB-003`（`SPEC_GAP`）、`LB-007`（`LEGACY_UNKNOWN`）。
+- `TC-009` 判 `TEST_DATA_PROBLEM`，其連到的 `LB-014` 不計入已比對。
 
 ## 本 Skill 官方資源
 - `template/verification/comparison.md` → `assets/comparison.md`。

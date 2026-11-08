@@ -10,7 +10,7 @@
 # 寫入任何檔案前會列出摘要並詢問確認；-Yes 或 ADF_YES=1 可略過（CI 使用）。
 param(
   [string]$Agent = $env:ADF_AGENT,
-  [string]$Version = $(if ($env:ADF_VERSION) { $env:ADF_VERSION } else { 'v5.4.0' }),
+  [string]$Version = $(if ($env:ADF_VERSION) { $env:ADF_VERSION } else { 'v5.4.1' }),
   [string]$Project = '.',
   [switch]$Copy,
   [switch]$NoCopy,

@@ -1,6 +1,6 @@
 {
   "name": "adf-github-only",
-  "version": "5.4.0",
+  "version": "5.4.1",
   "private": true,
   "description": "ADF project-scoped skills with single-source resources and safe v5.0 migration",
   "license": "MIT",

@@ -64,10 +64,10 @@ SRC="${ADF_SOURCE_DIR:-}"
 if [ -z "$SRC" ]; then
   command -v curl >/dev/null 2>&1 || fail "找不到 curl"
   command -v tar  >/dev/null 2>&1 || fail "找不到 tar"
-  say "下載規範來源（$REF）"
+  say "下載規範來源（${REF}）"
   mkdir -p "$WORK/src"
   curl -fsSL "https://codeload.github.com/chungtsai/adf-framework/tar.gz/$REF" \
-    | tar -xz -C "$WORK/src" --strip-components=1 || fail "無法下載 $REF；請確認分支或 tag 存在且網路可連到 GitHub"
+    | tar -xz -C "$WORK/src" --strip-components=1 || fail "無法下載 ${REF}；請確認分支或 tag 存在且網路可連到 GitHub"
   SRC="$WORK/src"
 fi
 TOOL="$SRC/skills/adf-project-install/scripts/project.mjs"
