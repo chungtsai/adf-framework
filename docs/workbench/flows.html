@@ -3,21 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="ADF 情境流程動畫：全新功能、修改既有功能、舊功能移轉、已移轉補驗證、已開發完成導入 ADF 等情境，互動播放 Stage、Gate 與 Artifact 狀態。">
+<meta name="description" content="ADF 情境流程動畫：以請假系統為範例，互動播放全新功能、舊功能移轉、已開發完成導入 ADF 等情境的 Stage、Human Gate、產出說明與檔案內容。">
 <title>ADF 情境流程動畫</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
 <style>
-/* 版面概念：沿用 ADF 操作台的深色儀表風格；左側是 Work Item 走過的 Stage 管線，右側是 manifest、目前 Stage 與 Artifact 架 */
+/* 版面概念：沿用 ADF 操作台的深色儀表風格；左側是 Work Item 走過的 Stage 管線，右側是目前 Stage、檔案內容與 Artifact 架 */
 :root{
-  --bg:#091521; --bar:#0c1c2b; --panel:#102335; --raise:#152e42; --line:#2a4053; --rail:#294353;
+  --bg:#091521; --bar:#0c1c2b; --panel:#102335; --raise:#152e42; --line:#2a4053; --rail:#294353; --code:#091b2b;
   --ink:#e9f3f7; --soft:#c9dbe3; --muted:#9bb1c0;
   --accent:#56ddc8; --accent-ink:#08212b;
   --gate:#e6b869; --st-draft:#e6b869; --st-ok:#56ddc8; --st-review:#ff8f8f; --st-obs:#8fb3ff; --st-done:#a5e38c;
   --font-body:Inter,"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
-  --font-mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --font-mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Noto Sans TC",monospace;
   color-scheme:dark;
 }
 *{box-sizing:border-box}
@@ -26,7 +26,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-siz
 a{color:#70e6d6}
 button{font:inherit;cursor:pointer}
 button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
-.wrap{max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+.wrap{max-width:1360px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
 .top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-block:16px;border-bottom:1px solid var(--line)}
 .brand{display:flex;gap:12px;align-items:center;font-weight:800;letter-spacing:.03em}
 .mark{background:var(--accent);color:var(--accent-ink);border-radius:10px;padding:6px 9px;font-size:14px}
@@ -37,7 +37,7 @@ h1{font-size:clamp(26px,3.4vw,40px);margin:6px 0 6px;letter-spacing:-.02em;line-
 h2{font-size:20px;margin:0;line-height:1.35;text-wrap:balance}
 h3{font-size:16px;margin:0;line-height:1.4}
 p{margin:0}
-.lede{color:var(--muted);max-width:68ch}
+.lede{color:var(--muted);max-width:70ch}
 code,.mono{font-family:var(--font-mono);font-size:.88em}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px}
 
@@ -53,6 +53,7 @@ code,.mono{font-family:var(--font-mono);font-size:.88em}
 .card .no{font-family:var(--font-mono);font-size:12px;color:var(--accent);font-weight:700}
 .card strong{font-size:15.5px}
 .card small{color:var(--muted);font-size:13px;line-height:1.5}
+.card .ex{color:var(--soft);font-size:12.5px}
 .card .tag{align-self:flex-start;font-family:var(--font-mono);font-size:11px;color:var(--soft);border:1px solid #416073;border-radius:20px;padding:1px 8px;margin-top:4px}
 .ghost{background:transparent;border:1px solid #426076;color:var(--ink);border-radius:9px;padding:8px 14px;font-weight:700}
 .ghost:hover{background:#183247}
@@ -70,10 +71,17 @@ code,.mono{font-family:var(--font-mono);font-size:.88em}
 .opt small{display:block;color:var(--muted);font-size:12px}
 
 /* 播放區 */
-.stage-wrap{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:20px;align-items:start}
+.stage-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:20px;align-items:start}
 .player{padding:20px 20px 24px;display:flex;flex-direction:column;gap:16px}
-.sc-head{display:flex;flex-direction:column;gap:6px}
+.sc-head{display:flex;flex-direction:column;gap:8px}
 .sc-head .entry{font-family:var(--font-mono);font-size:12.5px;color:var(--accent)}
+.mf{display:flex;flex-wrap:wrap;gap:6px}
+.mf span{font-family:var(--font-mono);font-size:11.5px;color:var(--soft);background:var(--code);border:1px solid #38596b;border-radius:6px;padding:1px 7px}
+.case{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:start;background:linear-gradient(120deg,#153d48,#142b3e);border:1px solid #347b78;border-radius:12px;padding:12px 14px}
+.case .ic{width:34px;height:34px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font-weight:900}
+.case b{display:block;font-size:12px;letter-spacing:.08em;color:#8ff2dd}
+.case strong{display:block;font-size:15.5px}
+.case p{color:var(--soft);font-size:13.5px}
 .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 12px;background:var(--bar);border:1px solid var(--line);border-radius:12px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
 .controls .count{font-family:var(--font-mono);font-variant-numeric:tabular-nums;color:var(--accent);font-weight:700;margin-left:auto}
 .controls label{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--soft);cursor:pointer}
@@ -81,10 +89,10 @@ code,.mono{font-family:var(--font-mono);font-size:.88em}
 .bar{height:4px;background:var(--rail);border-radius:4px;overflow:hidden;flex-basis:100%}
 .bar span{display:block;height:100%;width:0;background:var(--accent);transition:width .5s ease}
 
-.pipe{position:relative;list-style:none;margin:0;padding:0 0 0 0}
+.pipe{position:relative;list-style:none;margin:0;padding:0}
 .pipe::before{content:"";position:absolute;left:17px;top:18px;bottom:18px;width:3px;background:var(--rail);border-radius:3px}
 .pipe .fill{position:absolute;left:17px;top:18px;width:3px;height:var(--fill,0px);background:var(--accent);border-radius:3px;transition:height .55s cubic-bezier(.3,.7,.2,1);box-shadow:0 0 12px rgba(86,221,200,.6)}
-.st{position:relative;display:grid;grid-template-columns:38px minmax(0,1fr);gap:12px;padding:8px 0;animation:rise .4s ease-out both}
+.st{position:relative;display:grid;grid-template-columns:38px minmax(0,1fr);gap:12px;padding:6px 0;animation:rise .4s ease-out both}
 .st .mk{position:relative;z-index:1;width:38px;height:38px;display:grid;place-items:center}
 .st .mk i{display:block;width:16px;height:16px;border-radius:50%;background:var(--bg);border:2px solid #4a6a7e;transition:all .3s}
 .st.gate .mk i{border-radius:3px;transform:rotate(45deg);border-color:var(--gate)}
@@ -103,10 +111,11 @@ code,.mono{font-family:var(--font-mono);font-size:.88em}
 .st .tt{font-weight:700}
 .st .ds{color:var(--muted);font-size:13.5px}
 .st.pending .tt{color:var(--soft)}
-.st .prods{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
-.st .prods span{font-family:var(--font-mono);font-size:11px;color:var(--soft);border:1px dashed #4a6a7e;border-radius:6px;padding:0 6px}
-.st.done .prods span{border-style:solid;border-color:#3f7f7a;color:#9eeee0}
-.gate-act{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;animation:rise .3s ease-out}
+.prods{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.prods button{font-family:var(--font-mono);font-size:11px;color:var(--soft);background:transparent;border:1px dashed #4a6a7e;border-radius:6px;padding:0 6px}
+.st.done .prods button{border-style:solid;border-color:#3f7f7a;color:#9eeee0}
+.prods button:hover{border-color:var(--accent)}
+.gate-act{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;grid-column:2;animation:rise .3s ease-out}
 .gate-act .note{flex-basis:100%;font-size:13px;color:var(--gate)}
 .approve{background:var(--gate);border:1px solid var(--gate);color:#2a1d05;border-radius:8px;padding:6px 12px;font-weight:800}
 .reject{background:transparent;border:1px solid var(--st-review);color:var(--st-review);border-radius:8px;padding:6px 12px;font-weight:700}
@@ -114,21 +123,49 @@ code,.mono{font-family:var(--font-mono);font-size:.88em}
 .bopt small{display:block;color:var(--muted);font-size:12px}
 .result{margin-top:6px;font-size:13.5px;color:var(--st-done)}
 
-.side{display:flex;flex-direction:column;gap:16px;position:sticky;top:12px}
+.player,.side,.viewer,.vbody{min-width:0}
+.side>*{flex-shrink:0}
+.side{display:flex;flex-direction:column;gap:14px;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;padding-bottom:4px}
 .box{padding:16px 18px;display:flex;flex-direction:column;gap:10px}
 .box-title{font-size:12px;font-weight:800;letter-spacing:.1em;color:#88b6bf;text-transform:uppercase}
-.yaml{margin:0;background:#091b2b;border:1px solid #38596b;border-radius:10px;padding:12px 14px;font-family:var(--font-mono);font-size:13px;line-height:1.7;color:#c9f4e9;min-height:7.4em;white-space:pre-wrap;word-break:break-word}
-.yaml .k{color:#84a9bd}
-.caret{display:inline-block;width:7px;height:1.05em;background:var(--accent);vertical-align:-2px;animation:blink 1s steps(1) infinite}
-.now{display:flex;flex-direction:column;gap:6px;animation:rise .35s ease-out}
+.now{display:flex;flex-direction:column;gap:8px;animation:rise .35s ease-out}
 .now .sk{font-family:var(--font-mono);font-size:12.5px;color:var(--accent)}
-.now .gatehint{font-size:13px;color:var(--gate);background:rgba(230,184,105,.08);border-left:3px solid var(--gate);border-radius:6px;padding:8px 10px}
+.kv{display:grid;grid-template-columns:4.5em minmax(0,1fr);gap:4px 10px;font-size:13.5px}
+.kv dt{color:var(--muted);font-weight:700}
+.kv dd{margin:0;color:var(--soft)}
+.kv dd.exv{color:var(--ink);background:var(--code);border:1px solid #2f4c5e;border-radius:8px;padding:6px 10px}
+.gatehint{font-size:13px;color:var(--gate);background:rgba(230,184,105,.08);border-left:3px solid var(--gate);border-radius:6px;padding:8px 10px}
+
+/* 檔案檢視 */
+.viewer{padding:0;overflow:hidden}
+.vhead{display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap;padding:10px 14px;background:var(--bar);border-bottom:1px solid var(--line)}
+.vhead .path{font-family:var(--font-mono);font-size:12.5px;color:var(--soft);overflow-wrap:anywhere;display:flex;gap:8px;align-items:center}
+.vhead .dots{display:flex;gap:5px}
+.vhead .dots i{width:9px;height:9px;border-radius:50%;background:#2f4c5e}
+.vbody{padding:14px 16px;max-height:420px;overflow:auto;font-size:13px;background:var(--code)}
+.vbody .empty{color:var(--muted)}
+.vbody h4{margin:0 0 6px;font-size:15px;color:var(--ink)}
+.vbody h5{margin:10px 0 4px;font-size:13px;color:#8ff2dd}
+.vbody p{margin:0 0 6px;color:var(--soft)}
+.vbody ul{margin:0 0 6px;padding-left:18px;color:var(--soft)}
+.vbody code{color:#84ead5}
+.vbody pre{margin:0;font-family:var(--font-mono);font-size:12.5px;line-height:1.7;color:#c9f4e9;white-space:pre;width:max-content;min-width:100%}
+.vbody .tw{overflow-x:auto;margin:0 0 8px}
+.vbody table{border-collapse:collapse;font-size:12.5px;min-width:100%}
+.vbody th,.vbody td{border:1px solid #2f4c5e;padding:4px 7px;text-align:left;vertical-align:top;white-space:nowrap}
+.vbody th{color:#88b6bf;background:#0d2233;font-weight:700}
+.vbody td{color:var(--soft)}
+.vbody .hl{color:#ffd88a}
+.reveal>*,.reveal tr{animation:line .35s ease-out both;animation-delay:var(--d,0ms)}
+.vnote{font-size:12px;color:var(--muted);padding:8px 14px;border-top:1px solid var(--line)}
+
 .shelf{display:grid;gap:6px}
 .shelf .empty{color:var(--muted);font-size:13px}
-.art{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;background:var(--raise);border:1px solid var(--line);border-radius:9px;animation:drop .45s cubic-bezier(.2,.9,.3,1.2)}
+.art{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;background:var(--raise);border:1px solid var(--line);border-radius:9px;animation:drop .45s cubic-bezier(.2,.9,.3,1.2);color:inherit;text-align:left;width:100%}
+.art:hover,.art.sel{border-color:var(--accent)}
 .art .p{font-family:var(--font-mono);font-size:12px;color:var(--soft);overflow-wrap:anywhere}
 .art .id{font-size:11.5px;color:var(--muted)}
-.chip{font-family:var(--font-mono);font-size:11px;font-weight:700;border-radius:20px;padding:1px 8px;border:1px solid currentColor;white-space:nowrap;transition:color .3s}
+.chip{font-family:var(--font-mono);font-size:11px;font-weight:700;border-radius:20px;padding:1px 8px;border:1px solid currentColor;white-space:nowrap;transition:color .3s;display:inline-block;line-height:1.5}
 .chip.flash{animation:flash .6s ease-out}
 .s-DRAFT{color:var(--st-draft)} .s-APPROVED{color:var(--st-ok)} .s-REVIEW_REQUIRED{color:var(--st-review)} .s-OBSERVED{color:var(--st-obs)} .s-DONE{color:var(--st-done)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--muted)}
@@ -144,12 +181,12 @@ code,.mono{font-family:var(--font-mono);font-size:.88em}
 footer{color:#88a8b7;font-size:13px}
 
 @keyframes rise{from{opacity:.2;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes line{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
 @keyframes drop{from{opacity:0;transform:translateY(-10px) scale(.96)}to{opacity:1;transform:none}}
 @keyframes pulse{50%{box-shadow:0 0 0 10px rgba(86,221,200,.05)}}
-@keyframes blink{50%{opacity:0}}
 @keyframes flash{0%{transform:scale(1)}40%{transform:scale(1.25)}100%{transform:scale(1)}}
-@media (max-width:980px){.stage-wrap{grid-template-columns:1fr}.side{position:static}.rules{grid-template-columns:1fr}}
-@media (max-width:480px){.cards{grid-template-columns:1fr}.player{padding:14px}}
+@media (max-width:1020px){.stage-wrap{grid-template-columns:minmax(0,1fr)}.side{position:static;max-height:none;overflow:visible}.rules{grid-template-columns:1fr}}
+@media (max-width:480px){.cards{grid-template-columns:1fr}.player{padding:14px}.kv{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -163,7 +200,7 @@ footer{color:#88a8b7;font-size:13px}
   <header>
     <div class="eyebrow">AI Development Framework · 互動導覽</div>
     <h1>選一個情境，看 Work Item 如何走完 ADF</h1>
-    <p class="lede">每個情境都有自己的 Stage 順序與 Gate。按「播放」後 Work Item 會逐一走過各 Stage，產生的 Artifact 會放到 Artifact 架；遇到 Human Gate 會停下來，要由你按「核准」或「退回」才繼續，因為 AI 不能自行核准。</p>
+    <p class="lede">每個情境都用同一套範例「公司請假系統」示範。按「播放」後 Work Item 會逐一走過各 Stage，右側說明每一步的產出並附範例，產生的檔案會逐行顯示內容。遇到 Human Gate 會停下來，要由你按「核准」或「退回」才繼續，因為 AI 不能自行核准。</p>
   </header>
 
   <section class="panel" style="padding:20px;display:flex;flex-direction:column;gap:16px">
@@ -192,12 +229,13 @@ footer{color:#88a8b7;font-size:13px}
 
     <div class="side">
       <div class="panel box">
-        <div class="box-title">manifest.yaml</div>
-        <pre class="yaml" id="yaml" aria-live="off"></pre>
-      </div>
-      <div class="panel box">
-        <div class="box-title">目前 Stage</div>
+        <div class="box-title">目前 Stage · 產出說明</div>
         <div id="now"></div>
+      </div>
+      <div class="panel viewer">
+        <div class="vhead"><span class="path"><span class="dots"><i></i><i></i><i></i></span><span id="vpath">檔案內容</span></span><span id="vchip"></span></div>
+        <div class="vbody" id="vbody"><p class="empty">播放後，每個 Stage 產生的檔案會在這裡逐行顯示。也可以點 Artifact 架或 Stage 上的檔名查看。</p></div>
+        <div class="vnote">內容為簡化範例，ID、欄位與數值都是示意。</div>
       </div>
       <div class="panel box">
         <div class="box-title">Artifact 架</div>
@@ -222,210 +260,851 @@ footer{color:#88a8b7;font-size:13px}
     </div>
   </section>
 
-  <footer>內容依 ADF v5.4.1 的 SKILL.md 與 <code>core/invariants.md</code> 整理；此頁是互動導覽，不執行 Skill，也不會寫入任何專案檔案。Stage 與 Gate 位置為示意，實際以 <code>adf-develop</code> 依 Artifact 與 Review 狀態判斷的結果為準。</footer>
+  <footer>內容依 ADF v5.4.1 的 SKILL.md、官方範本與 <code>core/invariants.md</code> 整理；此頁是互動導覽，不執行 Skill，也不會寫入任何專案檔案。範例案例、ID 與數值皆為示意。Stage 與 Gate 位置為示意，實際以 <code>adf-develop</code> 依 Artifact 與 Review 狀態判斷的結果為準。</footer>
 </div>
 
 <script>
 (function(){
+/* ======== Artifact 定義 ======== */
 const ART={
-  manifest:{p:'manifest.yaml',id:'Work Item 設定',kind:'cfg'},
+  manifest:{p:'manifest.yaml',id:'Work Item 設定',kind:'cfg',lang:'pre'},
   lb:{p:'analysis/legacy-behavior.md',id:'LB-* 行為清單'},
   evidence:{p:'Target Evidence',id:'現況證據',kind:'obs'},
   req:{p:'spec/requirements.md',id:'REQ-*'},
   rules:{p:'spec/rules.md',id:'BR-* · VAL-* · Q-* · UI-*'},
   std:{p:'spec/standards.md',id:'DEV-* · MIG-*'},
-  proto:{p:'Frontend Prototype',id:'對應 UI-*'},
+  proto:{p:'Frontend Prototype',id:'畫面原型',lang:'pre'},
   design:{p:'design/design.md',id:'設計'},
-  spec:{p:'specification.md',id:'給人看的規格書（Read Model）'},
-  code:{p:'Target 程式',id:'實作',kind:'done'},
+  spec:{p:'specification.md',id:'給人看的規格書'},
+  code:{p:'Target 程式',id:'實作',kind:'done',lang:'pre'},
   fs:{p:'verification/functional-scenarios.md',id:'FS-*'},
   tc:{p:'verification/test-cases.md',id:'TC-*'},
-  raw:{p:'Raw Result',id:'測試原始結果',kind:'obs'},
-  raw2:{p:'Legacy／Target Raw Result',id:'雙邊原始結果',kind:'obs'},
-  cmp:{p:'verification/comparison.md',id:'差異分類與 LB-* 涵蓋率'},
+  raw:{p:'Raw Result',id:'測試原始結果',kind:'obs',lang:'pre'},
+  raw2:{p:'Legacy／Target Raw Result',id:'雙邊原始結果',kind:'obs',lang:'pre'},
+  cmp:{p:'verification/comparison.md',id:'差異分類與涵蓋率'},
   trace:{p:'verification/traceability.md',id:'REQ → TC → Result'},
+  fix:{p:'修正分析',id:'問題所在的 Layer'},
   sec:{p:'安全分析',id:'威脅與影響範圍'},
   refa:{p:'重構分析',id:'行為不變範圍'},
-  stdfile:{p:'standards/',id:'專案規範 DEV-* · MIG-*'},
-  impact:{p:'規範影響報告',id:'REQUIRED · RECOMMENDED · NEW_WORK_ONLY'}
+  stdfile:{p:'standards/DEV-DATE-001.md',id:'專案規範'},
+  impact:{p:'規範影響報告',id:'各 Module 的影響'},
+  ask:{p:'adf-ask 回報',id:'唯讀狀態報告',kind:'done'}
 };
-const G={
-  req:{kind:'gate',sk:'Human Gate',t:'需求與規則核准',d:'確認 REQ-* 與 BR-* 等規則正確，才進入設計。'},
-  proto:{kind:'gate',sk:'adf-prototype-review',t:'Prototype 獨立審查',d:'有 UI 影響時，獨立審查 Prototype 是否符合需求、規則與 Standard，再由 Human 確認。'},
-  done:{kind:'gate',sk:'adf-development-complete',t:'Completion Gate',d:'所有適用的 Gate、Test、Traceability 與 Blocker 都完成才能結案。'}
-};
+const DONE_LABEL={code:'已實作',ask:'唯讀報告'};
+
+/* ======== 共用 Gate ======== */
+const GATE_REQ={kind:'gate',sk:'Human Gate',t:'需求與規則核准',d:'確認需求與規則正確，才進入設計。',
+  out:'沒有新檔案；目前所有 DRAFT 的 Artifact 由 Human 確認後改為 APPROVED。',ex:'主管看過 REQ-001 與 BR-001 後按「核准」，兩份文件改為 APPROVED。'};
+const GATE_PROTO={kind:'gate',sk:'adf-prototype-review',t:'Prototype 獨立審查',d:'獨立審查 Prototype 是否符合需求、規則與 Standard，再由 Human 確認。',
+  out:'審查意見；通過後 Prototype 改為 APPROVED。',ex:'審查發現錯誤訊息沒有顯示在欄位下方（DEV-UI-001），退回修正後再核准。'};
+const GATE_DONE={kind:'gate',sk:'adf-development-complete',t:'Completion Gate',d:'所有適用的 Gate、Test、Traceability 與 Blocker 都完成才能結案。',
+  out:'結案判定；仍有 DRAFT 的 Artifact 經確認後改為 APPROVED。',ex:'所有 TC-* 都有結果、traceability.md 沒有缺口，Module 結案。'};
+
+/* ======== 情境 ======== */
 const S=[
- {id:'new',group:'開發',no:'01',name:'全新功能',desc:'沒有現行功能，從需求開始',tag:'NEW',entry:'adf-develop · NEW',
-  summary:'先建立 Module 與需求，再形成規則、設計、實作及測試。',
-  manifest:[['work_item.type','NEW'],['work_item.intents','[]'],['module.origin','NEW']],
-  caution:'需求或 Expected Result 不明確時，先進入 Evidence-Guided Q&A，不要用推測補上。',
-  stages:[
-   {sk:'adf-feature-init',t:'建立 Module 與 manifest',d:'一個 Module 同時只有一個 Active Work Item。',p:['manifest']},
-   {sk:'adf-requirement-analysis',t:'確認需求與驗收條件',d:'寫下 REQ-* 與可驗證的驗收條件。',p:['req']},
-   {sk:'adf-business-rule · adf-query-analysis · adf-screen-specification',t:'整理規則',d:'把業務規則、驗證、查詢與畫面規則寫成 BR-*、VAL-*、Q-*、UI-*。',p:['rules']},
-   G.req,
-   {sk:'adf-standards-applicability',t:'判斷適用的 DEV-* 規範',d:'只套用專案 standards/ 裡已核准的規範。',p:['std']},
-   {sk:'adf-frontend-prototype',t:'建立 Prototype（有 UI 影響時）',d:'依 UI Rule 與 Standard 建立畫面原型。',p:['proto']},
-   G.proto,
-   {sk:'adf-development-design',t:'技術設計',d:'設計完成後同步 specification.md 給人閱讀。',p:['design','spec']},
-   {sk:'adf-backend-development · adf-frontend-development',t:'依核准內容實作',d:'只實作已核准的規則、Prototype 與設計。',p:['code']},
-   {sk:'adf-test-generation',t:'產生測試案例',d:'有使用者操作流程時一併建立 Functional Scenario。',p:['fs','tc']},
-   {sk:'adf-new-test',t:'執行測試並保存 Raw Result',d:'保存原始結果作為 Evidence。',p:['raw']},
-   {sk:'adf-traceability-check',t:'檢查追溯',d:'確認每個 REQ-* 都有 TC-* 與結果對應。',p:['trace']},
-   G.done,
-   {kind:'exit',sk:'結案',t:'Module 完成',d:'之後的修改另開 CHANGE Work Item。'}
-  ]},
- {id:'change',group:'開發',no:'02',name:'修改既有功能',desc:'已有核准基線，新增或調整需求',tag:'CHANGE · FEATURE',entry:'adf-develop · CHANGE',
-  summary:'先標明 Requirement Delta 與受影響的規則，再修改設計、程式與 Regression。',
-  manifest:[['work_item.type','CHANGE'],['work_item.intents','[FEATURE]'],['module.origin','（沿用原 Module）']],
-  caution:'BUGFIX、SECURITY_FIX、REFACTOR 等 Intent 有額外的分析與驗證 Gate，請改選對應情境。',
-  stages:[
-   {sk:'adf-ask',t:'確認 Stage、Blocker 與核准 Baseline',d:'唯讀盤點，確認沒有其他 Active Work Item。',p:[]},
-   {sk:'adf-requirement-analysis',t:'記錄 Requirement Delta 與 Intent',d:'只寫新增或變更的部分。',p:['req']},
-   {sk:'規則 Skill · adf-standards-applicability',t:'更新受影響的規則並檢查規範',d:'只動受影響的 BR-*、VAL-*、Q-*、UI-*。',p:['rules','std']},
-   G.req,
-   {sk:'adf-frontend-prototype',t:'UI 流程受影響時更新 Prototype',d:'沒有 UI 影響可略過。',p:['proto']},
-   G.proto,
-   {sk:'adf-development-design',t:'調整設計並同步規格書',d:'',p:['design','spec']},
-   {sk:'受影響的前後端開發',t:'修改程式',d:'範圍以 Requirement Delta 為準。',p:['code']},
-   {sk:'adf-test-generation',t:'Change Test + Regression',d:'新行為要有測試，舊行為要有 Regression。',p:['fs','tc']},
-   {sk:'adf-new-test',t:'執行測試',d:'',p:['raw']},
-   {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace']},
-   G.done,
-   {kind:'exit',sk:'結案',t:'Module 回到完成狀態',d:'新的核准內容成為下一次 CHANGE 的 Baseline。'}
-  ]},
- {id:'migration',group:'移轉與導入',no:'03',name:'舊功能移轉',desc:'Legacy 存在，準備做新系統',tag:'MIGRATION',entry:'adf-migrate · MIGRATION',
-  summary:'先萃取 Legacy 行為建立語意基線，合法的轉換才套用核准的 MIG-*，最後雙邊比對結果。',
-  manifest:[['work_item.type','MIGRATION'],['work_item.intents','[]'],['module.origin','MIGRATION']],
-  caution:'Legacy 無法執行、拿不到 Golden Baseline 時要標 BLOCKED，不可自行假設 Expected Result。',
-  stages:[
-   {sk:'adf-feature-init',t:'建立 Module 與 manifest',d:'',p:['manifest']},
-   {sk:'adf-legacy-analysis',t:'萃取 Legacy 行為',d:'每個入口追到 SQL 與副作用，分 8 類盤點，建立 LB-* 行為清單與未解事項。',p:['lb']},
-   {sk:'adf-business-rule · query-analysis · screen-specification',t:'把 LB-* 轉成行為規則',d:'',p:['rules']},
-   G.req,
-   {sk:'adf-standards-applicability',t:'核對 DEV-* 與 MIG-*',d:'只有核准的 MIG-* 才能改變表示方式。',p:['std']},
-   {sk:'adf-frontend-prototype',t:'有 UI 影響時做 Prototype',d:'',p:['proto']},
-   G.proto,
-   {sk:'adf-development-design → 前後端開發',t:'設計與實作 Target',d:'',p:['design','spec','code']},
-   {sk:'adf-test-generation',t:'產生測試案例',d:'同一組案例要能在新舊兩邊執行。',p:['fs','tc']},
-   {sk:'adf-legacy-baseline + adf-new-test',t:'新舊兩邊執行相同案例',d:'',p:['raw2']},
-   {sk:'adf-result-normalization',t:'正規化結果',d:'只處理已核准的表示差異。',p:[]},
-   {sk:'adf-result-comparison',t:'逐欄比對並分類差異',d:'依序分類，並回報 LB-* 涵蓋率。',p:['cmp']},
-   {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace']},
-   G.done,
-   {kind:'exit',sk:'結案',t:'移轉完成',d:'新系統的行為有 Legacy 證據支持。'}
-  ]},
- {id:'retrofit',group:'移轉與導入',no:'04',name:'已移轉，補驗證',desc:'新系統已完成、舊程式還在',tag:'RETROFIT_VERIFY',entry:'adf-retrofit-verification',
-  summary:'第一輪只驗證不修改：雙邊執行、比對、分類差異，交給 Human Review。',
-  manifest:[['work_item.type','MIGRATION'],['work_item.intents','[RETROFIT_VERIFY]'],['module.origin','MIGRATION'],['behavior.change_allowed','false']],
-  caution:'第一輪不要自動修改 Target。發現差異不等於已確認缺陷，要先保存 Evidence 並分類。',
-  stages:[
-   {sk:'adf-feature-init',t:'建立 Module',d:'manifest 填 type: MIGRATION、intents: [RETROFIT_VERIFY]。',p:['manifest']},
-   {sk:'adf-legacy-analysis + adf-target-analysis',t:'分析新舊兩邊',d:'建立 LB-* 行為清單與 Target 現況證據。',p:['lb','evidence']},
-   {sk:'規則與測試 Skill',t:'建立可比對的規則、測試與資料映射',d:'',p:['rules','tc']},
-   G.req,
-   {sk:'adf-legacy-baseline + adf-new-test',t:'相同案例雙邊執行',d:'',p:['raw2']},
-   {sk:'adf-result-normalization',t:'正規化結果',d:'只處理已核准的表示差異。',p:[]},
-   {sk:'adf-result-comparison',t:'比對並分類語意差異',d:'列出尚未涵蓋的 LB-*。',p:['cmp']},
-   {kind:'gate',sk:'Human Review',t:'審查差異分類',d:'由 Human 判斷差異是否為 MIGRATION_DEFECT。'},
-   {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace']},
-   {kind:'exit',sk:'結果',t:'確認的缺陷另開 CHANGE 修復',d:'這個 Work Item 只驗證，不修改 Target。'}
-  ]},
- {id:'adoption',group:'移轉與導入',no:'05',name:'已開發完成，導入 ADF',desc:'只剩現行程式，要建立基線',tag:'BASELINE_ADOPTION',entry:'adf-baseline-adoption',
-  summary:'Target 現況只算 OBSERVED；反向整理的規格經 Human 核准才成為 APPROVED 基線。',
-  manifest:[['work_item.type','NEW'],['work_item.intents','[BASELINE_ADOPTION]'],['module.origin','NEW'],['behavior.change_allowed','false']],
-  caution:'這個流程不能證明當初的實作符合原需求。BASELINE_ADOPTION 一定要人工核准，也不進入開發 Stage。',
-  stages:[
-   {sk:'adf-feature-init',t:'建立 Module',d:'manifest 填 type: NEW、intents: [BASELINE_ADOPTION]。',p:['manifest']},
-   {sk:'adf-target-analysis',t:'取得現況證據',d:'只記錄觀察到的行為，標為 OBSERVED。',p:['evidence']},
-   {sk:'需求與規則 Skill',t:'產生候選需求與規則',d:'由現況反向整理，此時只是候選。',p:['req','rules']},
-   {sk:'adf-standards-applicability',t:'處理與規範的衝突',d:'',p:['std']},
-   {sk:'Evidence-Guided Q&A',t:'逐項向 Human 提問確認',d:'無法由證據證明的行為標 UNKNOWN 或 REVIEW_REQUIRED。',p:[]},
-   {kind:'gate',sk:'Human Approval（強制）',t:'核准成為 Baseline',d:'BASELINE_ADOPTION 必須人工核准。'},
-   {sk:'adf-test-generation + adf-new-test',t:'建立 Regression 測試',d:'保護已核准的基線。',p:['tc','raw']},
-   {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace']},
-   {kind:'exit',sk:'結果',t:'取得 Approved Baseline',d:'之後的修改走 CHANGE，重用同一個 Module。'}
-  ]},
- {id:'bugfix',group:'修改 Intent',no:'06',name:'修正錯誤',desc:'既有功能有 Bug',tag:'CHANGE · BUGFIX',entry:'adf-develop · CHANGE',
-  summary:'先找出問題在哪一層，補一個會失敗的測試案例再修，修完跑 Regression。',
-  manifest:[['work_item.type','CHANGE'],['work_item.intents','[BUGFIX]'],['module.origin','（沿用原 Module）']],
-  caution:'不得為了取得 PASS 而弱化 Expected Result，也不得由 Target 現況反推 Expected Result。',
-  stages:[
-   {sk:'adf-ask',t:'確認 Module 狀態',d:'',p:[]},
-   {sk:'adf-requirement-analysis',t:'記錄 Intent 與錯誤現象',d:'',p:['req']},
-   {sk:'adf-verification-fix',t:'找出正確的 Layer',d:'判斷是 Rule、Design 還是程式的問題。',p:[]},
-   {sk:'adf-test-generation',t:'先補一個會失敗的測試',d:'',p:['tc']},
-   G.req,
-   {sk:'前後端開發',t:'修正正確的那一層',d:'',p:['code']},
-   {sk:'adf-new-test',t:'執行測試與 Regression',d:'剛補的測試要轉為通過，舊測試不能壞。',p:['raw']},
-   {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace']},
-   G.done,
-   {kind:'exit',sk:'結案',t:'修正完成',d:''}
-  ]},
- {id:'security',group:'修改 Intent',no:'07',name:'安全修補',desc:'修補弱點或資安問題',tag:'CHANGE · SECURITY_FIX',entry:'adf-develop · CHANGE',
-  summary:'先做安全分析，修補後同時做安全驗證與 Regression。',
-  manifest:[['work_item.type','CHANGE'],['work_item.intents','[SECURITY_FIX]'],['module.origin','（沿用原 Module）']],
-  caution:'Combined Intents 必須組合所有必要的 Gate，例如 SECURITY_FIX 加 FEATURE 時兩邊的 Gate 都要過。',
-  stages:[
-   {sk:'adf-ask',t:'確認 Module 狀態',d:'',p:[]},
-   {sk:'adf-security-analysis',t:'安全分析',d:'找出威脅、影響範圍與修補方向。',p:['sec']},
-   G.req,
-   {sk:'Design / Implementation',t:'設計並實作修補',d:'',p:['design','code']},
-   {sk:'adf-security-verification + Regression',t:'安全驗證與 Regression',d:'',p:['tc','raw']},
-   {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace']},
-   G.done,
-   {kind:'exit',sk:'結案',t:'修補完成',d:''}
-  ]},
- {id:'refactor',group:'修改 Intent',no:'08',name:'重構',desc:'改善結構，不改變行為',tag:'CHANGE · REFACTOR',entry:'adf-develop · CHANGE',
-  summary:'先建立行為基線，重構後比對行為必須相同。',
-  manifest:[['work_item.type','CHANGE'],['work_item.intents','[REFACTOR]'],['module.origin','（沿用原 Module）']],
-  caution:'重構過程若發現需要改變行為，要另外記錄並經 Human 確認，不能混在重構裡。',
-  stages:[
-   {sk:'adf-ask',t:'確認 Module 狀態',d:'',p:[]},
-   {sk:'adf-refactor-analysis',t:'重構分析',d:'界定行為不變的範圍。',p:['refa']},
-   {sk:'Characterization / Regression Baseline',t:'先記錄目前的行為',d:'',p:['tc','raw']},
-   G.req,
-   {sk:'Design / Implementation',t:'設計並重構',d:'',p:['design','code']},
-   {sk:'Regression / Behavior Comparison',t:'比對重構前後的行為',d:'',p:['cmp']},
-   {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace']},
-   G.done,
-   {kind:'exit',sk:'結案',t:'重構完成，行為不變',d:''}
-  ]},
- {id:'standard',group:'其他',no:'09',name:'專案規範變更',desc:'standards/ 新增或修改規範',tag:'STANDARD_CHANGE',entry:'adf-standard-impact-analysis',
-  summary:'STANDARD_CHANGE 是 Framework-level Trigger，不是 Work Type。先分析影響，依 Module 狀態決定下一步。',
-  manifest:[['trigger','STANDARD_CHANGE'],['# 不是 Work Type','不新增 Work Type']],
-  caution:'影響分析不會自動修改 Module。NEW_WORK_ONLY 的規範不得強迫已完成的 Module 回補。',
-  stages:[
-   {sk:'adf-standard-authoring',t:'撰寫或修改專案規範',d:'規範放在專案的 standards/。',p:['stdfile']},
-   {kind:'gate',sk:'Human Gate',t:'規範核准',d:'官方範例不是專案核准規範，不會自動套用。'},
-   {sk:'adf-standard-impact-analysis',t:'分析對各 Module 的影響',d:'回報影響、嚴重度與下一步。',p:['impact']},
-   {kind:'branch',sk:'Change Policy',t:'依 Module 狀態選擇處理方式',d:'點一個選項看結果。',options:[
-     ['進行中的 Module','回到最早受影響的 Stage 重新驗證。'],
-     ['已完成 + REQUIRED','建議建立 CHANGE，trigger=STANDARD_CHANGE。'],
-     ['已完成 + RECOMMENDED','回報給 Human 決定。'],
-     ['NEW_WORK_ONLY','不強迫已完成的 Module 回補，只套用到新工作。']]},
-   {kind:'exit',sk:'結果',t:'依選擇處理',d:''}
-  ]},
- {id:'unsure',group:'其他',no:'10',name:'不知道下一步',desc:'不清楚 Module 卡在哪裡',tag:'READ ONLY',entry:'adf-ask · READ ONLY',
-  summary:'查詢目前的 Work Type、Stage、Artifact 和 Review Gate，取得一個建議的下一支 Skill。',
-  manifest:[['# adf-ask 只讀取','不修改 manifest']],
-  caution:'adf-ask 是唯讀的，不會替你執行建議，也不會核准 Stage。',
-  stages:[
-   {sk:'adf-ask',t:'讀取 manifest 與實際 Artifact',d:'',p:[]},
-   {sk:'adf-ask',t:'確認 Stage、完成／待辦、Blocker 與 Standard drift',d:'',p:[]},
-   {kind:'branch',sk:'建議',t:'只推薦一個下一步',d:'選一個看看會帶你去哪裡。',options:[
-     ['需求還沒確認','回到 adf-requirement-analysis。','new'],
-     ['有 Gate 等待核准','需要 Human Review，AI 不會代為核准。'],
-     ['驗證失敗','執行 adf-verification-fix 找出正確的 Layer。','bugfix'],
-     ['規範有更新','執行 adf-standard-impact-analysis。','standard']]},
-   {kind:'exit',sk:'結果',t:'確認情境後回到對應流程',d:''}
-  ]}
+/* ---------------- 01 NEW ---------------- */
+{id:'new',group:'開發',no:'01',name:'全新功能',desc:'沒有現行功能，從需求開始',tag:'NEW',entry:'adf-develop · NEW',
+ caseT:'新增「線上請假」功能',caseD:'公司過去用紙本請假。這次要做員工線上申請、主管簽核的請假功能。',
+ summary:'先建立 Module 與需求，再形成規則、設計、實作及測試。',
+ mf:['type: NEW','intents: [FEATURE]','origin: NEW'],
+ caution:'需求或 Expected Result 不明確時，先進入 Evidence-Guided Q&A，不要用推測補上。',
+ stages:[
+  {sk:'adf-feature-init',t:'建立 Module 與 manifest',d:'一個 Module 同時只有一個 Active Work Item。',p:['manifest'],
+   out:'manifest.yaml：記錄 Module 是誰、這次 Work Item 的類型與各 Stage 狀態。',ex:'module.id: leave-request、work_item.type: NEW'},
+  {sk:'adf-requirement-analysis',t:'確認需求與驗收條件',d:'',p:['req'],
+   out:'requirements.md：每個需求一個 REQ-*，附可驗證的驗收條件。',ex:'REQ-001 員工可線上申請請假；驗收：送出後主管收到待簽'},
+  {sk:'adf-business-rule · adf-query-analysis · adf-screen-specification',t:'整理規則',d:'',p:['rules'],
+   out:'rules.md：業務規則 BR-*、輸入驗證 VAL-*、查詢 Q-*、畫面 UI-*。',ex:'VAL-001 結束日期不可早於開始日期'},
+  GATE_REQ,
+  {sk:'adf-standards-applicability',t:'判斷適用的 DEV-* 規範',d:'只套用專案 standards/ 裡已核准的規範。',p:['std'],
+   out:'standards.md：這個 Module 適用哪些規範、套用在哪裡。',ex:'DEV-UI-001 錯誤訊息顯示在欄位下方 → 適用於 VAL-001'},
+  {sk:'adf-frontend-prototype',t:'建立 Prototype',d:'有 UI 影響時才做。',p:['proto'],
+   out:'畫面原型：依 UI-* 排出欄位與按鈕，讓人先看畫面再開發。',ex:'假別下拉（特休／事假／病假）、起訖日期、送出按鈕'},
+  GATE_PROTO,
+  {sk:'adf-development-design',t:'技術設計並同步規格書',d:'',p:['design','spec'],
+   out:'design.md：API、資料表、安全設計；specification.md：給人閱讀的彙整。',ex:'POST /api/leave 送出假單；資料表 LEAVE_REQUEST'},
+  {sk:'adf-backend-development · adf-frontend-development',t:'依核准內容實作',d:'只實作已核准的規則、Prototype 與設計。',p:['code'],
+   out:'程式碼，並在程式中標註對應的規則 ID。',ex:'LeaveService.java 實作 BR-001 特休餘額檢查'},
+  {sk:'adf-test-generation',t:'產生操作情境與測試案例',d:'',p:['fs','tc'],
+   out:'functional-scenarios.md（使用者怎麼操作）與 test-cases.md（具體輸入與預期結果）。',ex:'TC-002 輸入開始 12/05、結束 12/01 → 顯示錯誤、不新增'},
+  {sk:'adf-new-test',t:'執行測試並保存 Raw Result',d:'',p:['raw'],
+   out:'Raw Result：每個 TC 的實際輸出，作為 Evidence。',ex:'TC-001 → LEAVE_REQUEST 新增 id=1001，STATUS=PENDING'},
+  {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace'],
+   out:'traceability.md：每個需求能一路追到規則、設計、測試與結果。',ex:'REQ-001 → BR-001、VAL-001 → FS-001 → TC-001～003 → PASS'},
+  GATE_DONE,
+  {kind:'exit',sk:'結案',t:'Module 完成',d:'之後的修改另開 CHANGE Work Item。'}
+ ],
+ files:{
+  manifest:`module:
+  id: leave-request
+  name: 請假申請
+  origin: NEW
+work_item:
+  id: WI-001
+  type: NEW
+  intents:
+    - FEATURE
+  title: 線上請假
+behavior:
+  change_allowed: true
+status:
+  analysis: done
+  specification: in_progress
+  design: pending`,
+  req:`# Requirements
+| ID | 需求 | 驗收條件 | Status |
+|---|---|---|---|
+| REQ-001 | 員工可線上申請請假 | 填假別、起訖日期後送出，主管收到待簽 | {S} |
+| REQ-002 | 員工可查詢自己的請假紀錄 | 依申請日新到舊排列 | {S} |`,
+  rules:`# Rules
+## Business Rules
+| ID | 規則 | 來源 |
+|---|---|---|
+| BR-001 | 特休剩餘天數不足時不可送出 | REQ-001 |
+## Validation Rules
+| ID | 規則 | 錯誤訊息 |
+|---|---|---|
+| VAL-001 | 結束日期不可早於開始日期 | 結束日期不可早於開始日期 |
+## Query Rules
+| ID | 規則 |
+|---|---|
+| Q-001 | 只查詢登入者本人的假單 |
+## UI Rules
+| ID | 規則 |
+|---|---|
+| UI-001 | 假別為下拉選單：特休、事假、病假 |
+狀態：{S}`,
+  std:`# Applicable Standards
+| ID | 規範 | 適用 | 套用位置 |
+|---|---|---|---|
+| DEV-UI-001 | 錯誤訊息顯示在欄位下方 | 適用 | VAL-001 |
+| DEV-DATE-001 | 日期一律 yyyy-MM-dd | 適用 | 起訖日期 |
+狀態：{S}`,
+  proto:`請假申請（Prototype）  狀態：{S}
+─────────────────────────
+假別    [ 特休 ▼ ]          ← UI-001
+開始    [ 2026-12-01 ]
+結束    [ 2026-12-02 ]
+        結束日期不可早於開始日期  ← VAL-001
+事由    [               ]
+        [ 送出 ]`,
+  design:`# Design
+## API
+- \`POST /api/leave\` 送出假單（BR-001、VAL-001）
+- \`GET /api/leave/mine\` 查詢本人假單（Q-001）
+## Database
+- \`LEAVE_REQUEST(ID, EMP_ID, TYPE, START_DATE, END_DATE, STATUS)\`
+## Security
+- 查詢條件一律使用登入者的 EMP_ID
+狀態：{S}`,
+  spec:`# 請假申請 規格書
+## 功能概要
+員工線上申請請假，主管簽核。（REQ-001、REQ-002）
+## 主要規則
+- 特休不足不可送出（BR-001）
+- 結束日不可早於開始日（VAL-001）
+## 驗證摘要
+FS-001；TC-001～TC-004
+狀態：{S}`,
+  code:`src/leave/LeaveController.java    POST /api/leave、GET /api/leave/mine
+src/leave/LeaveService.java       // BR-001 檢查特休餘額
+web/leave/apply.html              // UI-001 假別下拉、VAL-001 日期檢查`,
+  fs:`# Functional Scenarios
+| ID | Source | User Flow | UI Expected | Expected Data | Related Test | Status |
+|---|---|---|---|---|---|---|
+| FS-001 | REQ-001 | 1. 開啟請假 2. 選特休 3. 填 12/01～12/02 4. 送出 | 顯示「已送出，等待主管簽核」 | LEAVE_REQUEST 新增 1 筆，STATUS=PENDING | TC-001 | {S} |`,
+  tc:`# Test Cases
+| ID | Source | Scenario | Test Input | Expected Result | Status |
+|---|---|---|---|---|---|
+| TC-001 | REQ-001 | FS-001 | 特休，2026-12-01～12-02 | 新增 1 筆 PENDING | {S} |
+| TC-002 | VAL-001 | — | 開始 12-05、結束 12-01 | 顯示錯誤，不新增 | {S} |
+| TC-003 | BR-001 | — | 特休餘額 0 天 | 拒絕送出 | {S} |
+| TC-004 | Q-001 | — | 員工 A 查詢 | 只出現 A 的假單 | {S} |`,
+  raw:`[2026-11-11 10:32] adf-new-test
+TC-001  LEAVE_REQUEST 新增 id=1001 STATUS=PENDING
+TC-002  畫面訊息：結束日期不可早於開始日期；資料筆數不變
+TC-003  畫面訊息：特休剩餘天數不足
+TC-004  回傳 3 筆，EMP_ID 全部 = A`,
+  trace:`# Traceability
+| Source | Rule | Standard | Design | Functional Scenario | Test | Result |
+|---|---|---|---|---|---|---|
+| REQ-001 | BR-001, VAL-001, UI-001 | DEV-UI-001 | POST /api/leave | FS-001 | TC-001～003 | PASS |
+| REQ-002 | Q-001 | — | GET /api/leave/mine | — | TC-004 | PASS |
+狀態：{S}`
+ }},
+/* ---------------- 02 CHANGE ---------------- */
+{id:'change',group:'開發',no:'02',name:'修改既有功能',desc:'已有核准基線，新增或調整需求',tag:'CHANGE · FEATURE',entry:'adf-develop · CHANGE',
+ caseT:'請假增加「半天假」',caseD:'線上請假已上線。現在要讓員工可以請上午或下午半天。',
+ summary:'先標明 Requirement Delta 與受影響的規則，再修改設計、程式與 Regression。',
+ mf:['type: CHANGE','intents: [FEATURE]','origin: NEW（沿用）'],
+ caution:'BUGFIX、SECURITY_FIX、REFACTOR 等 Intent 有額外的分析與驗證 Gate，請改選對應情境。',
+ stages:[
+  {sk:'adf-ask',t:'確認 Stage、Blocker 與核准 Baseline',d:'唯讀盤點，確認沒有其他 Active Work Item。',p:['manifest'],
+   out:'manifest.yaml 新增一個 CHANGE Work Item（Module 沿用）。',ex:'work_item.id: WI-002、type: CHANGE'},
+  {sk:'adf-requirement-analysis',t:'記錄 Requirement Delta',d:'只寫新增或變更的部分。',p:['req'],
+   out:'requirements.md 增加 Delta 段落，標明新增或修改哪些 REQ-*。',ex:'新增 REQ-003 可申請上午或下午半天假'},
+  {sk:'規則 Skill · adf-standards-applicability',t:'更新受影響的規則',d:'只動受影響的 BR-*、VAL-*、UI-*。',p:['rules'],
+   out:'rules.md 新增或修改規則，舊規則保持不變。',ex:'BR-002 半天假扣 0.5 天特休'},
+  GATE_REQ,
+  {sk:'adf-frontend-prototype',t:'更新 Prototype',d:'UI 流程受影響時才做。',p:['proto'],
+   out:'在原本畫面加上新欄位。',ex:'選半天時多出「時段：上午／下午」'},
+  GATE_PROTO,
+  {sk:'adf-development-design',t:'調整設計並同步規格書',d:'',p:['design'],
+   out:'design.md 只改受影響的段落。',ex:'LEAVE_REQUEST 增加 HALF_DAY 欄位（AM／PM／空白）'},
+  {sk:'受影響的前後端開發',t:'修改程式',d:'範圍以 Requirement Delta 為準。',p:['code'],
+   out:'只修改與 Delta 相關的程式。',ex:'LeaveService.java 新增 BR-002 半天計算'},
+  {sk:'adf-test-generation',t:'Change Test + Regression',d:'新行為要有測試，舊行為要有 Regression。',p:['tc'],
+   out:'新增的 TC-*，並列出要重跑的舊 TC-*。',ex:'TC-005 上午半天 → 扣 0.5 天；TC-001～004 重跑'},
+  {sk:'adf-new-test',t:'執行測試',d:'',p:['raw'],out:'新舊測試的 Raw Result。',ex:'TC-005 特休餘額 10 → 9.5'},
+  {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace'],out:'traceability.md 補上 REQ-003 這一列。',ex:'REQ-003 → BR-002、VAL-002 → TC-005、TC-006'},
+  GATE_DONE,
+  {kind:'exit',sk:'結案',t:'Module 回到完成狀態',d:'新的核准內容成為下一次 CHANGE 的 Baseline。'}
+ ],
+ files:{
+  manifest:`module:
+  id: leave-request
+  origin: NEW          # 沿用，不改變
+work_item:
+  id: WI-002
+  type: CHANGE
+  intents:
+    - FEATURE
+  title: 支援半天假
+behavior:
+  change_allowed: true`,
+  req:`# Requirements
+## Delta（WI-002）
+| ID | 變更 | 需求 | 驗收條件 | Status |
+|---|---|---|---|---|
+| REQ-003 | 新增 | 可申請上午或下午半天假 | 半天以 0.5 天扣特休 | {S} |
+REQ-001、REQ-002 不變（Baseline：APPROVED）`,
+  rules:`# Rules
+## Business Rules
+| ID | 變更 | 規則 |
+|---|---|---|
+| BR-002 | 新增 | 半天假扣 0.5 天特休 |
+## Validation Rules
+| ID | 變更 | 規則 |
+|---|---|---|
+| VAL-002 | 新增 | 半天假的開始與結束必須是同一天 |
+## UI Rules
+| ID | 變更 | 規則 |
+|---|---|---|
+| UI-002 | 新增 | 勾選半天時顯示「時段：上午／下午」 |
+狀態：{S}`,
+  proto:`請假申請（Prototype v2）  狀態：{S}
+─────────────────────────
+假別    [ 特休 ▼ ]
+[x] 半天                        ← 新增
+時段    ( ) 上午  (•) 下午      ← UI-002
+開始    [ 2026-12-03 ]
+結束    [ 2026-12-03 ]          ← VAL-002 同一天
+        [ 送出 ]`,
+  design:`# Design（WI-002 變更段落）
+## API
+- \`POST /api/leave\` 增加欄位 \`halfDay\`：AM／PM／null
+## Database
+- \`LEAVE_REQUEST\` 增加 \`HALF_DAY VARCHAR(2)\`
+狀態：{S}`,
+  code:`src/leave/LeaveService.java       // BR-002 半天扣 0.5 天（新增）
+web/leave/apply.html              // UI-002 時段選項（新增）
+db/migration/V12__half_day.sql    // 新增 HALF_DAY 欄位`,
+  tc:`# Test Cases
+| ID | Source | Test Input | Expected Result | 類型 | Status |
+|---|---|---|---|---|---|
+| TC-005 | BR-002 | 特休、12-03 上午半天 | 特休餘額 10 → 9.5 | Change | {S} |
+| TC-006 | VAL-002 | 半天、12-03～12-04 | 顯示錯誤，不新增 | Change | {S} |
+| TC-001～004 | REQ-001、002 | 同原案例 | 同原結果 | Regression | {S} |`,
+  raw:`[2026-11-11 14:05] adf-new-test
+TC-005  特休餘額 10 → 9.5，HALF_DAY=AM
+TC-006  畫面訊息：半天假的開始與結束必須是同一天
+TC-001～004  與 Baseline 相同`,
+  trace:`# Traceability
+| Source | Rule | Design | Test | Result |
+|---|---|---|---|---|
+| REQ-001 | BR-001, VAL-001 | POST /api/leave | TC-001～003 | PASS |
+| REQ-002 | Q-001 | GET /api/leave/mine | TC-004 | PASS |
+| REQ-003 | BR-002, VAL-002, UI-002 | halfDay 欄位 | TC-005, TC-006 | PASS |
+狀態：{S}`
+ }},
+/* ---------------- 03 MIGRATION ---------------- */
+{id:'migration',group:'移轉與導入',no:'03',name:'舊功能移轉',desc:'Legacy 存在，準備做新系統',tag:'MIGRATION',entry:'adf-migrate · MIGRATION',
+ caseT:'舊系統「請假查詢」移轉到新系統',caseD:'舊系統是 ASP 網頁，日期用民國年。要在新系統重做請假查詢，行為必須和舊系統一致。',
+ summary:'先萃取 Legacy 行為建立語意基線，合法的轉換才套用核准的 MIG-*，最後雙邊比對結果。',
+ mf:['type: MIGRATION','intents: []','origin: MIGRATION'],
+ caution:'Legacy 無法執行、拿不到 Golden Baseline 時要標 BLOCKED，不可自行假設 Expected Result。',
+ stages:[
+  {sk:'adf-feature-init',t:'建立 Module 與 manifest',d:'',p:['manifest'],out:'manifest.yaml，type 為 MIGRATION。',ex:'module.origin: MIGRATION'},
+  {sk:'adf-legacy-analysis',t:'萃取 Legacy 行為',d:'每個入口追到 SQL 與副作用，分 8 類盤點。',p:['lb'],
+   out:'legacy-behavior.md：每個舊行為一個 LB-*，附程式證據位置與確定度。',ex:'LB-001 起訖日期未填時預設查本月（query.asp:42）'},
+  {sk:'adf-business-rule · query-analysis · screen-specification',t:'把 LB-* 轉成規則',d:'',p:['rules'],
+   out:'rules.md：每條規則註明來自哪個 LB-*。',ex:'Q-001 未填日期時查本月 ← LB-001'},
+  GATE_REQ,
+  {sk:'adf-standards-applicability',t:'核對 DEV-* 與 MIG-*',d:'只有核准的 MIG-* 才能改變表示方式。',p:['std'],
+   out:'standards.md：哪些差異是允許的轉換。',ex:'MIG-DATE-001 民國年 115/11/03 轉成 2026-11-03'},
+  {sk:'adf-frontend-prototype',t:'Prototype',d:'有 UI 影響時才做。',p:['proto'],out:'新系統的查詢畫面原型。',ex:'查詢條件：起訖日期；結果欄位：日期、姓名、假別'},
+  GATE_PROTO,
+  {sk:'adf-development-design → 前後端開發',t:'設計與實作 Target',d:'',p:['design','code'],out:'design.md 與新系統程式。',ex:'GET /api/leave?from=&to=，未帶日期時查本月'},
+  {sk:'adf-test-generation',t:'產生測試案例',d:'同一組案例要能在新舊兩邊執行。',p:['tc'],out:'test-cases.md：每個 TC 連到 LB-*。',ex:'TC-001 ← LB-001 不填日期查詢'},
+  {sk:'adf-legacy-baseline + adf-new-test',t:'新舊兩邊執行相同案例',d:'',p:['raw2'],out:'Legacy 與 Target 各自的 Raw Result。',ex:'Legacy：115/11/03 王小明 特休；Target：2026-11-03 王小明 特休'},
+  {sk:'adf-result-normalization',t:'正規化結果',d:'只處理已核准的表示差異。',p:[],out:'沒有新檔案；依 MIG-DATE-001 把民國年轉成西元再比對。',ex:'115/11/03 → 2026-11-03'},
+  {sk:'adf-result-comparison',t:'逐欄比對並分類差異',d:'',p:['cmp'],out:'comparison.md：差異分類與 LB-* 涵蓋率。',ex:'TC-001 PASS；LB-004 尚未比對 → 涵蓋率 3／4'},
+  {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace'],out:'traceability.md：LB-* → 規則 → 測試 → 比對結果。',ex:'LB-001 → Q-001 → TC-001 → PASS'},
+  GATE_DONE,
+  {kind:'exit',sk:'結案',t:'移轉完成',d:'新系統的行為有 Legacy 證據支持。'}
+ ],
+ files:{
+  manifest:`module:
+  id: leave-query
+  name: 請假查詢
+  origin: MIGRATION
+work_item:
+  id: WI-010
+  type: MIGRATION
+  intents: []
+  title: 請假查詢移轉
+behavior:
+  change_allowed: false`,
+  lb:`# Legacy Behavior
+## 入口
+| 入口 | 類型 | 起點檔案 | 說明 |
+|---|---|---|---|
+| 查詢 | 按鈕 | \`legacy/leave/query.asp\` | 請假查詢 |
+## 行為清單
+| ID | 類別 | 行為 | 證據位置 | 確定度 | 風險 |
+|---|---|---|---|---|---|
+| LB-001 | 查詢 | 起訖未填時預設查本月 | \`query.asp:42\` | CONFIRMED | NORMAL |
+| LB-002 | 查詢 | 依申請日新到舊排序 | \`query.asp:57\` | CONFIRMED | NORMAL |
+| LB-003 | 權限 | 主管可查部屬假單 | \`LeaveDao.asp:88\` | CONFIRMED | HIGH |
+| LB-004 | 隱含行為 | 已取消的假單不顯示 | 推測，SP 未提供 | UNKNOWN | NORMAL |
+狀態：{S}`,
+  rules:`# Rules
+## Query Rules
+| ID | 規則 | 來源 |
+|---|---|---|
+| Q-001 | 未填日期時查本月 | LB-001 |
+| Q-002 | 依申請日新到舊排序 | LB-002 |
+## Business Rules
+| ID | 規則 | 來源 |
+|---|---|---|
+| BR-001 | 主管可查部屬假單 | LB-003 |
+LB-004 確定度 UNKNOWN，待 REV-Q-001 回覆
+狀態：{S}`,
+  std:`# Applicable Standards
+| ID | 規範 | 適用 | 說明 |
+|---|---|---|---|
+| MIG-DATE-001 | 民國年轉西元 yyyy-MM-dd | 適用 | 表示差異，比對前可正規化 |
+| DEV-SEC-001 | 查詢必須使用參數化 SQL | 適用 | 舊系統為字串串接 |
+狀態：{S}`,
+  proto:`請假查詢（Prototype）  狀態：{S}
+─────────────────────────
+起  [ 2026-11-01 ]  迄 [ 2026-11-30 ]  [ 查詢 ]
+日期         姓名     假別
+2026-11-20   王小明   事假
+2026-11-03   王小明   特休`,
+  design:`# Design
+## API
+- \`GET /api/leave?from=&to=\` 未帶日期時查本月（Q-001）
+## Security
+- 參數化查詢（DEV-SEC-001）
+- 主管可查部屬（BR-001）
+狀態：{S}`,
+  code:`src/leave/LeaveQueryController.java   // Q-001、Q-002
+src/leave/LeaveQueryRepository.java   // 參數化 SQL（DEV-SEC-001）`,
+  tc:`# Test Cases
+| ID | Source | Test Input | Expected Result | Status |
+|---|---|---|---|---|
+| TC-001 | Q-001 ← LB-001 | 不填日期 | 回傳本月 2 筆 | {S} |
+| TC-002 | Q-002 ← LB-002 | 11 月 | 11/20 在 11/03 前面 | {S} |
+| TC-003 | BR-001 ← LB-003 | 主管 M 查部屬 | 看得到部屬假單 | {S} |`,
+  raw2:`== Legacy (query.asp) ==
+TC-001  115/11/20 王小明 事假 | 115/11/03 王小明 特休
+TC-002  順序：115/11/20、115/11/03
+TC-003  主管 M：部屬 3 筆
+== Target (/api/leave) ==
+TC-001  2026-11-20 王小明 事假 | 2026-11-03 王小明 特休
+TC-002  順序：2026-11-20、2026-11-03
+TC-003  主管 M：部屬 3 筆`,
+  cmp:`# Result Comparison
+## 摘要
+| 項目 | 數值 |
+|---|---|
+| 比對案例（TC） | 3 |
+| PASS | 3 |
+| MIGRATION_DEFECT | 0 |
+## 涵蓋率
+| 指標 | 分子／分母 | 比例 |
+|---|---|---|
+| 整體涵蓋率 | 3／4 | 75% |
+| 高風險涵蓋率 | 1／1 | 100% |
+## 差異清單
+| TC | LB | 欄位 | Legacy | Target | 分類 | 依據 |
+|---|---|---|---|---|---|---|
+| TC-001 | LB-001 | 日期 | 115/11/03 | 2026-11-03 | PASS | MIG-DATE-001 |
+LB-004 尚未比對（UNKNOWN）
+狀態：{S}`,
+  trace:`# Traceability
+| Source | Rule | Standard | Test | Result |
+|---|---|---|---|---|
+| LB-001 | Q-001 | MIG-DATE-001 | TC-001 | PASS |
+| LB-002 | Q-002 | — | TC-002 | PASS |
+| LB-003 | BR-001 | DEV-SEC-001 | TC-003 | PASS |
+| LB-004 | — | — | — | UNKNOWN |
+狀態：{S}`
+ }},
+/* ---------------- 04 RETROFIT ---------------- */
+{id:'retrofit',group:'移轉與導入',no:'04',name:'已移轉，補驗證',desc:'新系統已完成、舊程式還在',tag:'RETROFIT_VERIFY',entry:'adf-retrofit-verification',
+ caseT:'「請假查詢」已移轉，補做驗證',caseD:'新系統的請假查詢已經上線，但當時沒有比對。舊系統還能執行，現在補做雙邊驗證。',
+ summary:'第一輪只驗證不修改：雙邊執行、比對、分類差異，交給 Human Review。',
+ mf:['type: MIGRATION','intents: [RETROFIT_VERIFY]','origin: MIGRATION','change_allowed: false'],
+ caution:'第一輪不要自動修改 Target。發現差異不等於已確認缺陷，要先保存 Evidence 並分類。',
+ stages:[
+  {sk:'adf-feature-init',t:'建立 Module',d:'',p:['manifest'],out:'manifest.yaml，標明只驗證不修改。',ex:'intents: [RETROFIT_VERIFY]、change_allowed: false'},
+  {sk:'adf-legacy-analysis + adf-target-analysis',t:'分析新舊兩邊',d:'',p:['lb','evidence'],
+   out:'LB-* 行為清單，以及新系統目前行為的觀察紀錄。',ex:'LB-004 舊系統不顯示已取消假單；新系統觀察：會顯示'},
+  {sk:'規則與測試 Skill',t:'建立可比對的規則與測試',d:'',p:['rules','tc'],out:'rules.md 與 test-cases.md，每個 TC 連到 LB-*。',ex:'TC-003 ← LB-004 查詢含已取消假單的月份'},
+  GATE_REQ,
+  {sk:'adf-legacy-baseline + adf-new-test',t:'相同案例雙邊執行',d:'',p:['raw2'],out:'雙邊 Raw Result。',ex:'TC-003 Legacy 2 筆、Target 3 筆'},
+  {sk:'adf-result-normalization',t:'正規化結果',d:'只處理已核准的表示差異。',p:[],out:'沒有新檔案；只轉換日期格式，筆數差異不能正規化掉。',ex:'115/11/03 → 2026-11-03'},
+  {sk:'adf-result-comparison',t:'比對並分類語意差異',d:'',p:['cmp'],out:'comparison.md：每個差異的分類與依據。',ex:'TC-003 多出已取消假單 → 分類 MIGRATION_DEFECT（待 Human 確認）'},
+  {kind:'gate',sk:'Human Review',t:'審查差異分類',d:'由 Human 判斷差異是否為 MIGRATION_DEFECT。',
+   out:'Human 確認後，差異分類改為 APPROVED。',ex:'業務確認「已取消的假單不該顯示」，確認為缺陷'},
+  {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace'],out:'traceability.md，含缺陷與後續 Work Item。',ex:'LB-004 → TC-003 → MIGRATION_DEFECT → 另開 WI-021'},
+  {kind:'exit',sk:'結果',t:'確認的缺陷另開 CHANGE 修復',d:'這個 Work Item 只驗證，不修改 Target。'}
+ ],
+ files:{
+  manifest:`module:
+  id: leave-query
+  origin: MIGRATION
+work_item:
+  id: WI-020
+  type: MIGRATION
+  intents:
+    - RETROFIT_VERIFY
+behavior:
+  change_allowed: false   # 只驗證，不修改 Target`,
+  lb:`# Legacy Behavior
+| ID | 類別 | 行為 | 證據位置 | 確定度 | 風險 |
+|---|---|---|---|---|---|
+| LB-001 | 查詢 | 起訖未填時預設查本月 | \`query.asp:42\` | CONFIRMED | NORMAL |
+| LB-004 | 隱含行為 | 已取消的假單不顯示 | \`query.asp:61 WHERE STATUS<>'C'\` | CONFIRMED | NORMAL |
+狀態：{S}`,
+  evidence:`[Target 現況觀察 2026-11-11]
+GET /api/leave?from=2026-11-01&to=2026-11-30
+→ 回傳 3 筆，其中 1 筆 STATUS=CANCELLED
+畫面：已取消的假單以灰字顯示
+（只記錄觀察到的行為，不代表正確）`,
+  rules:`# Rules
+## Query Rules
+| ID | 規則 | 來源 |
+|---|---|---|
+| Q-001 | 未填日期時查本月 | LB-001 |
+| Q-003 | 已取消的假單不顯示 | LB-004 |
+狀態：{S}`,
+  tc:`# Test Cases
+| ID | Source | Test Input | Expected Result | Status |
+|---|---|---|---|---|
+| TC-001 | Q-001 ← LB-001 | 不填日期 | 回傳本月資料 | {S} |
+| TC-003 | Q-003 ← LB-004 | 11 月（含 1 筆已取消） | 只回傳 2 筆 | {S} |`,
+  raw2:`== Legacy ==
+TC-001  2 筆
+TC-003  2 筆（無已取消）
+== Target ==
+TC-001  2 筆
+TC-003  3 筆（含 STATUS=CANCELLED 1 筆）`,
+  cmp:`# Result Comparison
+## 摘要
+| 項目 | 數值 |
+|---|---|
+| 比對案例（TC） | 2 |
+| PASS | 1 |
+| MIGRATION_DEFECT | 1 |
+## 差異清單
+| TC | LB | 面向 | Legacy | Target | 分類 | 處理 |
+|---|---|---|---|---|---|---|
+| TC-001 | LB-001 | 畫面 | 2 筆 | 2 筆 | PASS | — |
+| TC-003 | LB-004 | 畫面 | 2 筆 | 3 筆 | MIGRATION_DEFECT | 另開 CHANGE |
+狀態：{S}`,
+  trace:`# Traceability
+| Source | Rule | Test | Result | 後續 |
+|---|---|---|---|---|
+| LB-001 | Q-001 | TC-001 | PASS | — |
+| LB-004 | Q-003 | TC-003 | MIGRATION_DEFECT | WI-021（CHANGE · BUGFIX） |
+狀態：{S}`
+ }},
+/* ---------------- 05 ADOPTION ---------------- */
+{id:'adoption',group:'移轉與導入',no:'05',name:'已開發完成，導入 ADF',desc:'只剩現行程式，要建立基線',tag:'BASELINE_ADOPTION',entry:'adf-baseline-adoption',
+ caseT:'已上線的「加班申請」導入 ADF',caseD:'加班申請幾年前就上線了，沒有舊系統，也沒有完整文件。現在要把它納入 ADF 管理。',
+ summary:'Target 現況只算 OBSERVED；反向整理的規格經 Human 核准才成為 APPROVED 基線。',
+ mf:['type: NEW','intents: [BASELINE_ADOPTION]','origin: NEW','change_allowed: false'],
+ caution:'這個流程不能證明當初的實作符合原需求。BASELINE_ADOPTION 一定要人工核准，也不進入開發 Stage。',
+ stages:[
+  {sk:'adf-feature-init',t:'建立 Module',d:'',p:['manifest'],out:'manifest.yaml，標明是導入、不修改程式。',ex:'intents: [BASELINE_ADOPTION]、change_allowed: false'},
+  {sk:'adf-target-analysis',t:'取得現況證據',d:'只記錄觀察到的行為。',p:['evidence'],out:'Target Evidence：程式、畫面與資料的觀察，狀態 OBSERVED。',ex:'輸入加班 5 小時會被擋，訊息「單日不得超過 4 小時」'},
+  {sk:'需求與規則 Skill',t:'產生候選需求與規則',d:'由現況反向整理，此時只是候選。',p:['req','rules'],out:'requirements.md 與 rules.md，每條都註明來自哪個觀察。',ex:'VAL-001 單日加班不得超過 4 小時（來源：觀察 E-02）'},
+  {sk:'adf-standards-applicability',t:'處理與規範的衝突',d:'',p:['std'],out:'standards.md：現況和規範不一致的地方。',ex:'畫面日期用民國年，與 DEV-DATE-001 衝突 → 待 Human 決定'},
+  {sk:'Evidence-Guided Q&A',t:'逐項向 Human 提問確認',d:'無法由證據證明的行為標 UNKNOWN 或 REVIEW_REQUIRED。',p:[],
+   out:'沒有新檔案；把不確定的地方整理成問題請 Human 回答。',ex:'問：週末加班以 1.34 倍計算，是規定還是當初寫錯？'},
+  {kind:'gate',sk:'Human Approval（強制）',t:'核准成為 Baseline',d:'BASELINE_ADOPTION 必須人工核准。',out:'候選需求與規則改為 APPROVED，成為正式基線。',ex:'人資確認 4 小時上限與 1.34 倍都是現行規定，核准'},
+  {sk:'adf-test-generation + adf-new-test',t:'建立 Regression 測試',d:'保護已核准的基線。',p:['tc','raw'],out:'test-cases.md 與 Raw Result。',ex:'TC-001 輸入 5 小時 → 被擋'},
+  {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace'],out:'traceability.md：觀察 → 規則 → 測試。',ex:'E-02 → VAL-001 → TC-001 → PASS'},
+  {kind:'exit',sk:'結果',t:'取得 Approved Baseline',d:'之後的修改走 CHANGE，重用同一個 Module。'}
+ ],
+ files:{
+  manifest:`module:
+  id: overtime-request
+  name: 加班申請
+  origin: NEW
+work_item:
+  id: WI-030
+  type: NEW
+  intents:
+    - BASELINE_ADOPTION
+behavior:
+  change_allowed: false   # 只建立基線，不改程式`,
+  evidence:`[Target 現況觀察 2026-11-11]  狀態：OBSERVED
+E-01  送出加班單後，主管收到 Email 通知
+E-02  輸入 5 小時 → 訊息「單日加班不得超過 4 小時」
+E-03  週末加班時數以 1.34 倍計入（OvertimeService.java:120）
+E-04  畫面日期顯示民國年 115/11/08`,
+  req:`# Requirements（候選，來源為現況觀察）
+| ID | 需求 | 來源 | Status |
+|---|---|---|---|
+| REQ-001 | 員工可線上申請加班，主管收到通知 | E-01 | {S} |`,
+  rules:`# Rules（候選）
+## Validation Rules
+| ID | 規則 | 來源 |
+|---|---|---|
+| VAL-001 | 單日加班不得超過 4 小時 | E-02 |
+## Business Rules
+| ID | 規則 | 來源 |
+|---|---|---|
+| BR-001 | 週末加班以 1.34 倍計算 | E-03（待確認） |
+狀態：{S}`,
+  std:`# Applicable Standards
+| ID | 規範 | 現況 | 處理 |
+|---|---|---|---|
+| DEV-DATE-001 | 日期一律 yyyy-MM-dd | 民國年（E-04） | 衝突，基線先記錄現況，之後另開 CHANGE |
+狀態：{S}`,
+  tc:`# Test Cases（Regression）
+| ID | Source | Test Input | Expected Result | Status |
+|---|---|---|---|---|
+| TC-001 | VAL-001 | 加班 5 小時 | 顯示錯誤，不新增 | {S} |
+| TC-002 | BR-001 | 週六加班 3 小時 | 計入 4.02 小時 | {S} |`,
+  raw:`[2026-11-12 09:10] adf-new-test
+TC-001  訊息：單日加班不得超過 4 小時；資料筆數不變
+TC-002  OVERTIME_HOURS=4.02`,
+  trace:`# Traceability
+| Source | Rule | Test | Result |
+|---|---|---|---|
+| E-02 | VAL-001 | TC-001 | PASS |
+| E-03 | BR-001 | TC-002 | PASS |
+狀態：{S}`
+ }},
+/* ---------------- 06 BUGFIX ---------------- */
+{id:'bugfix',group:'修改 Intent',no:'06',name:'修正錯誤',desc:'既有功能有 Bug',tag:'CHANGE · BUGFIX',entry:'adf-develop · CHANGE',
+ caseT:'跨月請假天數算錯',caseD:'員工請 11/30～12/01 兩天假，系統只扣了 1 天特休。',
+ summary:'先找出問題在哪一層，補一個會失敗的測試案例再修，修完跑 Regression。',
+ mf:['type: CHANGE','intents: [BUGFIX]','origin: NEW（沿用）'],
+ caution:'不得為了取得 PASS 而弱化 Expected Result，也不得由 Target 現況反推 Expected Result。',
+ stages:[
+  {sk:'adf-ask',t:'確認 Module 狀態',d:'',p:['manifest'],out:'manifest.yaml 新增 BUGFIX Work Item。',ex:'work_item.id: WI-040、intents: [BUGFIX]'},
+  {sk:'adf-requirement-analysis',t:'記錄錯誤現象',d:'',p:['req'],out:'requirements.md 的 Delta：錯誤現象與正確結果。',ex:'11/30～12/01 應扣 2 天，實際扣 1 天'},
+  {sk:'adf-verification-fix',t:'找出正確的 Layer',d:'判斷是 Rule、Design 還是程式的問題。',p:['fix'],out:'修正分析：問題出在哪一層、為什麼。',ex:'BR-001 與設計都正確，錯在程式只計算同月份的天數'},
+  {sk:'adf-test-generation',t:'先補一個會失敗的測試',d:'',p:['tc'],out:'test-cases.md 新增重現錯誤的 TC。',ex:'TC-010 請 11/30～12/01 → 預期扣 2 天'},
+  GATE_REQ,
+  {sk:'前後端開發',t:'修正正確的那一層',d:'',p:['code'],out:'只修改有問題的程式。',ex:'LeaveService.days() 改用日期差計算'},
+  {sk:'adf-new-test',t:'執行測試與 Regression',d:'剛補的測試要轉為通過，舊測試不能壞。',p:['raw'],out:'修正前後的 Raw Result。',ex:'TC-010 修正前 1 天、修正後 2 天'},
+  {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace'],out:'traceability.md 加上錯誤與測試的對應。',ex:'WI-040 → TC-010 → PASS'},
+  GATE_DONE,
+  {kind:'exit',sk:'結案',t:'修正完成',d:''}
+ ],
+ files:{
+  manifest:`work_item:
+  id: WI-040
+  type: CHANGE
+  intents:
+    - BUGFIX
+  title: 跨月請假天數計算錯誤`,
+  req:`# Requirements
+## Delta（WI-040 · BUGFIX）
+| 項目 | 內容 |
+|---|---|
+| 相關需求 | REQ-001 |
+| 錯誤現象 | 11/30～12/01 只扣 1 天 |
+| 正確結果 | 應扣 2 天（依 BR-001，Expected Result 不變） |
+| Status | {S} |`,
+  fix:`# 修正分析（adf-verification-fix）
+| Layer | 檢查結果 |
+|---|---|
+| Rule（BR-001） | 正確，不需修改 |
+| Design | 正確，不需修改 |
+| 程式 | LeaveService.days() 只計算同月份 → 問題在這裡 |
+狀態：{S}`,
+  tc:`# Test Cases
+| ID | Source | Test Input | Expected Result | Status |
+|---|---|---|---|---|
+| TC-010 | REQ-001、BR-001 | 特休 2026-11-30～12-01 | 扣 2 天 | {S} |`,
+  code:`src/leave/LeaveService.java
+- int days = end.getDayOfMonth() - start.getDayOfMonth() + 1;
++ long days = ChronoUnit.DAYS.between(start, end) + 1;`,
+  raw:`[修正前] TC-010  扣 1 天   ← 重現錯誤
+[修正後] TC-010  扣 2 天
+[Regression] TC-001～006  與 Baseline 相同`,
+  trace:`# Traceability
+| Source | Rule | Test | Result |
+|---|---|---|---|
+| REQ-001（WI-040） | BR-001 | TC-010 | PASS |
+| Regression | — | TC-001～006 | PASS |
+狀態：{S}`
+ }},
+/* ---------------- 07 SECURITY ---------------- */
+{id:'security',group:'修改 Intent',no:'07',name:'安全修補',desc:'修補弱點或資安問題',tag:'CHANGE · SECURITY_FIX',entry:'adf-develop · CHANGE',
+ caseT:'請假查詢可以看到別人的假單',caseD:'員工把網址的 empId 改成同事的編號，就能看到同事的假單。',
+ summary:'先做安全分析，修補後同時做安全驗證與 Regression。',
+ mf:['type: CHANGE','intents: [SECURITY_FIX]','origin: NEW（沿用）'],
+ caution:'Combined Intents 必須組合所有必要的 Gate，例如 SECURITY_FIX 加 FEATURE 時兩邊的 Gate 都要過。',
+ stages:[
+  {sk:'adf-ask',t:'確認 Module 狀態',d:'',p:['manifest'],out:'manifest.yaml 新增 SECURITY_FIX Work Item。',ex:'intents: [SECURITY_FIX]'},
+  {sk:'adf-security-analysis',t:'安全分析',d:'',p:['sec'],out:'安全分析：弱點、影響範圍、修補方向。',ex:'GET /api/leave?empId= 沒有檢查身分（越權存取）'},
+  GATE_REQ,
+  {sk:'Design / Implementation',t:'設計並實作修補',d:'',p:['design','code'],out:'design.md 的 Security 段落與修補程式。',ex:'不再接受 empId 參數，改用登入身分'},
+  {sk:'adf-security-verification + Regression',t:'安全驗證與 Regression',d:'',p:['tc','raw'],out:'安全測試案例與結果。',ex:'TC-020 員工 A 帶 empId=B → 403'},
+  {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace'],out:'traceability.md：弱點 → 修補 → 驗證。',ex:'SEC-001 → TC-020 → PASS'},
+  GATE_DONE,
+  {kind:'exit',sk:'結案',t:'修補完成',d:''}
+ ],
+ files:{
+  manifest:`work_item:
+  id: WI-050
+  type: CHANGE
+  intents:
+    - SECURITY_FIX
+  title: 請假查詢越權存取`,
+  sec:`# 安全分析
+| 項目 | 內容 |
+|---|---|
+| 弱點 | \`GET /api/leave?empId=\` 未檢查呼叫者身分 |
+| 類型 | 越權存取（IDOR） |
+| 影響範圍 | 所有員工的假單內容 |
+| 修補方向 | 由登入身分決定 empId；主管查部屬要檢查隸屬關係 |
+狀態：{S}`,
+  design:`# Design
+## Security（WI-050）
+- 移除 \`empId\` 查詢參數
+- 員工：只能查自己（EMP_ID = 登入者）
+- 主管：只能查 DEPT_MANAGER = 登入者 的部屬
+狀態：{S}`,
+  code:`src/leave/LeaveController.java
+- String empId = request.getParameter("empId");
++ String empId = currentUser().getEmpId();`,
+  tc:`# Test Cases
+| ID | Source | Test Input | Expected Result | Status |
+|---|---|---|---|---|
+| TC-020 | SEC-001 | 員工 A 呼叫 ?empId=B | 403，不回傳資料 | {S} |
+| TC-021 | SEC-001 | 主管 M 查非部屬 C | 403 | {S} |`,
+  raw:`TC-020  HTTP 403  {"error":"forbidden"}
+TC-021  HTTP 403
+Regression TC-001～006  與 Baseline 相同`,
+  trace:`# Traceability
+| Source | Design | Test | Result |
+|---|---|---|---|
+| SEC-001 | Security · 移除 empId | TC-020, TC-021 | PASS |
+狀態：{S}`
+ }},
+/* ---------------- 08 REFACTOR ---------------- */
+{id:'refactor',group:'修改 Intent',no:'08',name:'重構',desc:'改善結構，不改變行為',tag:'CHANGE · REFACTOR',entry:'adf-develop · CHANGE',
+ caseT:'拆分請假天數計算',caseD:'LeaveService 越來越長，要把天數計算拆成獨立類別，行為完全不變。',
+ summary:'先建立行為基線，重構後比對行為必須相同。',
+ mf:['type: CHANGE','intents: [REFACTOR]','origin: NEW（沿用）'],
+ caution:'重構過程若發現需要改變行為，要另外記錄並經 Human 確認，不能混在重構裡。',
+ stages:[
+  {sk:'adf-ask',t:'確認 Module 狀態',d:'',p:['manifest'],out:'manifest.yaml 新增 REFACTOR Work Item。',ex:'intents: [REFACTOR]'},
+  {sk:'adf-refactor-analysis',t:'重構分析',d:'',p:['refa'],out:'重構分析：改哪裡、哪些行為必須不變。',ex:'範圍：LeaveService.days()；不變：TC-001～010 的結果'},
+  {sk:'Characterization / Regression Baseline',t:'先記錄目前的行為',d:'',p:['tc','raw'],out:'重構前的測試結果，當作比對基準。',ex:'TC-010 跨月 → 2 天（重構前）'},
+  GATE_REQ,
+  {sk:'Design / Implementation',t:'設計並重構',d:'',p:['design','code'],out:'新的程式結構。',ex:'新增 LeaveDayCalculator，LeaveService 改為呼叫它'},
+  {sk:'Regression / Behavior Comparison',t:'比對重構前後的行為',d:'',p:['cmp'],out:'comparison.md：前後結果逐案比對。',ex:'10 個案例全部相同'},
+  {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace'],out:'traceability.md。',ex:'REFACTOR 範圍 → TC-001～010 → 行為相同'},
+  GATE_DONE,
+  {kind:'exit',sk:'結案',t:'重構完成，行為不變',d:''}
+ ],
+ files:{
+  manifest:`work_item:
+  id: WI-060
+  type: CHANGE
+  intents:
+    - REFACTOR
+  title: 拆分天數計算
+behavior:
+  preserve:
+    - TC-001～TC-010`,
+  refa:`# 重構分析
+| 項目 | 內容 |
+|---|---|
+| 範圍 | \`LeaveService.days()\` |
+| 目標 | 拆成 \`LeaveDayCalculator\`，方便測試 |
+| 必須不變 | TC-001～TC-010 的結果 |
+| 不在範圍 | 任何規則或畫面變更 |
+狀態：{S}`,
+  tc:`# Test Cases（Characterization）
+| ID | Test Input | 重構前結果 | Status |
+|---|---|---|---|
+| TC-001 | 特休 12-01～12-02 | 2 天 | {S} |
+| TC-005 | 上午半天 | 0.5 天 | {S} |
+| TC-010 | 11-30～12-01 | 2 天 | {S} |`,
+  raw:`[重構前 Baseline]
+TC-001  2 天
+TC-005  0.5 天
+TC-010  2 天
+…共 10 個案例`,
+  design:`# Design（WI-060）
+## Backend
+- 新增 \`LeaveDayCalculator.days(start, end, halfDay)\`
+- \`LeaveService\` 改為呼叫 \`LeaveDayCalculator\`
+狀態：{S}`,
+  code:`src/leave/LeaveDayCalculator.java   // 新增，搬移計算邏輯
+src/leave/LeaveService.java
+- long days = ...（原本 20 行）
++ double days = calculator.days(start, end, halfDay);`,
+  cmp:`# Behavior Comparison
+| TC | 重構前 | 重構後 | 結果 |
+|---|---|---|---|
+| TC-001 | 2 天 | 2 天 | 相同 |
+| TC-005 | 0.5 天 | 0.5 天 | 相同 |
+| TC-010 | 2 天 | 2 天 | 相同 |
+10／10 相同
+狀態：{S}`,
+  trace:`# Traceability
+| Source | Test | Result |
+|---|---|---|
+| REFACTOR 範圍 | TC-001～TC-010 | 行為相同 |
+狀態：{S}`
+ }},
+/* ---------------- 09 STANDARD ---------------- */
+{id:'standard',group:'其他',no:'09',name:'專案規範變更',desc:'standards/ 新增或修改規範',tag:'STANDARD_CHANGE',entry:'adf-standard-impact-analysis',
+ caseT:'新增日期格式規範',caseD:'公司決定所有畫面日期一律顯示 yyyy-MM-dd，要知道哪些 Module 受影響。',
+ summary:'STANDARD_CHANGE 是 Framework-level Trigger，不是 Work Type。先分析影響，依 Module 狀態決定下一步。',
+ mf:['trigger: STANDARD_CHANGE','（不是 Work Type）'],
+ caution:'影響分析不會自動修改 Module。NEW_WORK_ONLY 的規範不得強迫已完成的 Module 回補。',
+ stages:[
+  {sk:'adf-standard-authoring',t:'撰寫專案規範',d:'規範放在專案的 standards/。',p:['stdfile'],out:'standards/ 下的一份規範檔，有 id 與 status。',ex:'DEV-DATE-001 畫面日期一律 yyyy-MM-dd'},
+  {kind:'gate',sk:'Human Gate',t:'規範核准',d:'官方範例不是專案核准規範，不會自動套用。',out:'規範的 status 由 DRAFT 改為 APPROVED。',ex:'架構組核准 DEV-DATE-001'},
+  {sk:'adf-standard-impact-analysis',t:'分析對各 Module 的影響',d:'',p:['impact'],out:'影響報告：每個 Module 的狀態、嚴重度與建議。',ex:'加班申請：已完成 + REQUIRED → 建議建立 CHANGE'},
+  {kind:'branch',sk:'Change Policy',t:'依 Module 狀態選擇處理方式',d:'點一個選項看結果。',out:'依 Module 狀態決定下一步，不會自動修改。',ex:'見下方選項',options:[
+    ['進行中的 Module','回到最早受影響的 Stage 重新驗證。'],
+    ['已完成 + REQUIRED','建議建立 CHANGE，trigger=STANDARD_CHANGE。'],
+    ['已完成 + RECOMMENDED','回報給 Human 決定。'],
+    ['NEW_WORK_ONLY','不強迫已完成的 Module 回補，只套用到新工作。']]},
+  {kind:'exit',sk:'結果',t:'依選擇處理',d:''}
+ ],
+ files:{
+  stdfile:`---
+id: DEV-DATE-001
+status: {S}
+---
+# 日期顯示格式
+- 畫面與匯出檔的日期一律顯示 \`yyyy-MM-dd\`
+- 適用：所有新開發與 CHANGE
+- 層級：REQUIRED`,
+  impact:`# 規範影響報告（DEV-DATE-001）
+| Module | 狀態 | 影響 | 建議 |
+|---|---|---|---|
+| leave-request 請假申請 | 已完成 | 已符合 | 不需處理 |
+| overtime-request 加班申請 | 已完成 | 民國年，REQUIRED | 建立 CHANGE，trigger=STANDARD_CHANGE |
+| leave-query 請假查詢 | 進行中（design） | 結果日期 | 回到 standards Stage 重新驗證 |
+狀態：{S}`
+ }},
+/* ---------------- 10 UNSURE ---------------- */
+{id:'unsure',group:'其他',no:'10',name:'不知道下一步',desc:'不清楚 Module 卡在哪裡',tag:'READ ONLY',entry:'adf-ask · READ ONLY',
+ caseT:'請假模組好像卡住了',caseD:'接手同事的工作，不知道 leave-request 目前做到哪、下一步該做什麼。',
+ summary:'查詢目前的 Work Type、Stage、Artifact 和 Review Gate，取得一個建議的下一支 Skill。',
+ mf:['adf-ask 只讀取','不修改任何檔案'],
+ caution:'adf-ask 是唯讀的，不會替你執行建議，也不會核准 Stage。',
+ stages:[
+  {sk:'adf-ask',t:'讀取 manifest 與實際 Artifact',d:'',p:[],out:'沒有新檔案；只讀 manifest.yaml 與 spec、design、verification 下的檔案。',ex:'讀到 WI-002 CHANGE，status.design: pending'},
+  {sk:'adf-ask',t:'確認 Stage、Blocker 與 Standard drift',d:'',p:['ask'],out:'唯讀狀態報告：目前 Stage、完成與待辦、Blocker。',ex:'Blocker：Prototype Review 尚未核准'},
+  {kind:'branch',sk:'建議',t:'只推薦一個下一步',d:'選一個看看會帶你去哪裡。',out:'一個建議的下一步，不會自動執行。',ex:'建議：請 Human 審查 Prototype',options:[
+    ['需求還沒確認','回到 adf-requirement-analysis。','new'],
+    ['有 Gate 等待核准','需要 Human Review，AI 不會代為核准。'],
+    ['驗證失敗','執行 adf-verification-fix 找出正確的 Layer。','bugfix'],
+    ['規範有更新','執行 adf-standard-impact-analysis。','standard']]},
+  {kind:'exit',sk:'結果',t:'確認情境後回到對應流程',d:''}
+ ],
+ files:{
+  ask:`# adf-ask 回報（唯讀）
+| 項目 | 內容 |
+|---|---|
+| Module | leave-request 請假申請 |
+| Active Work Item | WI-002 · CHANGE · FEATURE（半天假） |
+| 目前 Stage | Prototype Review |
+| 已完成 | requirements、rules、standards、prototype |
+| Blocker | Prototype Review 尚未經 Human 核准 |
+| Standard drift | 無 |
+| 建議下一步 | 請 Human 審查 Prototype（adf-prototype-review） |`
+ }}
 ];
 
 const $=id=>document.getElementById(id);
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
-const st={sc:null,i:0,playing:false,timer:null,art:{},order:[],waiting:false,finished:false,branchPick:null};
-const DWELL=1300;
+const st={sc:null,i:0,playing:false,timer:null,art:{},order:[],waiting:false,finished:false,view:null};
+const DWELL=1700;
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- 簡易 Markdown 轉換 ---------- */
+function inline(s,status){
+  let h=esc(s).replace(/`([^`]+)`/g,'<code>$1</code>');
+  return h.replace(/\{S\}/g,status?`<b class="chip s-${status}">${status==='DONE'?'已建立':status}</b>`:'');
+}
+function renderFile(text,lang,status){
+  if(lang==='pre'){
+    return text.split('\n').map(l=>`<pre${l.startsWith('+ ')?' class="hl"':''}>${inline(l,status)||' '}</pre>`).join('');
+  }
+  const L=text.split('\n');let out='',i=0;
+  while(i<L.length){
+    const l=L[i];
+    if(l.startsWith('|')){
+      const rows=[];while(i<L.length&&L[i].startsWith('|')){rows.push(L[i]);i++;}
+      const cells=r=>r.replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+      const body=rows.filter((r,k)=>k>0&&!/^\|[\s\-:|]+\|$/.test(r));
+      out+='<div class="tw"><table><thead><tr>'+cells(rows[0]).map(c=>'<th>'+inline(c,status)+'</th>').join('')+'</tr></thead><tbody>'+
+        body.map(r=>'<tr>'+cells(r).map(c=>'<td>'+inline(c,status)+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>';
+      continue;
+    }
+    if(l.startsWith('- ')){
+      const it=[];while(i<L.length&&L[i].startsWith('- ')){it.push(L[i].slice(2));i++;}
+      out+='<ul>'+it.map(x=>'<li>'+inline(x,status)+'</li>').join('')+'</ul>';continue;
+    }
+    if(l.startsWith('## '))out+='<h5>'+inline(l.slice(3),status)+'</h5>';
+    else if(l.startsWith('# '))out+='<h4>'+inline(l.slice(2),status)+'</h4>';
+    else if(l==='---')out+='<pre>---</pre>';
+    else if(/^[a-z_]+:/.test(l))out+='<pre>'+inline(l,status)+'</pre>';
+    else if(l.trim())out+='<p>'+inline(l,status)+'</p>';
+    i++;
+  }
+  return out;
+}
+function openFile(key,animate){
+  const sc=st.sc;const txt=sc.files&&sc.files[key];
+  st.view=key;
+  $('vpath').textContent=ART[key].p;
+  const s=st.art[key];
+  $('vchip').innerHTML=s?`<b class="chip s-${s}">${s==='DONE'?(DONE_LABEL[key]||'已建立'):s}</b>`:'<span style="font-size:12px;color:var(--muted)">尚未產生（預覽）</span>';
+  const vb=$('vbody');
+  vb.innerHTML=txt?renderFile(txt,ART[key].lang,s||'DRAFT'):'<p class="empty">這個範例沒有提供內容。</p>';
+  vb.classList.remove('reveal');
+  if(animate&&!reduce){
+    let d=0;
+    [...vb.children].forEach(el=>{
+      if(el.classList.contains('tw')){el.querySelectorAll('tr').forEach(tr=>{tr.style.setProperty('--d',d+'ms');d+=110;});el.style.setProperty('--d','0ms');el.style.animation='none';}
+      else{el.style.setProperty('--d',d+'ms');d+=90;}
+    });
+    void vb.offsetWidth;vb.classList.add('reveal');
+  }
+  vb.scrollTop=0;
+  document.querySelectorAll('.art').forEach(a=>a.classList.toggle('sel',a.dataset.k===key));
+}
+function refreshView(){if(st.view)openFile(st.view,false);}
 
 /* ---------- 情境卡 ---------- */
 const groups=[...new Set(S.map(s=>s.group))];
@@ -436,9 +1115,9 @@ groups.forEach(g=>{
   const cards=document.createElement('div');cards.className='cards';
   S.filter(s=>s.group===g).forEach(s=>{
     const b=document.createElement('button');b.type='button';b.className='card';b.setAttribute('aria-pressed','false');
-    b.innerHTML='<span class="no"></span><strong></strong><small></small><span class="tag"></span>';
+    b.innerHTML='<span class="no"></span><strong></strong><small></small><span class="ex"></span><span class="tag"></span>';
     b.querySelector('.no').textContent=s.no;b.querySelector('strong').textContent=s.name;
-    b.querySelector('small').textContent=s.desc;b.querySelector('.tag').textContent=s.tag;
+    b.querySelector('small').textContent=s.desc;b.querySelector('.ex').textContent='範例：'+s.caseT;b.querySelector('.tag').textContent=s.tag;
     b.addEventListener('click',()=>load(s.id,true));
     cards.appendChild(b);cardEls[s.id]=b;
   });
@@ -474,7 +1153,7 @@ function renderQuiz(key){
     const q=document.createElement('div');q.className='qbox';
     q.innerHTML='<h3></h3><p class="lede"></p>';
     q.querySelector('h3').textContent='建議情境：'+s.no+' '+s.name+'（'+s.tag+'）';
-    q.querySelector('p').textContent=s.summary;
+    q.querySelector('p').textContent=s.summary+' 範例：'+s.caseT+'。';
     const b=document.createElement('button');b.type='button';b.className='primary';b.style.alignSelf='flex-start';b.textContent='開始播放這個情境';
     b.onclick=()=>{load(s.id,true);play(true);};
     q.appendChild(b);box.appendChild(q);return;
@@ -496,38 +1175,22 @@ $('quizBtn').addEventListener('click',()=>{
   if(!q.hidden){trail=[];renderQuiz('start');}
 });
 
-/* ---------- manifest 打字 ---------- */
-let typeTimer=null;
-function typeYaml(lines){
-  clearTimeout(typeTimer);
-  const y=$('yaml');
-  const full=lines.map(([k,v])=>k.startsWith('#')?k+'：'+v:k+': '+v);
-  if(reduce){y.textContent=full.join('\n');return;}
-  let li=0,ci=0;y.replaceChildren();
-  const caret=document.createElement('span');caret.className='caret';
-  function stepT(){
-    y.textContent=full.slice(0,li).join('\n')+(li?'\n':'')+full[li].slice(0,ci);
-    y.appendChild(caret);
-    ci++;
-    if(ci>full[li].length){li++;ci=0;if(li>=full.length){y.textContent=full.join('\n');return;}}
-    typeTimer=setTimeout(stepT,22);
-  }
-  stepT();
-}
-
 /* ---------- 管線 ---------- */
 function load(id,scroll){
   stop();
   const s=S.find(v=>v.id===id)||S[0];
-  st.sc=s;st.i=0;st.art={};st.order=[];st.waiting=false;st.finished=false;st.branchPick=null;
+  st.sc=s;st.i=0;st.art={};st.order=[];st.waiting=false;st.finished=false;st.view=null;
   for(const k in cardEls)cardEls[k].setAttribute('aria-pressed',String(k===s.id));
   try{history.replaceState(null,'','#'+s.id);}catch(e){}
   const h=$('scHead');h.replaceChildren();
   const e=document.createElement('span');e.className='entry';e.textContent=s.entry;
   const t=document.createElement('h2');t.textContent=s.no+' '+s.name;
   const p=document.createElement('p');p.className='lede';p.textContent=s.summary;
-  h.append(e,t,p);
-  typeYaml(s.manifest);
+  const mf=document.createElement('div');mf.className='mf';s.mf.forEach(x=>{const sp=document.createElement('span');sp.textContent=x;mf.appendChild(sp);});
+  const c=document.createElement('div');c.className='case';
+  c.innerHTML='<span class="ic" aria-hidden="true">例</span><div><b>範例案例</b><strong></strong><p></p></div>';
+  c.querySelector('strong').textContent=s.caseT;c.querySelector('p').textContent=s.caseD;
+  h.append(e,t,p,mf,c);
   $('caution').textContent=s.caution;
   const pipe=$('pipe');
   [...pipe.querySelectorAll('.st')].forEach(n=>n.remove());
@@ -535,16 +1198,22 @@ function load(id,scroll){
     const li=document.createElement('li');
     li.className='st pending '+(g.kind||'stage');li.style.animationDelay=(k*40)+'ms';
     const mk=document.createElement('div');mk.className='mk';mk.appendChild(document.createElement('i'));
-    const bx=document.createElement('button');bx.type='button';bx.className='bx';
+    const bx=document.createElement('div');bx.className='bx';bx.setAttribute('role','button');bx.tabIndex=0;
     bx.innerHTML='<span class="sk"></span><span class="tt"></span>';
     bx.querySelector('.sk').textContent=g.sk;bx.querySelector('.tt').textContent=g.t;
     if(g.d){const d=document.createElement('span');d.className='ds';d.textContent=g.d;bx.appendChild(d);}
-    if(g.p&&g.p.length){const pr=document.createElement('span');pr.className='prods';g.p.forEach(a=>{const x=document.createElement('span');x.textContent=ART[a].p;pr.appendChild(x);});bx.appendChild(pr);}
+    if(g.p&&g.p.length){const pr=document.createElement('span');pr.className='prods';
+      g.p.forEach(a=>{const x=document.createElement('button');x.type='button';x.textContent=ART[a].p;x.title='查看範例內容';
+        x.addEventListener('click',ev=>{ev.stopPropagation();openFile(a,true);});pr.appendChild(x);});
+      bx.appendChild(pr);}
     bx.addEventListener('click',()=>showNow(k));
+    bx.addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();showNow(k);}});
     li.append(mk,bx);pipe.appendChild(li);
   });
   $('doneBox').replaceChildren();
-  renderShelf();enter(0,false);
+  $('vpath').textContent='檔案內容';$('vchip').replaceChildren();
+  $('vbody').innerHTML='<p class="empty">播放後，每個 Stage 產生的檔案會在這裡逐行顯示。也可以點 Stage 上的檔名先預覽。</p>';
+  renderShelf();enter(0);
   if(scroll)$('scHead').scrollIntoView({behavior:reduce?'auto':'smooth',block:'start'});
 }
 function rows(){return [...$('pipe').querySelectorAll('.st')];}
@@ -557,7 +1226,7 @@ function updateRail(){
   const n=st.sc.stages.length;const done=r.filter(x=>x.classList.contains('done')).length;
   $('count').textContent=done+' / '+n;$('barFill').style.width=(done/n*100)+'%';
 }
-function enter(k,auto){
+function enter(k){
   st.i=k;const r=rows();
   r.forEach((x,j)=>{x.classList.toggle('cur',j===k&&!st.finished);if(j>k&&!x.classList.contains('done'))x.classList.add('pending');});
   r[k].classList.remove('pending');
@@ -569,18 +1238,17 @@ function enter(k,auto){
     const note=document.createElement('span');note.className='note';note.textContent='等待 Human 決定：AI 不能自行核准';
     const ok=document.createElement('button');ok.type='button';ok.className='approve';ok.textContent='核准';ok.onclick=approve;
     const no=document.createElement('button');no.type='button';no.className='reject';no.textContent='退回補充';no.onclick=reject;
-    act.append(note,ok,no);r[k].querySelector('.bx').after(act);
-    act.style.gridColumn='2';
+    act.append(note,ok,no);r[k].appendChild(act);
     if(st.playing&&$('autoApprove').checked)schedule(approve,DWELL+400);
   }else if(g.kind==='branch'){
     st.waiting=true;
-    const act=document.createElement('div');act.className='gate-act';act.style.gridColumn='2';
+    const act=document.createElement('div');act.className='gate-act';
     g.options.forEach(([label,res,go])=>{
       const b=document.createElement('button');b.type='button';b.className='bopt';b.textContent=label;
       const sm=document.createElement('small');sm.textContent=res;b.appendChild(sm);
       b.onclick=()=>pickBranch(label,res,go);act.appendChild(b);
     });
-    r[k].querySelector('.bx').after(act);
+    r[k].appendChild(act);
   }else if(g.kind==='exit'){
     finish();
   }else{
@@ -591,11 +1259,13 @@ function enter(k,auto){
 }
 function complete(){
   const g=st.sc.stages[st.i];
+  for(const a in st.art)if(st.art[a]==='REVIEW_REQUIRED')st.art[a]='DRAFT';
   (g.p||[]).forEach(a=>{
     const k=ART[a].kind;
-    setArt(a,k==='obs'?'OBSERVED':k==='done'?'DONE':k==='cfg'?'DONE':'DRAFT');
+    setArt(a,k==='obs'?'OBSERVED':(k==='done'||k==='cfg')?'DONE':'DRAFT');
   });
-  for(const a in st.art)if(st.art[a]==='REVIEW_REQUIRED')setArt(a,'DRAFT');
+  renderShelf();
+  if(g.p&&g.p.length)openFile(g.p[g.p.length-1],true);else refreshView();
   rows()[st.i].classList.add('done');
   next();
 }
@@ -603,15 +1273,19 @@ function next(){if(st.i+1<st.sc.stages.length)enter(st.i+1);}
 function approve(){
   if(!st.waiting)return;clearTimeout(st.timer);
   st.waiting=false;
-  for(const a in st.art)if(st.art[a]==='DRAFT')setArt(a,'APPROVED');
+  const changed=[];
+  for(const a in st.art)if(st.art[a]==='DRAFT'){st.art[a]='APPROVED';changed.push(a);}
+  renderShelf(changed);refreshView();
   rows()[st.i].classList.add('done');
-  toast('已由 Human 核准，DRAFT 改為 APPROVED',true);
+  toast(changed.length?'已由 Human 核准：'+changed.length+' 份 DRAFT 改為 APPROVED':'已由 Human 核准',true);
   next();
 }
 function reject(){
   if(!st.waiting)return;clearTimeout(st.timer);
   st.waiting=false;
-  for(const a in st.art)if(st.art[a]==='DRAFT')setArt(a,'REVIEW_REQUIRED');
+  const changed=[];
+  for(const a in st.art)if(st.art[a]==='DRAFT'){st.art[a]='REVIEW_REQUIRED';changed.push(a);}
+  renderShelf(changed);refreshView();
   toast('已退回：進入 Evidence-Guided Q&A 補充後重新送審');
   let back=st.i-1;while(back>0&&st.sc.stages[back].kind)back--;
   rows().forEach((x,j)=>{if(j>=back)x.classList.remove('done');});
@@ -623,7 +1297,7 @@ function pickBranch(label,res,go){
   const r=rows()[exitIdx];
   let out=r.querySelector('.result');if(!out){out=document.createElement('div');out.className='result';r.querySelector('.bx').appendChild(out);}
   out.textContent=label+'：'+res;
-  if(go){const s=S.find(v=>v.id===go);const b=document.createElement('button');b.type='button';b.className='ghost';b.style.cssText='margin-top:6px;padding:4px 10px;align-self:flex-start';b.textContent='前往「'+s.name+'」情境';b.onclick=e=>{e.stopPropagation();load(go,true);};out.appendChild(document.createElement('br'));out.appendChild(b);}
+  if(go){const s=S.find(v=>v.id===go);const b=document.createElement('button');b.type='button';b.className='ghost';b.style.cssText='margin-top:6px;padding:4px 10px;display:block';b.textContent='前往「'+s.name+'」情境';b.onclick=e=>{e.stopPropagation();load(go,true);};out.appendChild(b);}
   next();
 }
 function finish(){
@@ -635,23 +1309,23 @@ function finish(){
   const again=document.createElement('button');again.type='button';again.className='ghost';again.textContent='再播一次';again.onclick=()=>{load(st.sc.id,false);play(true);};
   b.append(t,again);d.appendChild(b);
 }
-function setArt(a,s){
-  const prev=st.art[a];st.art[a]=s;if(!st.order.includes(a))st.order.push(a);
-  renderShelf(prev===undefined?a:null,prev!==s?a:null);
-}
-function renderShelf(added,changed){
+function setArt(a,s){st.art[a]=s;if(!st.order.includes(a))st.order.push(a);}
+function renderShelf(flash){
   const sh=$('shelf');
   if(!st.order.length){sh.innerHTML='<p class="empty">尚未產生 Artifact。按「播放」或「下一步」開始。</p>';return;}
   const existing={};[...sh.querySelectorAll('.art')].forEach(n=>existing[n.dataset.k]=n);
   sh.querySelector('.empty')?.remove();
+  [...sh.querySelectorAll('.art')].forEach(n=>{if(!st.order.includes(n.dataset.k))n.remove();});
   st.order.forEach(a=>{
     let n=existing[a];
-    if(!n){n=document.createElement('div');n.className='art';n.dataset.k=a;
+    if(!n){n=document.createElement('button');n.type='button';n.className='art';n.dataset.k=a;
       n.innerHTML='<div><div class="p"></div><div class="id"></div></div><b class="chip"></b>';
-      n.querySelector('.p').textContent=ART[a].p;n.querySelector('.id').textContent=ART[a].id;sh.appendChild(n);}
+      n.querySelector('.p').textContent=ART[a].p;n.querySelector('.id').textContent=ART[a].id;
+      n.addEventListener('click',()=>openFile(a,true));sh.appendChild(n);}
     const c=n.querySelector('.chip');const s=st.art[a];
-    c.className='chip s-'+s;c.textContent=s==='DONE'?(a==='code'?'已實作':'已建立'):s;
-    if(changed===a&&added!==a){c.classList.remove('flash');void c.offsetWidth;c.classList.add('flash');}
+    c.className='chip s-'+s;c.textContent=s==='DONE'?(DONE_LABEL[a]||'已建立'):s;
+    if(flash&&flash.includes(a)){void c.offsetWidth;c.classList.add('flash');}
+    n.classList.toggle('sel',a===st.view);
   });
 }
 function showNow(k){
@@ -660,20 +1334,25 @@ function showNow(k){
   const sk=document.createElement('span');sk.className='sk';sk.textContent=(k+1)+' / '+st.sc.stages.length+' · '+g.sk;
   const t=document.createElement('h3');t.textContent=g.t;
   w.append(sk,t);
-  if(g.d){const d=document.createElement('p');d.style.color='var(--soft)';d.textContent=g.d;w.appendChild(d);}
-  if(g.p&&g.p.length){const p=document.createElement('p');p.style.cssText='font-size:13px;color:var(--muted)';p.textContent='產出：'+g.p.map(a=>ART[a].p).join('、');w.appendChild(p);}
+  if(g.d){const d=document.createElement('p');d.style.cssText='color:var(--soft);font-size:13.5px';d.textContent=g.d;w.appendChild(d);}
+  if(g.out||g.ex){
+    const dl=document.createElement('dl');dl.className='kv';
+    if(g.out){dl.insertAdjacentHTML('beforeend','<dt>產出</dt><dd></dd>');dl.lastChild.textContent=g.out;}
+    if(g.ex){dl.insertAdjacentHTML('beforeend','<dt>範例</dt><dd class="exv"></dd>');dl.lastChild.textContent=g.ex;}
+    w.appendChild(dl);
+  }
   if(g.kind==='gate'){const h=document.createElement('div');h.className='gatehint';h.textContent='按「核准」：目前所有 DRAFT 變成 APPROVED 並繼續。按「退回補充」：DRAFT 變成 REVIEW_REQUIRED，回到前一個 Stage 補充後重新送審。';w.appendChild(h);}
   n.appendChild(w);
 }
 
 /* ---------- 播放控制 ---------- */
-function schedule(fn,ms){clearTimeout(st.timer);st.timer=setTimeout(fn,reduce?Math.min(ms,400):ms);}
+function schedule(fn,ms){clearTimeout(st.timer);st.timer=setTimeout(fn,reduce?Math.min(ms,500):ms);}
 function play(on){
   if(st.finished&&on){load(st.sc.id,false);}
   st.playing=on;$('playBtn').textContent=on?'暫停':'播放';
   clearTimeout(st.timer);
   if(on){const g=st.sc.stages[st.i];
-    if(!g.kind)schedule(complete,500);
+    if(!g.kind)schedule(complete,600);
     else if(g.kind==='gate'&&$('autoApprove').checked)schedule(approve,DWELL);}
 }
 function stop(){st.playing=false;clearTimeout(st.timer);$('playBtn').textContent='播放';}
