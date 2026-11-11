@@ -15,7 +15,7 @@
   --bg:#091521; --bar:#0c1c2b; --panel:#102335; --raise:#152e42; --line:#2a4053; --rail:#294353; --code:#091b2b;
   --ink:#e9f3f7; --soft:#c9dbe3; --muted:#9bb1c0;
   --accent:#56ddc8; --accent-ink:#08212b;
-  --gate:#e6b869; --st-draft:#e6b869; --st-ok:#56ddc8; --st-review:#ff8f8f; --st-obs:#8fb3ff; --st-done:#a5e38c;
+  --gate:#e6b869; --trig:#c8b6ff; --st-draft:#e6b869; --st-ok:#56ddc8; --st-review:#ff8f8f; --st-obs:#8fb3ff; --st-done:#a5e38c;
   --font-body:Inter,"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
   --font-mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,"Noto Sans TC",monospace;
   color-scheme:dark;
@@ -100,6 +100,17 @@ code,.mono{font-family:var(--font-mono);font-size:.88em}
 .st.gate .mk i{border-radius:3px;transform:rotate(45deg);border-color:var(--gate)}
 .st.branch .mk i{border-radius:3px;border-color:var(--st-obs)}
 .st.exit .mk i{border-radius:4px;width:18px;height:18px}
+.st.trigger .mk i{border-radius:5px;border-color:var(--trig)}
+.st.trigger.done .mk i{background:var(--trig);border-color:var(--trig)}
+.st.trigger .sk{color:var(--trig)}
+.bubble{position:relative;background:#1b2f45;border:1px solid #3d5f78;border-radius:12px 12px 12px 4px;padding:10px 12px;font-size:13.5px;line-height:1.7;color:var(--ink);white-space:pre-wrap;overflow-wrap:anywhere}
+.bubble .who{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;color:var(--trig);font-weight:800;letter-spacing:.08em;margin-bottom:4px;white-space:normal}
+.bubble .ph{color:#ffd88a}
+.bubble .tcaret{display:inline-block;width:7px;height:1em;background:var(--trig);vertical-align:-2px;animation:blink 1s steps(1) infinite}
+.cp{font:inherit;font-size:12px;font-weight:700;letter-spacing:0;padding:2px 10px;border-radius:6px;border:1px solid #426076;background:var(--panel);color:var(--ink)}
+.cp:hover{border-color:var(--trig)}
+.prep{margin:0;padding-left:18px;color:var(--soft);font-size:13px}
+@keyframes blink{50%{opacity:0}}
 .st.done .mk i{background:var(--accent);border-color:var(--accent)}
 .st.gate.done .mk i{background:var(--gate);border-color:var(--gate)}
 .st.cur .mk i{border-color:var(--accent);box-shadow:0 0 0 6px rgba(86,221,200,.18);animation:pulse 1.4s ease-in-out infinite}
@@ -202,7 +213,7 @@ footer{color:#88a8b7;font-size:13px}
   <header>
     <div class="eyebrow">AI Development Framework · 互動導覽</div>
     <h1>選一個情境，看 Work Item 如何走完 ADF</h1>
-    <p class="lede">每個情境都用同一套範例「公司請假系統」示範。按「播放」後 Work Item 會逐一走過各 Stage，可以按「上一步」退回，或點任一個 Stage 直接跳過去；右側說明每一步的產出並附範例，產生的檔案會逐行顯示內容。遇到 Human Gate 會停下來，要由你按「核准」或「退回」才繼續，因為 AI 不能自行核准。</p>
+    <p class="lede">每個情境都用同一套範例「公司請假系統」示範，第一步先告訴你要對 Claude Code 說什麼來觸發這個情境。按「播放」後 Work Item 會逐一走過各 Stage，可以按「上一步」退回，或點任一個 Stage 直接跳過去；右側說明每一步的產出並附範例，產生的檔案會逐行顯示內容。遇到 Human Gate 會停下來，要由你按「核准」或「退回」才繼續，因為 AI 不能自行核准。</p>
   </header>
 
   <section class="panel" style="padding:20px;display:flex;flex-direction:column;gap:16px">
@@ -1054,6 +1065,9 @@ status: {S}
  }}
 ];
 
+const TRIG={"new": {"prompt": "用 adf-develop 開一個 NEW Module：【leave-request】（【請假申請】）。需求來源：【docs/需求/線上請假.docx】，重點是【員工線上申請、主管簽核、特休不足不可送出】。\n先做 feature-init 和 requirement-analysis，產出 REQ-* 就停，不要寫程式。需求不清楚的地方一問一答問我。", "prep": ["需求文件或需求描述", "Module 代號與名稱"], "ex": "指定 NEW、Module、需求來源，做到 REQ-* 就停"}, "change": {"prompt": "用 adf-develop 在 modules/【leave-request】（【請假申請】）開一個 CHANGE（FEATURE）：新增【上午／下午半天假，以 0.5 天扣特休】。需求來源：【Redmine #5120】。\n必須保留：【REQ-001 申請與簽核、REQ-002 查詢本人假單】。先記錄 Requirement Delta、找出受影響的規則與 Regression 範圍就停。", "prep": ["單號或需求描述", "已有核准 Baseline 的 Module", "必須保留的行為"], "ex": "指定 CHANGE（FEATURE）與必須保留的行為"}, "migration": {"prompt": "用 adf-migrate 開始移轉【請假查詢】：Legacy 在【legacy/leave/query.asp、LeaveDao.asp】，Target 是【Spring Boot + Vue】，Module 用【leave-query】（【請假查詢】）。\n先做 adf-legacy-analysis：每個入口追到最終 SQL 或副作用，建立 analysis/legacy-behavior.md（LB-* 附檔案:行號）。看不懂的地方標 UNKNOWN 問我，不要猜。做完分析就停。", "prep": ["Legacy 原始碼路徑", "DB 物件定義（Stored Procedure 等）", "Target 技術架構"], "ex": "指定 Legacy 位置與 Target，先做行為分析"}, "retrofit": {"prompt": "【請假查詢】已經移轉到新系統，舊系統【legacy/leave/query.asp】還能執行，新系統在【LeaveQueryController.java】。\n用 adf-retrofit-verification 對 modules/【leave-query】（【請假查詢】）做事後驗證：先 VERIFY ONLY，用同一批案例跑新舊兩邊，差異只分類不修改程式。", "prep": ["新舊系統都能執行的環境", "可共用的測試資料"], "ex": "指定 VERIFY ONLY，差異只分類不修改"}, "adoption": {"prompt": "modules/【overtime-request】（【加班申請】）只有現行程式，沒有舊系統也沒有規格。Target 程式在【src/overtime/、web/overtime/】，只分析這些位置。\n用 adf-baseline-adoption 從現行程式反向整理候選需求與規則，全部標 OBSERVED；整理完交給我審查，我核准後才建立 Baseline 與 Regression Test。", "prep": ["現行程式位置", "能回答業務問題的人"], "ex": "指定只分析現行程式，核准前不建立 Baseline"}, "bugfix": {"prompt": "modules/【leave-request】（【請假申請】）有 Bug：【請 11/30～12/01 兩天假只扣 1 天特休】。重現步驟：【登入 → 請假 → 特休 11/30～12/01 → 送出】。\n用 adf-develop 開 CHANGE（BUGFIX）：先找出是 Rule、Design 還是程式的問題，補一個會失敗的測試案例再修，修完跑 Regression。", "prep": ["重現步驟、預期與實際結果", "錯誤截圖或 log（如有）"], "ex": "附重現步驟，先補失敗的測試再修"}, "security": {"prompt": "【資安檢測報告 #SEC-2026-11】指出 modules/【leave-request】（【請假申請】）的【GET /api/leave?empId=】可以查看他人假單。\n用 adf-develop 開 CHANGE（SECURITY_FIX）：先用 adf-security-analysis 分析，正常查詢行為要保留；修完用 adf-security-verification 驗證，並跑 Regression。", "prep": ["報告編號與內容", "受影響的 API 或類別"], "ex": "附報告編號，並要求保留正常行為"}, "refactor": {"prompt": "用 adf-develop 在 modules/【leave-request】（【請假申請】）開 CHANGE（REFACTOR）：把【LeaveService.days()】拆成獨立類別，不允許任何行為改變。\n先用 adf-refactor-analysis 建立行為基線和 Characterization Test，給我看過再動程式。", "prep": ["要重構的類別", "可執行測試的環境"], "ex": "明說「不允許任何行為改變」"}, "standard": {"prompt": "用 adf-standard-authoring 新增一條 DEV-*：【畫面與匯出檔的日期一律 yyyy-MM-dd】，適用【所有作業】。寫好給我審查，不要自行核准。\n核准後再用 adf-standard-impact-analysis 列出受影響的 Module，只分析不修改。", "prep": ["規範內容與適用範圍"], "ex": "先寫規範給人審，核准後才分析影響"}, "unsure": {"prompt": "用 adf-ask 看 modules/【leave-request】（【請假申請】）：目前卡在哪？有沒有等我回答的 REVIEW_REQUIRED 問題？只給一個建議的下一步，不要修改任何檔案。", "prep": ["Module 名稱"], "ex": "adf-ask 是唯讀，不會修改檔案"}};
+S.forEach(s=>{const t=TRIG[s.id];s.stages.unshift({kind:'trigger',sk:'對 Claude Code 說',t:'觸發這個情境',d:'用提示詞指定 Skill、範圍與停止點；【】內換成你的實際內容。',
+  out:'AI 依提示詞判斷 Work Type 與要執行的 Skill，做到你指定的停止點就停。',ex:t.ex,prompt:t.prompt,prep:t.prep});});
 const $=id=>document.getElementById(id);
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const st={sc:null,i:0,playing:false,timer:null,art:{},order:[],waiting:false,finished:false,view:null};
@@ -1264,7 +1278,7 @@ function enter(k){
     finish();
   }else{
     st.waiting=false;
-    if(st.playing)schedule(complete,DWELL);
+    if(st.playing)schedule(complete,g.kind==='trigger'&&!reduce?Math.max(DWELL,g.prompt.length*16+1200):DWELL);
   }
   showNow(k);updateRail();
 }
@@ -1338,7 +1352,7 @@ function back(){
 }
 function stepForward(){
   const g=st.sc.stages[st.i];
-  if(!g.kind)complete();
+  if(!g.kind||g.kind==='trigger')complete();
   else if(g.kind==='gate')approve();
   else if(g.kind==='branch'){const o=g.options[0];pickBranch(o[0],o[1],o[2]);}
 }
@@ -1379,13 +1393,42 @@ function renderShelf(flash){
     n.classList.toggle('sel',a===st.view);
   });
 }
+let typeT=null;
+const hl=t=>esc(t).replace(/【([^】]*)】/g,'<span class="ph">【$1】</span>');
+function bubble(g,animate){
+  const b=document.createElement('div');b.className='bubble';
+  const who=document.createElement('span');who.className='who';who.textContent='你 → Claude Code';
+  const cp=document.createElement('button');cp.type='button';cp.className='cp';cp.textContent='複製提示詞';
+  const body=document.createElement('span');
+  cp.onclick=()=>{
+    const ok=()=>{cp.textContent='已複製';setTimeout(()=>cp.textContent='複製提示詞',1500);};
+    const fb=()=>{const r=document.createRange();r.selectNodeContents(body);const sel=getSelection();sel.removeAllRanges();sel.addRange(r);cp.textContent='已選取，請按複製';};
+    try{navigator.clipboard.writeText(g.prompt).then(ok,fb);}catch(e){fb();}
+  };
+  who.appendChild(cp);b.append(who,body);
+  clearTimeout(typeT);
+  if(!animate||reduce){body.innerHTML=hl(g.prompt);return b;}
+  let i=0;const caret=document.createElement('span');caret.className='tcaret';
+  (function tick(){
+    i=Math.min(g.prompt.length,i+2);
+    body.textContent=g.prompt.slice(0,i);body.appendChild(caret);
+    if(i<g.prompt.length)typeT=setTimeout(tick,28);else body.innerHTML=hl(g.prompt);
+  })();
+  return b;
+}
 function showNow(k){
-  const g=st.sc.stages[k];const n=$('now');n.replaceChildren();
+  const g=st.sc.stages[k];const n=$('now');n.replaceChildren();clearTimeout(typeT);
   const w=document.createElement('div');w.className='now';
   const sk=document.createElement('span');sk.className='sk';sk.textContent=(k+1)+' / '+st.sc.stages.length+' · '+g.sk;
   const t=document.createElement('h3');t.textContent=g.t;
   w.append(sk,t);
   if(g.d){const d=document.createElement('p');d.style.cssText='color:var(--soft);font-size:13.5px';d.textContent=g.d;w.appendChild(d);}
+  if(g.kind==='trigger'){
+    w.appendChild(bubble(g,k===st.i&&!quiet&&!st.finished));
+    const pl=document.createElement('p');pl.style.cssText='font-size:12px;font-weight:800;letter-spacing:.08em;color:#88b6bf';pl.textContent='開始前準備';
+    const ul=document.createElement('ul');ul.className='prep';g.prep.forEach(x=>{const li=document.createElement('li');li.textContent=x;ul.appendChild(li);});
+    w.append(pl,ul);
+  }
   if(g.out||g.ex){
     const dl=document.createElement('dl');dl.className='kv';
     if(g.out){dl.insertAdjacentHTML('beforeend','<dt>產出</dt><dd></dd>');dl.lastChild.textContent=g.out;}
@@ -1408,7 +1451,7 @@ function play(on){
   st.playing=on;$('playBtn').textContent=on?'暫停':'播放';
   clearTimeout(st.timer);
   if(on){const g=st.sc.stages[st.i];
-    if(!g.kind)schedule(complete,600);
+    if(!g.kind||g.kind==='trigger')schedule(complete,g.kind==='trigger'?Math.max(DWELL,g.prompt.length*16+1200):600);
     else if(g.kind==='gate'&&$('autoApprove').checked)schedule(approve,DWELL);}
 }
 function stop(){st.playing=false;clearTimeout(st.timer);$('playBtn').textContent='播放';}
