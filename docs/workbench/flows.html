@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="ADF 情境流程動畫：全新功能、修改既有功能、舊功能移轉、已移轉補驗證、已開發完成導入 ADF 等情境，互動播放 Stage、Gate 與 Artifact 狀態。">
+<title>ADF 情境流程動畫</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+<style>
+/* 版面概念：沿用 ADF 操作台的深色儀表風格；左側是 Work Item 走過的 Stage 管線，右側是 manifest、目前 Stage 與 Artifact 架 */
+:root{
+  --bg:#091521; --bar:#0c1c2b; --panel:#102335; --raise:#152e42; --line:#2a4053; --rail:#294353;
+  --ink:#e9f3f7; --soft:#c9dbe3; --muted:#9bb1c0;
+  --accent:#56ddc8; --accent-ink:#08212b;
+  --gate:#e6b869; --st-draft:#e6b869; --st-ok:#56ddc8; --st-review:#ff8f8f; --st-obs:#8fb3ff; --st-done:#a5e38c;
+  --font-body:Inter,"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --font-mono:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.65;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 64px}
+a{color:#70e6d6}
+button{font:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1320px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-block:16px;border-bottom:1px solid var(--line)}
+.brand{display:flex;gap:12px;align-items:center;font-weight:800;letter-spacing:.03em}
+.mark{background:var(--accent);color:var(--accent-ink);border-radius:10px;padding:6px 9px;font-size:14px}
+.back{font-size:14px;text-decoration:none}
+.back:hover{text-decoration:underline}
+.eyebrow{font-size:12px;font-weight:800;letter-spacing:.14em;color:var(--accent);text-transform:uppercase}
+h1{font-size:clamp(26px,3.4vw,40px);margin:6px 0 6px;letter-spacing:-.02em;line-height:1.25;text-wrap:balance}
+h2{font-size:20px;margin:0;line-height:1.35;text-wrap:balance}
+h3{font-size:16px;margin:0;line-height:1.4}
+p{margin:0}
+.lede{color:var(--muted);max-width:68ch}
+code,.mono{font-family:var(--font-mono);font-size:.88em}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px}
+
+/* 情境選擇 */
+.pick-head{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap}
+.groups{display:grid;gap:16px}
+.group-label{font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.08em;margin-bottom:8px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.card{appearance:none;text-align:left;color:var(--ink);background:var(--raise);border:1px solid #345168;border-radius:13px;padding:14px 15px;
+  display:flex;flex-direction:column;gap:4px;transition:transform .18s,border-color .18s,background .18s;min-width:0}
+.card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.card[aria-pressed="true"]{background:#194a52;border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.card .no{font-family:var(--font-mono);font-size:12px;color:var(--accent);font-weight:700}
+.card strong{font-size:15.5px}
+.card small{color:var(--muted);font-size:13px;line-height:1.5}
+.card .tag{align-self:flex-start;font-family:var(--font-mono);font-size:11px;color:var(--soft);border:1px solid #416073;border-radius:20px;padding:1px 8px;margin-top:4px}
+.ghost{background:transparent;border:1px solid #426076;color:var(--ink);border-radius:9px;padding:8px 14px;font-weight:700}
+.ghost:hover{background:#183247}
+.primary{background:var(--accent);border:1px solid var(--accent);color:var(--accent-ink);border-radius:9px;padding:8px 14px;font-weight:800}
+.primary:hover{background:#85f4df}
+
+/* 判斷精靈 */
+.quiz{padding:20px;display:flex;flex-direction:column;gap:14px}
+.trail{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.trail .crumb{font-size:13px;color:var(--soft);background:var(--raise);border:1px solid var(--line);border-radius:20px;padding:3px 10px}
+.qbox{display:flex;flex-direction:column;gap:10px;animation:rise .35s ease-out}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opt{background:var(--raise);border:1px solid #345168;color:var(--ink);border-radius:10px;padding:9px 14px;text-align:left}
+.opt:hover{border-color:var(--accent)}
+.opt small{display:block;color:var(--muted);font-size:12px}
+
+/* 播放區 */
+.stage-wrap{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:20px;align-items:start}
+.player{padding:20px 20px 24px;display:flex;flex-direction:column;gap:16px}
+.sc-head{display:flex;flex-direction:column;gap:6px}
+.sc-head .entry{font-family:var(--font-mono);font-size:12.5px;color:var(--accent)}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 12px;background:var(--bar);border:1px solid var(--line);border-radius:12px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.controls .count{font-family:var(--font-mono);font-variant-numeric:tabular-nums;color:var(--accent);font-weight:700;margin-left:auto}
+.controls label{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--soft);cursor:pointer}
+.controls input{accent-color:var(--accent);width:16px;height:16px}
+.bar{height:4px;background:var(--rail);border-radius:4px;overflow:hidden;flex-basis:100%}
+.bar span{display:block;height:100%;width:0;background:var(--accent);transition:width .5s ease}
+
+.pipe{position:relative;list-style:none;margin:0;padding:0 0 0 0}
+.pipe::before{content:"";position:absolute;left:17px;top:18px;bottom:18px;width:3px;background:var(--rail);border-radius:3px}
+.pipe .fill{position:absolute;left:17px;top:18px;width:3px;height:var(--fill,0px);background:var(--accent);border-radius:3px;transition:height .55s cubic-bezier(.3,.7,.2,1);box-shadow:0 0 12px rgba(86,221,200,.6)}
+.st{position:relative;display:grid;grid-template-columns:38px minmax(0,1fr);gap:12px;padding:8px 0;animation:rise .4s ease-out both}
+.st .mk{position:relative;z-index:1;width:38px;height:38px;display:grid;place-items:center}
+.st .mk i{display:block;width:16px;height:16px;border-radius:50%;background:var(--bg);border:2px solid #4a6a7e;transition:all .3s}
+.st.gate .mk i{border-radius:3px;transform:rotate(45deg);border-color:var(--gate)}
+.st.branch .mk i{border-radius:3px;border-color:var(--st-obs)}
+.st.exit .mk i{border-radius:4px;width:18px;height:18px}
+.st.done .mk i{background:var(--accent);border-color:var(--accent)}
+.st.gate.done .mk i{background:var(--gate);border-color:var(--gate)}
+.st.cur .mk i{border-color:var(--accent);box-shadow:0 0 0 6px rgba(86,221,200,.18);animation:pulse 1.4s ease-in-out infinite}
+.st.gate.cur .mk i{border-color:var(--gate);box-shadow:0 0 0 6px rgba(230,184,105,.2)}
+.st .bx{background:transparent;border:1px solid transparent;border-radius:12px;padding:8px 12px;display:flex;flex-direction:column;gap:3px;text-align:left;color:inherit;min-width:0;transition:background .25s,border-color .25s}
+.st .bx:hover{background:var(--raise)}
+.st.cur .bx{background:var(--raise);border-color:#3d6175}
+.st .sk{font-family:var(--font-mono);font-size:12px;color:var(--accent);overflow-wrap:anywhere}
+.st.gate .sk{color:var(--gate)}
+.st.branch .sk{color:var(--st-obs)}
+.st .tt{font-weight:700}
+.st .ds{color:var(--muted);font-size:13.5px}
+.st.pending .tt{color:var(--soft)}
+.st .prods{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.st .prods span{font-family:var(--font-mono);font-size:11px;color:var(--soft);border:1px dashed #4a6a7e;border-radius:6px;padding:0 6px}
+.st.done .prods span{border-style:solid;border-color:#3f7f7a;color:#9eeee0}
+.gate-act{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;animation:rise .3s ease-out}
+.gate-act .note{flex-basis:100%;font-size:13px;color:var(--gate)}
+.approve{background:var(--gate);border:1px solid var(--gate);color:#2a1d05;border-radius:8px;padding:6px 12px;font-weight:800}
+.reject{background:transparent;border:1px solid var(--st-review);color:var(--st-review);border-radius:8px;padding:6px 12px;font-weight:700}
+.bopt{background:var(--raise);border:1px solid var(--st-obs);color:var(--ink);border-radius:8px;padding:6px 12px;text-align:left;font-size:13.5px}
+.bopt small{display:block;color:var(--muted);font-size:12px}
+.result{margin-top:6px;font-size:13.5px;color:var(--st-done)}
+
+.side{display:flex;flex-direction:column;gap:16px;position:sticky;top:12px}
+.box{padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.box-title{font-size:12px;font-weight:800;letter-spacing:.1em;color:#88b6bf;text-transform:uppercase}
+.yaml{margin:0;background:#091b2b;border:1px solid #38596b;border-radius:10px;padding:12px 14px;font-family:var(--font-mono);font-size:13px;line-height:1.7;color:#c9f4e9;min-height:7.4em;white-space:pre-wrap;word-break:break-word}
+.yaml .k{color:#84a9bd}
+.caret{display:inline-block;width:7px;height:1.05em;background:var(--accent);vertical-align:-2px;animation:blink 1s steps(1) infinite}
+.now{display:flex;flex-direction:column;gap:6px;animation:rise .35s ease-out}
+.now .sk{font-family:var(--font-mono);font-size:12.5px;color:var(--accent)}
+.now .gatehint{font-size:13px;color:var(--gate);background:rgba(230,184,105,.08);border-left:3px solid var(--gate);border-radius:6px;padding:8px 10px}
+.shelf{display:grid;gap:6px}
+.shelf .empty{color:var(--muted);font-size:13px}
+.art{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;background:var(--raise);border:1px solid var(--line);border-radius:9px;animation:drop .45s cubic-bezier(.2,.9,.3,1.2)}
+.art .p{font-family:var(--font-mono);font-size:12px;color:var(--soft);overflow-wrap:anywhere}
+.art .id{font-size:11.5px;color:var(--muted)}
+.chip{font-family:var(--font-mono);font-size:11px;font-weight:700;border-radius:20px;padding:1px 8px;border:1px solid currentColor;white-space:nowrap;transition:color .3s}
+.chip.flash{animation:flash .6s ease-out}
+.s-DRAFT{color:var(--st-draft)} .s-APPROVED{color:var(--st-ok)} .s-REVIEW_REQUIRED{color:var(--st-review)} .s-OBSERVED{color:var(--st-obs)} .s-DONE{color:var(--st-done)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:var(--muted)}
+.legend span{display:flex;gap:5px;align-items:center}
+.caution{font-size:13.5px;color:#f0d6a2;background:#203849;border-left:3px solid var(--gate);border-radius:7px;padding:10px 12px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#2a1d22;border:1px solid var(--st-review);color:#ffd5d5;border-radius:10px;padding:10px 16px;font-size:14px;z-index:20;max-width:calc(100% - 32px);animation:rise .3s ease-out}
+.toast.ok{background:#12332f;border-color:var(--accent);color:#c9f4e9}
+.done-banner{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 14px;border-radius:12px;background:linear-gradient(120deg,#153d48,#142b3e);border:1px solid #347b78;animation:rise .4s ease-out}
+.rules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.rule{padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.rule b{color:var(--accent);font-size:13px}
+.rule p{color:var(--soft);font-size:13.5px}
+footer{color:#88a8b7;font-size:13px}
+
+@keyframes rise{from{opacity:.2;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes drop{from{opacity:0;transform:translateY(-10px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes pulse{50%{box-shadow:0 0 0 10px rgba(86,221,200,.05)}}
+@keyframes blink{50%{opacity:0}}
+@keyframes flash{0%{transform:scale(1)}40%{transform:scale(1.25)}100%{transform:scale(1)}}
+@media (max-width:980px){.stage-wrap{grid-template-columns:1fr}.side{position:static}.rules{grid-template-columns:1fr}}
+@media (max-width:480px){.cards{grid-template-columns:1fr}.player{padding:14px}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand"><span class="mark">ADF</span><span>情境流程動畫</span></div>
+    <a class="back" href="index.html">← 回到 ADF Skill 情境操作台</a>
+  </div>
+
+  <header>
+    <div class="eyebrow">AI Development Framework · 互動導覽</div>
+    <h1>選一個情境，看 Work Item 如何走完 ADF</h1>
+    <p class="lede">每個情境都有自己的 Stage 順序與 Gate。按「播放」後 Work Item 會逐一走過各 Stage，產生的 Artifact 會放到 Artifact 架；遇到 Human Gate 會停下來，要由你按「核准」或「退回」才繼續，因為 AI 不能自行核准。</p>
+  </header>
+
+  <section class="panel" style="padding:20px;display:flex;flex-direction:column;gap:16px">
+    <div class="pick-head">
+      <h2>1. 選擇情境</h2>
+      <button type="button" class="ghost" id="quizBtn" aria-expanded="false">不確定是哪一種？幫我判斷</button>
+    </div>
+    <div class="quiz panel" id="quiz" hidden></div>
+    <div class="groups" id="groups"></div>
+  </section>
+
+  <section class="stage-wrap" aria-label="流程播放">
+    <div class="panel player">
+      <div class="sc-head" id="scHead"></div>
+      <div class="controls" role="group" aria-label="播放控制">
+        <button type="button" class="primary" id="playBtn">播放</button>
+        <button type="button" class="ghost" id="nextBtn">下一步</button>
+        <button type="button" class="ghost" id="resetBtn">重來</button>
+        <label for="autoApprove"><input type="checkbox" id="autoApprove">示範時自動代按核准</label>
+        <span class="count" id="count">0 / 0</span>
+        <div class="bar"><span id="barFill"></span></div>
+      </div>
+      <ol class="pipe" id="pipe"><li class="fill" aria-hidden="true"></li></ol>
+      <div id="doneBox"></div>
+    </div>
+
+    <div class="side">
+      <div class="panel box">
+        <div class="box-title">manifest.yaml</div>
+        <pre class="yaml" id="yaml" aria-live="off"></pre>
+      </div>
+      <div class="panel box">
+        <div class="box-title">目前 Stage</div>
+        <div id="now"></div>
+      </div>
+      <div class="panel box">
+        <div class="box-title">Artifact 架</div>
+        <div class="legend">
+          <span><b class="chip s-DRAFT">DRAFT</b>已產生、未核准</span>
+          <span><b class="chip s-APPROVED">APPROVED</b>Human 已核准</span>
+          <span><b class="chip s-REVIEW_REQUIRED">REVIEW_REQUIRED</b>退回待補</span>
+          <span><b class="chip s-OBSERVED">OBSERVED</b>現況證據</span>
+        </div>
+        <div class="shelf" id="shelf"></div>
+      </div>
+      <div class="caution" id="caution"></div>
+    </div>
+  </section>
+
+  <section style="display:flex;flex-direction:column;gap:12px">
+    <h2>所有情境都遵守的三條規則</h2>
+    <div class="rules">
+      <div class="panel rule"><b>檔案存在 ≠ Stage 完成</b><p>完成要看 Review 狀態與 Evidence。Artifact 剛產生時是 DRAFT，通過 Gate 才變成 APPROVED。</p></div>
+      <div class="panel rule"><b>AI 不能自行核准</b><p>需要 Human Gate 的 Stage，只有 Human 明確確認後才能標記 APPROVED。退回時進入 Evidence-Guided Q&amp;A 補充。</p></div>
+      <div class="panel rule"><b>一個 Module 只有一個 Active Work Item</b><p>Module 是主要隔離邊界。導入與補驗證只驗證不改 Target，之後的修改另開 CHANGE。</p></div>
+    </div>
+  </section>
+
+  <footer>內容依 ADF v5.4.1 的 SKILL.md 與 <code>core/invariants.md</code> 整理；此頁是互動導覽，不執行 Skill，也不會寫入任何專案檔案。Stage 與 Gate 位置為示意，實際以 <code>adf-develop</code> 依 Artifact 與 Review 狀態判斷的結果為準。</footer>
+</div>
+
+<script>
+(function(){
+const ART={
+  manifest:{p:'manifest.yaml',id:'Work Item 設定',kind:'cfg'},
+  lb:{p:'analysis/legacy-behavior.md',id:'LB-* 行為清單'},
+  evidence:{p:'Target Evidence',id:'現況證據',kind:'obs'},
+  req:{p:'spec/requirements.md',id:'REQ-*'},
+  rules:{p:'spec/rules.md',id:'BR-* · VAL-* · Q-* · UI-*'},
+  std:{p:'spec/standards.md',id:'DEV-* · MIG-*'},
+  proto:{p:'Frontend Prototype',id:'對應 UI-*'},
+  design:{p:'design/design.md',id:'設計'},
+  spec:{p:'specification.md',id:'給人看的規格書（Read Model）'},
+  code:{p:'Target 程式',id:'實作',kind:'done'},
+  fs:{p:'verification/functional-scenarios.md',id:'FS-*'},
+  tc:{p:'verification/test-cases.md',id:'TC-*'},
+  raw:{p:'Raw Result',id:'測試原始結果',kind:'obs'},
+  raw2:{p:'Legacy／Target Raw Result',id:'雙邊原始結果',kind:'obs'},
+  cmp:{p:'verification/comparison.md',id:'差異分類與 LB-* 涵蓋率'},
+  trace:{p:'verification/traceability.md',id:'REQ → TC → Result'},
+  sec:{p:'安全分析',id:'威脅與影響範圍'},
+  refa:{p:'重構分析',id:'行為不變範圍'},
+  stdfile:{p:'standards/',id:'專案規範 DEV-* · MIG-*'},
+  impact:{p:'規範影響報告',id:'REQUIRED · RECOMMENDED · NEW_WORK_ONLY'}
+};
+const G={
+  req:{kind:'gate',sk:'Human Gate',t:'需求與規則核准',d:'確認 REQ-* 與 BR-* 等規則正確，才進入設計。'},
+  proto:{kind:'gate',sk:'adf-prototype-review',t:'Prototype 獨立審查',d:'有 UI 影響時，獨立審查 Prototype 是否符合需求、規則與 Standard，再由 Human 確認。'},
+  done:{kind:'gate',sk:'adf-development-complete',t:'Completion Gate',d:'所有適用的 Gate、Test、Traceability 與 Blocker 都完成才能結案。'}
+};
+const S=[
+ {id:'new',group:'開發',no:'01',name:'全新功能',desc:'沒有現行功能，從需求開始',tag:'NEW',entry:'adf-develop · NEW',
+  summary:'先建立 Module 與需求，再形成規則、設計、實作及測試。',
+  manifest:[['work_item.type','NEW'],['work_item.intents','[]'],['module.origin','NEW']],
+  caution:'需求或 Expected Result 不明確時，先進入 Evidence-Guided Q&A，不要用推測補上。',
+  stages:[
+   {sk:'adf-feature-init',t:'建立 Module 與 manifest',d:'一個 Module 同時只有一個 Active Work Item。',p:['manifest']},
+   {sk:'adf-requirement-analysis',t:'確認需求與驗收條件',d:'寫下 REQ-* 與可驗證的驗收條件。',p:['req']},
+   {sk:'adf-business-rule · adf-query-analysis · adf-screen-specification',t:'整理規則',d:'把業務規則、驗證、查詢與畫面規則寫成 BR-*、VAL-*、Q-*、UI-*。',p:['rules']},
+   G.req,
+   {sk:'adf-standards-applicability',t:'判斷適用的 DEV-* 規範',d:'只套用專案 standards/ 裡已核准的規範。',p:['std']},
+   {sk:'adf-frontend-prototype',t:'建立 Prototype（有 UI 影響時）',d:'依 UI Rule 與 Standard 建立畫面原型。',p:['proto']},
+   G.proto,
+   {sk:'adf-development-design',t:'技術設計',d:'設計完成後同步 specification.md 給人閱讀。',p:['design','spec']},
+   {sk:'adf-backend-development · adf-frontend-development',t:'依核准內容實作',d:'只實作已核准的規則、Prototype 與設計。',p:['code']},
+   {sk:'adf-test-generation',t:'產生測試案例',d:'有使用者操作流程時一併建立 Functional Scenario。',p:['fs','tc']},
+   {sk:'adf-new-test',t:'執行測試並保存 Raw Result',d:'保存原始結果作為 Evidence。',p:['raw']},
+   {sk:'adf-traceability-check',t:'檢查追溯',d:'確認每個 REQ-* 都有 TC-* 與結果對應。',p:['trace']},
+   G.done,
+   {kind:'exit',sk:'結案',t:'Module 完成',d:'之後的修改另開 CHANGE Work Item。'}
+  ]},
+ {id:'change',group:'開發',no:'02',name:'修改既有功能',desc:'已有核准基線，新增或調整需求',tag:'CHANGE · FEATURE',entry:'adf-develop · CHANGE',
+  summary:'先標明 Requirement Delta 與受影響的規則，再修改設計、程式與 Regression。',
+  manifest:[['work_item.type','CHANGE'],['work_item.intents','[FEATURE]'],['module.origin','（沿用原 Module）']],
+  caution:'BUGFIX、SECURITY_FIX、REFACTOR 等 Intent 有額外的分析與驗證 Gate，請改選對應情境。',
+  stages:[
+   {sk:'adf-ask',t:'確認 Stage、Blocker 與核准 Baseline',d:'唯讀盤點，確認沒有其他 Active Work Item。',p:[]},
+   {sk:'adf-requirement-analysis',t:'記錄 Requirement Delta 與 Intent',d:'只寫新增或變更的部分。',p:['req']},
+   {sk:'規則 Skill · adf-standards-applicability',t:'更新受影響的規則並檢查規範',d:'只動受影響的 BR-*、VAL-*、Q-*、UI-*。',p:['rules','std']},
+   G.req,
+   {sk:'adf-frontend-prototype',t:'UI 流程受影響時更新 Prototype',d:'沒有 UI 影響可略過。',p:['proto']},
+   G.proto,
+   {sk:'adf-development-design',t:'調整設計並同步規格書',d:'',p:['design','spec']},
+   {sk:'受影響的前後端開發',t:'修改程式',d:'範圍以 Requirement Delta 為準。',p:['code']},
+   {sk:'adf-test-generation',t:'Change Test + Regression',d:'新行為要有測試，舊行為要有 Regression。',p:['fs','tc']},
+   {sk:'adf-new-test',t:'執行測試',d:'',p:['raw']},
+   {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace']},
+   G.done,
+   {kind:'exit',sk:'結案',t:'Module 回到完成狀態',d:'新的核准內容成為下一次 CHANGE 的 Baseline。'}
+  ]},
+ {id:'migration',group:'移轉與導入',no:'03',name:'舊功能移轉',desc:'Legacy 存在，準備做新系統',tag:'MIGRATION',entry:'adf-migrate · MIGRATION',
+  summary:'先萃取 Legacy 行為建立語意基線，合法的轉換才套用核准的 MIG-*，最後雙邊比對結果。',
+  manifest:[['work_item.type','MIGRATION'],['work_item.intents','[]'],['module.origin','MIGRATION']],
+  caution:'Legacy 無法執行、拿不到 Golden Baseline 時要標 BLOCKED，不可自行假設 Expected Result。',
+  stages:[
+   {sk:'adf-feature-init',t:'建立 Module 與 manifest',d:'',p:['manifest']},
+   {sk:'adf-legacy-analysis',t:'萃取 Legacy 行為',d:'每個入口追到 SQL 與副作用，分 8 類盤點，建立 LB-* 行為清單與未解事項。',p:['lb']},
+   {sk:'adf-business-rule · query-analysis · screen-specification',t:'把 LB-* 轉成行為規則',d:'',p:['rules']},
+   G.req,
+   {sk:'adf-standards-applicability',t:'核對 DEV-* 與 MIG-*',d:'只有核准的 MIG-* 才能改變表示方式。',p:['std']},
+   {sk:'adf-frontend-prototype',t:'有 UI 影響時做 Prototype',d:'',p:['proto']},
+   G.proto,
+   {sk:'adf-development-design → 前後端開發',t:'設計與實作 Target',d:'',p:['design','spec','code']},
+   {sk:'adf-test-generation',t:'產生測試案例',d:'同一組案例要能在新舊兩邊執行。',p:['fs','tc']},
+   {sk:'adf-legacy-baseline + adf-new-test',t:'新舊兩邊執行相同案例',d:'',p:['raw2']},
+   {sk:'adf-result-normalization',t:'正規化結果',d:'只處理已核准的表示差異。',p:[]},
+   {sk:'adf-result-comparison',t:'逐欄比對並分類差異',d:'依序分類，並回報 LB-* 涵蓋率。',p:['cmp']},
+   {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace']},
+   G.done,
+   {kind:'exit',sk:'結案',t:'移轉完成',d:'新系統的行為有 Legacy 證據支持。'}
+  ]},
+ {id:'retrofit',group:'移轉與導入',no:'04',name:'已移轉，補驗證',desc:'新系統已完成、舊程式還在',tag:'RETROFIT_VERIFY',entry:'adf-retrofit-verification',
+  summary:'第一輪只驗證不修改：雙邊執行、比對、分類差異，交給 Human Review。',
+  manifest:[['work_item.type','MIGRATION'],['work_item.intents','[RETROFIT_VERIFY]'],['module.origin','MIGRATION'],['behavior.change_allowed','false']],
+  caution:'第一輪不要自動修改 Target。發現差異不等於已確認缺陷，要先保存 Evidence 並分類。',
+  stages:[
+   {sk:'adf-feature-init',t:'建立 Module',d:'manifest 填 type: MIGRATION、intents: [RETROFIT_VERIFY]。',p:['manifest']},
+   {sk:'adf-legacy-analysis + adf-target-analysis',t:'分析新舊兩邊',d:'建立 LB-* 行為清單與 Target 現況證據。',p:['lb','evidence']},
+   {sk:'規則與測試 Skill',t:'建立可比對的規則、測試與資料映射',d:'',p:['rules','tc']},
+   G.req,
+   {sk:'adf-legacy-baseline + adf-new-test',t:'相同案例雙邊執行',d:'',p:['raw2']},
+   {sk:'adf-result-normalization',t:'正規化結果',d:'只處理已核准的表示差異。',p:[]},
+   {sk:'adf-result-comparison',t:'比對並分類語意差異',d:'列出尚未涵蓋的 LB-*。',p:['cmp']},
+   {kind:'gate',sk:'Human Review',t:'審查差異分類',d:'由 Human 判斷差異是否為 MIGRATION_DEFECT。'},
+   {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace']},
+   {kind:'exit',sk:'結果',t:'確認的缺陷另開 CHANGE 修復',d:'這個 Work Item 只驗證，不修改 Target。'}
+  ]},
+ {id:'adoption',group:'移轉與導入',no:'05',name:'已開發完成，導入 ADF',desc:'只剩現行程式，要建立基線',tag:'BASELINE_ADOPTION',entry:'adf-baseline-adoption',
+  summary:'Target 現況只算 OBSERVED；反向整理的規格經 Human 核准才成為 APPROVED 基線。',
+  manifest:[['work_item.type','NEW'],['work_item.intents','[BASELINE_ADOPTION]'],['module.origin','NEW'],['behavior.change_allowed','false']],
+  caution:'這個流程不能證明當初的實作符合原需求。BASELINE_ADOPTION 一定要人工核准，也不進入開發 Stage。',
+  stages:[
+   {sk:'adf-feature-init',t:'建立 Module',d:'manifest 填 type: NEW、intents: [BASELINE_ADOPTION]。',p:['manifest']},
+   {sk:'adf-target-analysis',t:'取得現況證據',d:'只記錄觀察到的行為，標為 OBSERVED。',p:['evidence']},
+   {sk:'需求與規則 Skill',t:'產生候選需求與規則',d:'由現況反向整理，此時只是候選。',p:['req','rules']},
+   {sk:'adf-standards-applicability',t:'處理與規範的衝突',d:'',p:['std']},
+   {sk:'Evidence-Guided Q&A',t:'逐項向 Human 提問確認',d:'無法由證據證明的行為標 UNKNOWN 或 REVIEW_REQUIRED。',p:[]},
+   {kind:'gate',sk:'Human Approval（強制）',t:'核准成為 Baseline',d:'BASELINE_ADOPTION 必須人工核准。'},
+   {sk:'adf-test-generation + adf-new-test',t:'建立 Regression 測試',d:'保護已核准的基線。',p:['tc','raw']},
+   {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace']},
+   {kind:'exit',sk:'結果',t:'取得 Approved Baseline',d:'之後的修改走 CHANGE，重用同一個 Module。'}
+  ]},
+ {id:'bugfix',group:'修改 Intent',no:'06',name:'修正錯誤',desc:'既有功能有 Bug',tag:'CHANGE · BUGFIX',entry:'adf-develop · CHANGE',
+  summary:'先找出問題在哪一層，補一個會失敗的測試案例再修，修完跑 Regression。',
+  manifest:[['work_item.type','CHANGE'],['work_item.intents','[BUGFIX]'],['module.origin','（沿用原 Module）']],
+  caution:'不得為了取得 PASS 而弱化 Expected Result，也不得由 Target 現況反推 Expected Result。',
+  stages:[
+   {sk:'adf-ask',t:'確認 Module 狀態',d:'',p:[]},
+   {sk:'adf-requirement-analysis',t:'記錄 Intent 與錯誤現象',d:'',p:['req']},
+   {sk:'adf-verification-fix',t:'找出正確的 Layer',d:'判斷是 Rule、Design 還是程式的問題。',p:[]},
+   {sk:'adf-test-generation',t:'先補一個會失敗的測試',d:'',p:['tc']},
+   G.req,
+   {sk:'前後端開發',t:'修正正確的那一層',d:'',p:['code']},
+   {sk:'adf-new-test',t:'執行測試與 Regression',d:'剛補的測試要轉為通過，舊測試不能壞。',p:['raw']},
+   {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace']},
+   G.done,
+   {kind:'exit',sk:'結案',t:'修正完成',d:''}
+  ]},
+ {id:'security',group:'修改 Intent',no:'07',name:'安全修補',desc:'修補弱點或資安問題',tag:'CHANGE · SECURITY_FIX',entry:'adf-develop · CHANGE',
+  summary:'先做安全分析，修補後同時做安全驗證與 Regression。',
+  manifest:[['work_item.type','CHANGE'],['work_item.intents','[SECURITY_FIX]'],['module.origin','（沿用原 Module）']],
+  caution:'Combined Intents 必須組合所有必要的 Gate，例如 SECURITY_FIX 加 FEATURE 時兩邊的 Gate 都要過。',
+  stages:[
+   {sk:'adf-ask',t:'確認 Module 狀態',d:'',p:[]},
+   {sk:'adf-security-analysis',t:'安全分析',d:'找出威脅、影響範圍與修補方向。',p:['sec']},
+   G.req,
+   {sk:'Design / Implementation',t:'設計並實作修補',d:'',p:['design','code']},
+   {sk:'adf-security-verification + Regression',t:'安全驗證與 Regression',d:'',p:['tc','raw']},
+   {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace']},
+   G.done,
+   {kind:'exit',sk:'結案',t:'修補完成',d:''}
+  ]},
+ {id:'refactor',group:'修改 Intent',no:'08',name:'重構',desc:'改善結構，不改變行為',tag:'CHANGE · REFACTOR',entry:'adf-develop · CHANGE',
+  summary:'先建立行為基線，重構後比對行為必須相同。',
+  manifest:[['work_item.type','CHANGE'],['work_item.intents','[REFACTOR]'],['module.origin','（沿用原 Module）']],
+  caution:'重構過程若發現需要改變行為，要另外記錄並經 Human 確認，不能混在重構裡。',
+  stages:[
+   {sk:'adf-ask',t:'確認 Module 狀態',d:'',p:[]},
+   {sk:'adf-refactor-analysis',t:'重構分析',d:'界定行為不變的範圍。',p:['refa']},
+   {sk:'Characterization / Regression Baseline',t:'先記錄目前的行為',d:'',p:['tc','raw']},
+   G.req,
+   {sk:'Design / Implementation',t:'設計並重構',d:'',p:['design','code']},
+   {sk:'Regression / Behavior Comparison',t:'比對重構前後的行為',d:'',p:['cmp']},
+   {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace']},
+   G.done,
+   {kind:'exit',sk:'結案',t:'重構完成，行為不變',d:''}
+  ]},
+ {id:'standard',group:'其他',no:'09',name:'專案規範變更',desc:'standards/ 新增或修改規範',tag:'STANDARD_CHANGE',entry:'adf-standard-impact-analysis',
+  summary:'STANDARD_CHANGE 是 Framework-level Trigger，不是 Work Type。先分析影響，依 Module 狀態決定下一步。',
+  manifest:[['trigger','STANDARD_CHANGE'],['# 不是 Work Type','不新增 Work Type']],
+  caution:'影響分析不會自動修改 Module。NEW_WORK_ONLY 的規範不得強迫已完成的 Module 回補。',
+  stages:[
+   {sk:'adf-standard-authoring',t:'撰寫或修改專案規範',d:'規範放在專案的 standards/。',p:['stdfile']},
+   {kind:'gate',sk:'Human Gate',t:'規範核准',d:'官方範例不是專案核准規範，不會自動套用。'},
+   {sk:'adf-standard-impact-analysis',t:'分析對各 Module 的影響',d:'回報影響、嚴重度與下一步。',p:['impact']},
+   {kind:'branch',sk:'Change Policy',t:'依 Module 狀態選擇處理方式',d:'點一個選項看結果。',options:[
+     ['進行中的 Module','回到最早受影響的 Stage 重新驗證。'],
+     ['已完成 + REQUIRED','建議建立 CHANGE，trigger=STANDARD_CHANGE。'],
+     ['已完成 + RECOMMENDED','回報給 Human 決定。'],
+     ['NEW_WORK_ONLY','不強迫已完成的 Module 回補，只套用到新工作。']]},
+   {kind:'exit',sk:'結果',t:'依選擇處理',d:''}
+  ]},
+ {id:'unsure',group:'其他',no:'10',name:'不知道下一步',desc:'不清楚 Module 卡在哪裡',tag:'READ ONLY',entry:'adf-ask · READ ONLY',
+  summary:'查詢目前的 Work Type、Stage、Artifact 和 Review Gate，取得一個建議的下一支 Skill。',
+  manifest:[['# adf-ask 只讀取','不修改 manifest']],
+  caution:'adf-ask 是唯讀的，不會替你執行建議，也不會核准 Stage。',
+  stages:[
+   {sk:'adf-ask',t:'讀取 manifest 與實際 Artifact',d:'',p:[]},
+   {sk:'adf-ask',t:'確認 Stage、完成／待辦、Blocker 與 Standard drift',d:'',p:[]},
+   {kind:'branch',sk:'建議',t:'只推薦一個下一步',d:'選一個看看會帶你去哪裡。',options:[
+     ['需求還沒確認','回到 adf-requirement-analysis。','new'],
+     ['有 Gate 等待核准','需要 Human Review，AI 不會代為核准。'],
+     ['驗證失敗','執行 adf-verification-fix 找出正確的 Layer。','bugfix'],
+     ['規範有更新','執行 adf-standard-impact-analysis。','standard']]},
+   {kind:'exit',sk:'結果',t:'確認情境後回到對應流程',d:''}
+  ]}
+];
+
+const $=id=>document.getElementById(id);
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const st={sc:null,i:0,playing:false,timer:null,art:{},order:[],waiting:false,finished:false,branchPick:null};
+const DWELL=1300;
+
+/* ---------- 情境卡 ---------- */
+const groups=[...new Set(S.map(s=>s.group))];
+const cardEls={};
+groups.forEach(g=>{
+  const wrap=document.createElement('div');
+  const lab=document.createElement('div');lab.className='group-label';lab.textContent=g;
+  const cards=document.createElement('div');cards.className='cards';
+  S.filter(s=>s.group===g).forEach(s=>{
+    const b=document.createElement('button');b.type='button';b.className='card';b.setAttribute('aria-pressed','false');
+    b.innerHTML='<span class="no"></span><strong></strong><small></small><span class="tag"></span>';
+    b.querySelector('.no').textContent=s.no;b.querySelector('strong').textContent=s.name;
+    b.querySelector('small').textContent=s.desc;b.querySelector('.tag').textContent=s.tag;
+    b.addEventListener('click',()=>load(s.id,true));
+    cards.appendChild(b);cardEls[s.id]=b;
+  });
+  wrap.append(lab,cards);$('groups').appendChild(wrap);
+});
+
+/* ---------- 判斷精靈 ---------- */
+const Q={
+  start:{q:'你要處理的是哪一類工作？',opts:[
+    ['做一個全新的功能','目前沒有這個功能',{go:'new'}],
+    ['修改既有、已用 ADF 管理的功能','已有核准基線',{next:'intent'}],
+    ['處理已經存在的系統','舊系統、已移轉或已開發完成',{next:'legacy'}],
+    ['專案規範有變更','standards/ 新增或修改',{go:'standard'}],
+    ['我不確定','先看 Module 狀態',{go:'unsure'}]]},
+  intent:{q:'這次修改的目的是？',opts:[
+    ['新增或調整需求','',{go:'change'}],['修正錯誤','',{go:'bugfix'}],['安全修補','',{go:'security'}],['重構，不改行為','',{go:'refactor'}]]},
+  legacy:{q:'新系統已經完成了嗎？',opts:[
+    ['還沒，要從舊系統移轉','Legacy 存在',{go:'migration'}],
+    ['已經完成','',{next:'legacy2'}]]},
+  legacy2:{q:'舊程式（Legacy）還在、還能執行嗎？',opts:[
+    ['還在','可以雙邊比對',{go:'retrofit'}],
+    ['沒有了，只剩現行程式','',{go:'adoption'}]]}
+};
+let trail=[];
+function renderQuiz(key){
+  const box=$('quiz');box.replaceChildren();
+  const tr=document.createElement('div');tr.className='trail';
+  trail.forEach(t=>{const c=document.createElement('span');c.className='crumb';c.textContent=t;tr.appendChild(c);});
+  if(trail.length){const r=document.createElement('button');r.type='button';r.className='ghost';r.style.padding='3px 10px';r.textContent='重新判斷';r.onclick=()=>{trail=[];renderQuiz('start');};tr.appendChild(r);}
+  box.appendChild(tr);
+  if(typeof key==='object'){
+    const s=S.find(v=>v.id===key.go);
+    const q=document.createElement('div');q.className='qbox';
+    q.innerHTML='<h3></h3><p class="lede"></p>';
+    q.querySelector('h3').textContent='建議情境：'+s.no+' '+s.name+'（'+s.tag+'）';
+    q.querySelector('p').textContent=s.summary;
+    const b=document.createElement('button');b.type='button';b.className='primary';b.style.alignSelf='flex-start';b.textContent='開始播放這個情境';
+    b.onclick=()=>{load(s.id,true);play(true);};
+    q.appendChild(b);box.appendChild(q);return;
+  }
+  const node=Q[key];
+  const q=document.createElement('div');q.className='qbox';
+  const h=document.createElement('h3');h.textContent=node.q;q.appendChild(h);
+  const o=document.createElement('div');o.className='opts';
+  node.opts.forEach(([label,sub,to])=>{
+    const b=document.createElement('button');b.type='button';b.className='opt';b.textContent=label;
+    if(sub){const sm=document.createElement('small');sm.textContent=sub;b.appendChild(sm);}
+    b.onclick=()=>{trail.push(label);renderQuiz(to.go?to:to.next);};
+    o.appendChild(b);
+  });
+  q.appendChild(o);box.appendChild(q);
+}
+$('quizBtn').addEventListener('click',()=>{
+  const q=$('quiz');q.hidden=!q.hidden;$('quizBtn').setAttribute('aria-expanded',String(!q.hidden));
+  if(!q.hidden){trail=[];renderQuiz('start');}
+});
+
+/* ---------- manifest 打字 ---------- */
+let typeTimer=null;
+function typeYaml(lines){
+  clearTimeout(typeTimer);
+  const y=$('yaml');
+  const full=lines.map(([k,v])=>k.startsWith('#')?k+'：'+v:k+': '+v);
+  if(reduce){y.textContent=full.join('\n');return;}
+  let li=0,ci=0;y.replaceChildren();
+  const caret=document.createElement('span');caret.className='caret';
+  function stepT(){
+    y.textContent=full.slice(0,li).join('\n')+(li?'\n':'')+full[li].slice(0,ci);
+    y.appendChild(caret);
+    ci++;
+    if(ci>full[li].length){li++;ci=0;if(li>=full.length){y.textContent=full.join('\n');return;}}
+    typeTimer=setTimeout(stepT,22);
+  }
+  stepT();
+}
+
+/* ---------- 管線 ---------- */
+function load(id,scroll){
+  stop();
+  const s=S.find(v=>v.id===id)||S[0];
+  st.sc=s;st.i=0;st.art={};st.order=[];st.waiting=false;st.finished=false;st.branchPick=null;
+  for(const k in cardEls)cardEls[k].setAttribute('aria-pressed',String(k===s.id));
+  try{history.replaceState(null,'','#'+s.id);}catch(e){}
+  const h=$('scHead');h.replaceChildren();
+  const e=document.createElement('span');e.className='entry';e.textContent=s.entry;
+  const t=document.createElement('h2');t.textContent=s.no+' '+s.name;
+  const p=document.createElement('p');p.className='lede';p.textContent=s.summary;
+  h.append(e,t,p);
+  typeYaml(s.manifest);
+  $('caution').textContent=s.caution;
+  const pipe=$('pipe');
+  [...pipe.querySelectorAll('.st')].forEach(n=>n.remove());
+  s.stages.forEach((g,k)=>{
+    const li=document.createElement('li');
+    li.className='st pending '+(g.kind||'stage');li.style.animationDelay=(k*40)+'ms';
+    const mk=document.createElement('div');mk.className='mk';mk.appendChild(document.createElement('i'));
+    const bx=document.createElement('button');bx.type='button';bx.className='bx';
+    bx.innerHTML='<span class="sk"></span><span class="tt"></span>';
+    bx.querySelector('.sk').textContent=g.sk;bx.querySelector('.tt').textContent=g.t;
+    if(g.d){const d=document.createElement('span');d.className='ds';d.textContent=g.d;bx.appendChild(d);}
+    if(g.p&&g.p.length){const pr=document.createElement('span');pr.className='prods';g.p.forEach(a=>{const x=document.createElement('span');x.textContent=ART[a].p;pr.appendChild(x);});bx.appendChild(pr);}
+    bx.addEventListener('click',()=>showNow(k));
+    li.append(mk,bx);pipe.appendChild(li);
+  });
+  $('doneBox').replaceChildren();
+  renderShelf();enter(0,false);
+  if(scroll)$('scHead').scrollIntoView({behavior:reduce?'auto':'smooth',block:'start'});
+}
+function rows(){return [...$('pipe').querySelectorAll('.st')];}
+function updateRail(){
+  const r=rows(),cur=r[Math.min(st.i,r.length-1)];
+  if(!cur)return;
+  const first=r[0];
+  const h=(cur.offsetTop+cur.querySelector('.mk').offsetTop+19)-(first.offsetTop+first.querySelector('.mk').offsetTop+19);
+  $('pipe').style.setProperty('--fill',Math.max(0,h)+'px');
+  const n=st.sc.stages.length;const done=r.filter(x=>x.classList.contains('done')).length;
+  $('count').textContent=done+' / '+n;$('barFill').style.width=(done/n*100)+'%';
+}
+function enter(k,auto){
+  st.i=k;const r=rows();
+  r.forEach((x,j)=>{x.classList.toggle('cur',j===k&&!st.finished);if(j>k&&!x.classList.contains('done'))x.classList.add('pending');});
+  r[k].classList.remove('pending');
+  const g=st.sc.stages[k];
+  r.forEach(x=>{const a=x.querySelector('.gate-act');if(a)a.remove();});
+  if(g.kind==='gate'){
+    st.waiting=true;
+    const act=document.createElement('div');act.className='gate-act';
+    const note=document.createElement('span');note.className='note';note.textContent='等待 Human 決定：AI 不能自行核准';
+    const ok=document.createElement('button');ok.type='button';ok.className='approve';ok.textContent='核准';ok.onclick=approve;
+    const no=document.createElement('button');no.type='button';no.className='reject';no.textContent='退回補充';no.onclick=reject;
+    act.append(note,ok,no);r[k].querySelector('.bx').after(act);
+    act.style.gridColumn='2';
+    if(st.playing&&$('autoApprove').checked)schedule(approve,DWELL+400);
+  }else if(g.kind==='branch'){
+    st.waiting=true;
+    const act=document.createElement('div');act.className='gate-act';act.style.gridColumn='2';
+    g.options.forEach(([label,res,go])=>{
+      const b=document.createElement('button');b.type='button';b.className='bopt';b.textContent=label;
+      const sm=document.createElement('small');sm.textContent=res;b.appendChild(sm);
+      b.onclick=()=>pickBranch(label,res,go);act.appendChild(b);
+    });
+    r[k].querySelector('.bx').after(act);
+  }else if(g.kind==='exit'){
+    finish();
+  }else{
+    st.waiting=false;
+    if(st.playing)schedule(complete,DWELL);
+  }
+  showNow(k);updateRail();
+}
+function complete(){
+  const g=st.sc.stages[st.i];
+  (g.p||[]).forEach(a=>{
+    const k=ART[a].kind;
+    setArt(a,k==='obs'?'OBSERVED':k==='done'?'DONE':k==='cfg'?'DONE':'DRAFT');
+  });
+  for(const a in st.art)if(st.art[a]==='REVIEW_REQUIRED')setArt(a,'DRAFT');
+  rows()[st.i].classList.add('done');
+  next();
+}
+function next(){if(st.i+1<st.sc.stages.length)enter(st.i+1);}
+function approve(){
+  if(!st.waiting)return;clearTimeout(st.timer);
+  st.waiting=false;
+  for(const a in st.art)if(st.art[a]==='DRAFT')setArt(a,'APPROVED');
+  rows()[st.i].classList.add('done');
+  toast('已由 Human 核准，DRAFT 改為 APPROVED',true);
+  next();
+}
+function reject(){
+  if(!st.waiting)return;clearTimeout(st.timer);
+  st.waiting=false;
+  for(const a in st.art)if(st.art[a]==='DRAFT')setArt(a,'REVIEW_REQUIRED');
+  toast('已退回：進入 Evidence-Guided Q&A 補充後重新送審');
+  let back=st.i-1;while(back>0&&st.sc.stages[back].kind)back--;
+  rows().forEach((x,j)=>{if(j>=back)x.classList.remove('done');});
+  enter(back);
+}
+function pickBranch(label,res,go){
+  st.waiting=false;rows()[st.i].classList.add('done');
+  const exitIdx=st.sc.stages.length-1;
+  const r=rows()[exitIdx];
+  let out=r.querySelector('.result');if(!out){out=document.createElement('div');out.className='result';r.querySelector('.bx').appendChild(out);}
+  out.textContent=label+'：'+res;
+  if(go){const s=S.find(v=>v.id===go);const b=document.createElement('button');b.type='button';b.className='ghost';b.style.cssText='margin-top:6px;padding:4px 10px;align-self:flex-start';b.textContent='前往「'+s.name+'」情境';b.onclick=e=>{e.stopPropagation();load(go,true);};out.appendChild(document.createElement('br'));out.appendChild(b);}
+  next();
+}
+function finish(){
+  st.finished=true;st.waiting=false;rows()[st.i].classList.add('done');rows().forEach(x=>x.classList.remove('cur'));
+  stop();updateRail();
+  const d=$('doneBox');d.replaceChildren();
+  const b=document.createElement('div');b.className='done-banner';
+  const t=document.createElement('strong');t.textContent='流程走完：'+st.sc.stages[st.i].t;
+  const again=document.createElement('button');again.type='button';again.className='ghost';again.textContent='再播一次';again.onclick=()=>{load(st.sc.id,false);play(true);};
+  b.append(t,again);d.appendChild(b);
+}
+function setArt(a,s){
+  const prev=st.art[a];st.art[a]=s;if(!st.order.includes(a))st.order.push(a);
+  renderShelf(prev===undefined?a:null,prev!==s?a:null);
+}
+function renderShelf(added,changed){
+  const sh=$('shelf');
+  if(!st.order.length){sh.innerHTML='<p class="empty">尚未產生 Artifact。按「播放」或「下一步」開始。</p>';return;}
+  const existing={};[...sh.querySelectorAll('.art')].forEach(n=>existing[n.dataset.k]=n);
+  sh.querySelector('.empty')?.remove();
+  st.order.forEach(a=>{
+    let n=existing[a];
+    if(!n){n=document.createElement('div');n.className='art';n.dataset.k=a;
+      n.innerHTML='<div><div class="p"></div><div class="id"></div></div><b class="chip"></b>';
+      n.querySelector('.p').textContent=ART[a].p;n.querySelector('.id').textContent=ART[a].id;sh.appendChild(n);}
+    const c=n.querySelector('.chip');const s=st.art[a];
+    c.className='chip s-'+s;c.textContent=s==='DONE'?(a==='code'?'已實作':'已建立'):s;
+    if(changed===a&&added!==a){c.classList.remove('flash');void c.offsetWidth;c.classList.add('flash');}
+  });
+}
+function showNow(k){
+  const g=st.sc.stages[k];const n=$('now');n.replaceChildren();
+  const w=document.createElement('div');w.className='now';
+  const sk=document.createElement('span');sk.className='sk';sk.textContent=(k+1)+' / '+st.sc.stages.length+' · '+g.sk;
+  const t=document.createElement('h3');t.textContent=g.t;
+  w.append(sk,t);
+  if(g.d){const d=document.createElement('p');d.style.color='var(--soft)';d.textContent=g.d;w.appendChild(d);}
+  if(g.p&&g.p.length){const p=document.createElement('p');p.style.cssText='font-size:13px;color:var(--muted)';p.textContent='產出：'+g.p.map(a=>ART[a].p).join('、');w.appendChild(p);}
+  if(g.kind==='gate'){const h=document.createElement('div');h.className='gatehint';h.textContent='按「核准」：目前所有 DRAFT 變成 APPROVED 並繼續。按「退回補充」：DRAFT 變成 REVIEW_REQUIRED，回到前一個 Stage 補充後重新送審。';w.appendChild(h);}
+  n.appendChild(w);
+}
+
+/* ---------- 播放控制 ---------- */
+function schedule(fn,ms){clearTimeout(st.timer);st.timer=setTimeout(fn,reduce?Math.min(ms,400):ms);}
+function play(on){
+  if(st.finished&&on){load(st.sc.id,false);}
+  st.playing=on;$('playBtn').textContent=on?'暫停':'播放';
+  clearTimeout(st.timer);
+  if(on){const g=st.sc.stages[st.i];
+    if(!g.kind)schedule(complete,500);
+    else if(g.kind==='gate'&&$('autoApprove').checked)schedule(approve,DWELL);}
+}
+function stop(){st.playing=false;clearTimeout(st.timer);$('playBtn').textContent='播放';}
+$('playBtn').addEventListener('click',()=>play(!st.playing));
+$('nextBtn').addEventListener('click',()=>{
+  if(st.finished)return;clearTimeout(st.timer);
+  const g=st.sc.stages[st.i];
+  if(!g.kind){const was=st.playing;st.playing=false;complete();st.playing=was;if(was)play(true);}
+  else if(g.kind==='gate')approve();
+  else if(g.kind==='branch'){const o=g.options[0];pickBranch(o[0],o[1],o[2]);}
+});
+$('resetBtn').addEventListener('click',()=>load(st.sc.id,false));
+$('autoApprove').addEventListener('change',()=>{if(st.playing&&st.sc.stages[st.i].kind==='gate'&&$('autoApprove').checked)schedule(approve,600);});
+addEventListener('resize',updateRail);
+
+let toastT=null;
+function toast(msg,ok){
+  document.querySelector('.toast')?.remove();clearTimeout(toastT);
+  const t=document.createElement('div');t.className='toast'+(ok?' ok':'');t.setAttribute('role','status');t.textContent=msg;
+  document.body.appendChild(t);toastT=setTimeout(()=>t.remove(),2600);
+}
+
+const start=(location.hash||'').slice(1);
+load(S.some(s=>s.id===start)?start:'new',false);
+addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(S.some(s=>s.id===h)&&h!==st.sc.id)load(h,false);});
+})();
+</script>
+
+</body>
+</html>
