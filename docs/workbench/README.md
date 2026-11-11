@@ -2,6 +2,8 @@
 
 依據 ADF v5.4.1 正式 tag 的靜態操作指引；支援情境選擇、一鍵安裝與更新步驟、專案規範安裝（建議項目排除、選填項目加入）、日常工作提示詞範例與提示詞產生器、QA 檢核、驗證圖解、規則提問、文件搜尋與移轉說明。網站不執行 Skill，也不寫入專案或保存團隊測試結果。
 
+另有 `loop.html`（Loop Engineering 圖解）：以網頁 UI/UX 優化為例，用動畫說明 Claude Code `/loop` 各類型的目的、gap 與結束條件；由操作台側欄連結，同樣是單檔、不需建置。
+
 ## GitHub Pages 發布
 
 Repository 管理員先至 **Settings → Pages → Build and deployment → Source** 選擇 **GitHub Actions**。第一次啟用後，到 **Actions → Publish ADF Skill Workbench → Run workflow** 執行發布。
