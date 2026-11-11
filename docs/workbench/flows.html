@@ -440,11 +440,11 @@ TC-004  回傳 3 筆，EMP_ID 全部 = A`,
  caution:'BUGFIX、SECURITY_FIX、REFACTOR 等 Intent 有額外的分析與驗證 Gate，請改選對應情境。',
  stages:[
   {sk:'adf-ask',t:'確認 Stage、Blocker 與核准 Baseline',d:'唯讀盤點，確認沒有其他 Active Work Item。',p:['manifest'],
-   out:'manifest.yaml 新增一個 CHANGE Work Item（Module 沿用）。',ex:'work_item.id: WI-002、type: CHANGE'},
-  {sk:'adf-requirement-analysis',t:'記錄 Requirement Delta',d:'只寫新增或變更的部分。',p:['req'],
-   out:'requirements.md 增加 Delta 段落，標明新增或修改哪些 REQ-*。',ex:'新增 REQ-003 可申請上午或下午半天假'},
+   out:'manifest.yaml 新增一個 CHANGE Work Item（Module 沿用），並在 behavior.preserve 列出這次不能改變的行為。',ex:'work_item.id: WI-002；preserve：REQ-001、REQ-002'},
+  {sk:'adf-requirement-analysis',t:'記錄 Requirement Delta',d:'只更新受影響範圍；同一份 requirements.md 用「本次變更」欄標示每個 REQ-*。',p:['req'],
+   out:'requirements.md：所有 REQ-* 都在同一個表格，標示新增、修改或不變。',ex:'REQ-003 新增；REQ-001、REQ-002 不變（沿用 APPROVED）'},
   {sk:'規則 Skill · adf-standards-applicability',t:'更新受影響的規則',d:'只動受影響的 BR-*、VAL-*、UI-*。',p:['rules'],
-   out:'rules.md 新增或修改規則，舊規則保持不變。',ex:'BR-002 半天假扣 0.5 天特休'},
+   out:'rules.md：新規則與既有規則在同一個表格，以「本次變更」欄區分。',ex:'BR-002 新增；BR-001 不變'},
   GATE_REQ,
   {sk:'adf-frontend-prototype',t:'更新 Prototype',d:'UI 流程受影響時才做。',p:['proto'],
    out:'在原本畫面加上新欄位。',ex:'選半天時多出「時段：上午／下午」'},
@@ -471,27 +471,32 @@ work_item:
     - FEATURE
   title: 支援半天假
 behavior:
-  change_allowed: true`,
+  change_allowed: true
+  preserve:              # 這次不能改變的行為
+    - REQ-001 線上申請與主管簽核
+    - REQ-002 查詢本人請假紀錄`,
   req:`# Requirements
-## Delta（WI-002）
-| ID | 變更 | 需求 | 驗收條件 | Status |
+| ID | 本次變更（WI-002） | 需求 | 驗收條件 | Status |
 |---|---|---|---|---|
-| REQ-003 | 新增 | 可申請上午或下午半天假 | 半天以 0.5 天扣特休 | {S} |
-REQ-001、REQ-002 不變（Baseline：APPROVED）`,
+| REQ-001 | 不變 | 員工可線上申請請假 | 送出後主管收到待簽 | APPROVED |
+| REQ-002 | 不變 | 員工可查詢自己的請假紀錄 | 依申請日新到舊排列 | APPROVED |
+| REQ-003 | 新增 | 可申請上午或下午半天假 | 半天以 0.5 天扣特休 | {S} |`,
   rules:`# Rules
 ## Business Rules
-| ID | 變更 | 規則 |
-|---|---|---|
-| BR-002 | 新增 | 半天假扣 0.5 天特休 |
+| ID | 本次變更 | 規則 | Status |
+|---|---|---|---|
+| BR-001 | 不變 | 特休剩餘天數不足時不可送出 | APPROVED |
+| BR-002 | 新增 | 半天假扣 0.5 天特休 | {S} |
 ## Validation Rules
-| ID | 變更 | 規則 |
-|---|---|---|
-| VAL-002 | 新增 | 半天假的開始與結束必須是同一天 |
+| ID | 本次變更 | 規則 | Status |
+|---|---|---|---|
+| VAL-001 | 不變 | 結束日期不可早於開始日期 | APPROVED |
+| VAL-002 | 新增 | 半天假的開始與結束必須是同一天 | {S} |
 ## UI Rules
-| ID | 變更 | 規則 |
-|---|---|---|
-| UI-002 | 新增 | 勾選半天時顯示「時段：上午／下午」 |
-狀態：{S}`,
+| ID | 本次變更 | 規則 | Status |
+|---|---|---|---|
+| UI-001 | 不變 | 假別為下拉選單：特休、事假、病假 | APPROVED |
+| UI-002 | 新增 | 勾選半天時顯示「時段：上午／下午」 | {S} |`,
   proto:`請假申請（Prototype v2）  狀態：{S}
 ─────────────────────────
 假別    [ 特休 ▼ ]
@@ -580,16 +585,15 @@ behavior:
 狀態：{S}`,
   rules:`# Rules
 ## Query Rules
-| ID | 規則 | 來源 |
-|---|---|---|
-| Q-001 | 未填日期時查本月 | LB-001 |
-| Q-002 | 依申請日新到舊排序 | LB-002 |
+| ID | 規則 | 來源 | Status |
+|---|---|---|---|
+| Q-001 | 未填日期時查本月 | LB-001 | {S} |
+| Q-002 | 依申請日新到舊排序 | LB-002 | {S} |
+| Q-003 | 已取消的假單不顯示 | LB-004（UNKNOWN，待 REV-Q-001） | REVIEW_REQUIRED |
 ## Business Rules
-| ID | 規則 | 來源 |
-|---|---|---|
-| BR-001 | 主管可查部屬假單 | LB-003 |
-LB-004 確定度 UNKNOWN，待 REV-Q-001 回覆
-狀態：{S}`,
+| ID | 規則 | 來源 | Status |
+|---|---|---|---|
+| BR-001 | 主管可查部屬假單 | LB-003 | {S} |`,
   std:`# Applicable Standards
 | ID | 規範 | 適用 | 說明 |
 |---|---|---|---|
@@ -641,7 +645,9 @@ TC-003  主管 M：部屬 3 筆`,
 | TC | LB | 欄位 | Legacy | Target | 分類 | 依據 |
 |---|---|---|---|---|---|---|
 | TC-001 | LB-001 | 日期 | 115/11/03 | 2026-11-03 | PASS | MIG-DATE-001 |
-LB-004 尚未比對（UNKNOWN）
+| TC-002 | LB-002 | 排序 | 11/20、11/03 | 11/20、11/03 | PASS | — |
+| TC-003 | LB-003 | 筆數 | 3 筆 | 3 筆 | PASS | — |
+| — | LB-004 | — | — | — | 未比對 | 確定度 UNKNOWN，待 REV-Q-001 |
 狀態：{S}`,
   trace:`# Traceability
 | Source | Rule | Standard | Test | Result |
