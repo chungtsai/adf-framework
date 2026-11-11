@@ -57,6 +57,8 @@ code,.mono{font-family:var(--font-mono);font-size:.88em}
 .card .tag{align-self:flex-start;font-family:var(--font-mono);font-size:11px;color:var(--soft);border:1px solid #416073;border-radius:20px;padding:1px 8px;margin-top:4px}
 .ghost{background:transparent;border:1px solid #426076;color:var(--ink);border-radius:9px;padding:8px 14px;font-weight:700}
 .ghost:hover{background:#183247}
+.ghost:disabled{opacity:.4;cursor:not-allowed;background:transparent}
+.jump{align-self:flex-start;margin-top:4px}
 .primary{background:var(--accent);border:1px solid var(--accent);color:var(--accent-ink);border-radius:9px;padding:8px 14px;font-weight:800}
 .primary:hover{background:#85f4df}
 
@@ -200,7 +202,7 @@ footer{color:#88a8b7;font-size:13px}
   <header>
     <div class="eyebrow">AI Development Framework · 互動導覽</div>
     <h1>選一個情境，看 Work Item 如何走完 ADF</h1>
-    <p class="lede">每個情境都用同一套範例「公司請假系統」示範。按「播放」後 Work Item 會逐一走過各 Stage，右側說明每一步的產出並附範例，產生的檔案會逐行顯示內容。遇到 Human Gate 會停下來，要由你按「核准」或「退回」才繼續，因為 AI 不能自行核准。</p>
+    <p class="lede">每個情境都用同一套範例「公司請假系統」示範。按「播放」後 Work Item 會逐一走過各 Stage，可以按「上一步」退回，或點任一個 Stage 直接跳過去；右側說明每一步的產出並附範例，產生的檔案會逐行顯示內容。遇到 Human Gate 會停下來，要由你按「核准」或「退回」才繼續，因為 AI 不能自行核准。</p>
   </header>
 
   <section class="panel" style="padding:20px;display:flex;flex-direction:column;gap:16px">
@@ -217,6 +219,7 @@ footer{color:#88a8b7;font-size:13px}
       <div class="sc-head" id="scHead"></div>
       <div class="controls" role="group" aria-label="播放控制">
         <button type="button" class="primary" id="playBtn">播放</button>
+        <button type="button" class="ghost" id="prevBtn" disabled>上一步</button>
         <button type="button" class="ghost" id="nextBtn">下一步</button>
         <button type="button" class="ghost" id="resetBtn">重來</button>
         <label for="autoApprove"><input type="checkbox" id="autoApprove">示範時自動代按核准</label>
@@ -1055,6 +1058,7 @@ const $=id=>document.getElementById(id);
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const st={sc:null,i:0,playing:false,timer:null,art:{},order:[],waiting:false,finished:false,view:null};
 const DWELL=1700;
+let hist=[],quiet=false;
 const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 /* ---------- 簡易 Markdown 轉換 ---------- */
@@ -1185,7 +1189,7 @@ $('quizBtn').addEventListener('click',()=>{
 function load(id,scroll){
   stop();
   const s=S.find(v=>v.id===id)||S[0];
-  st.sc=s;st.i=0;st.art={};st.order=[];st.waiting=false;st.finished=false;st.view=null;
+  st.sc=s;st.i=0;st.art={};st.order=[];st.waiting=false;st.finished=false;st.view=null;st.branch=null;hist=[];
   for(const k in cardEls)cardEls[k].setAttribute('aria-pressed',String(k===s.id));
   try{history.replaceState(null,'','#'+s.id);}catch(e){}
   const h=$('scHead');h.replaceChildren();
@@ -1231,10 +1235,11 @@ function updateRail(){
   $('pipe').style.setProperty('--fill',Math.max(0,h)+'px');
   const n=st.sc.stages.length;const done=r.filter(x=>x.classList.contains('done')).length;
   $('count').textContent=done+' / '+n;$('barFill').style.width=(done/n*100)+'%';
+  $('prevBtn').disabled=!hist.length;
 }
 function enter(k){
   st.i=k;const r=rows();
-  r.forEach((x,j)=>{x.classList.toggle('cur',j===k&&!st.finished);if(j>k&&!x.classList.contains('done'))x.classList.add('pending');});
+  r.forEach((x,j)=>{x.classList.toggle('cur',j===k&&!st.finished);x.classList.toggle('pending',j>k&&!x.classList.contains('done'));});
   r[k].classList.remove('pending');
   const g=st.sc.stages[k];
   r.forEach(x=>{const a=x.querySelector('.gate-act');if(a)a.remove();});
@@ -1264,6 +1269,7 @@ function enter(k){
   showNow(k);updateRail();
 }
 function complete(){
+  snap();
   const g=st.sc.stages[st.i];
   for(const a in st.art)if(st.art[a]==='REVIEW_REQUIRED')st.art[a]='DRAFT';
   (g.p||[]).forEach(a=>{
@@ -1271,23 +1277,23 @@ function complete(){
     setArt(a,k==='obs'?'OBSERVED':(k==='done'||k==='cfg')?'DONE':'DRAFT');
   });
   renderShelf();
-  if(g.p&&g.p.length)openFile(g.p[g.p.length-1],true);else refreshView();
+  if(g.p&&g.p.length)openFile(g.p[g.p.length-1],!quiet);else refreshView();
   rows()[st.i].classList.add('done');
   next();
 }
 function next(){if(st.i+1<st.sc.stages.length)enter(st.i+1);}
 function approve(){
-  if(!st.waiting)return;clearTimeout(st.timer);
+  if(!st.waiting)return;clearTimeout(st.timer);snap();
   st.waiting=false;
   const changed=[];
   for(const a in st.art)if(st.art[a]==='DRAFT'){st.art[a]='APPROVED';changed.push(a);}
   renderShelf(changed);refreshView();
   rows()[st.i].classList.add('done');
-  toast(changed.length?'已由 Human 核准：'+changed.length+' 份 DRAFT 改為 APPROVED':'已由 Human 核准',true);
+  if(!quiet)toast(changed.length?'已由 Human 核准：'+changed.length+' 份 DRAFT 改為 APPROVED':'已由 Human 核准',true);
   next();
 }
 function reject(){
-  if(!st.waiting)return;clearTimeout(st.timer);
+  if(!st.waiting)return;clearTimeout(st.timer);snap();
   st.waiting=false;
   const changed=[];
   for(const a in st.art)if(st.art[a]==='DRAFT'){st.art[a]='REVIEW_REQUIRED';changed.push(a);}
@@ -1297,14 +1303,53 @@ function reject(){
   rows().forEach((x,j)=>{if(j>=back)x.classList.remove('done');});
   enter(back);
 }
-function pickBranch(label,res,go){
-  st.waiting=false;rows()[st.i].classList.add('done');
-  const exitIdx=st.sc.stages.length-1;
-  const r=rows()[exitIdx];
-  let out=r.querySelector('.result');if(!out){out=document.createElement('div');out.className='result';r.querySelector('.bx').appendChild(out);}
+function setResult(br){
+  const r=rows()[st.sc.stages.length-1];
+  r.querySelector('.result')?.remove();
+  if(!br)return;
+  const [label,res,go]=br;
+  const out=document.createElement('div');out.className='result';r.querySelector('.bx').appendChild(out);
   out.textContent=label+'：'+res;
   if(go){const s=S.find(v=>v.id===go);const b=document.createElement('button');b.type='button';b.className='ghost';b.style.cssText='margin-top:6px;padding:4px 10px;display:block';b.textContent='前往「'+s.name+'」情境';b.onclick=e=>{e.stopPropagation();load(go,true);};out.appendChild(b);}
+}
+function pickBranch(label,res,go){
+  snap();
+  st.waiting=false;rows()[st.i].classList.add('done');
+  st.branch=[label,res,go];setResult(st.branch);
   next();
+}
+/* ---------- 上一步與跳轉 ---------- */
+function snap(){
+  hist.push({i:st.i,art:{...st.art},order:[...st.order],done:rows().map(r=>r.classList.contains('done')),branch:st.branch,view:st.view});
+}
+function back(){
+  if(!hist.length)return false;
+  stop();
+  const h=hist.pop();
+  st.art=h.art;st.order=h.order;st.finished=false;st.branch=h.branch;
+  rows().forEach((r,j)=>r.classList.toggle('done',h.done[j]));
+  setResult(st.branch);
+  $('doneBox').replaceChildren();
+  renderShelf();
+  enter(h.i);
+  if(h.view&&st.art[h.view])openFile(h.view,false);
+  else{st.view=null;$('vpath').textContent='檔案內容';$('vchip').replaceChildren();$('vbody').innerHTML='<p class="empty">這一步之前還沒有產生檔案。</p>';renderShelf();}
+  return true;
+}
+function stepForward(){
+  const g=st.sc.stages[st.i];
+  if(!g.kind)complete();
+  else if(g.kind==='gate')approve();
+  else if(g.kind==='branch'){const o=g.options[0];pickBranch(o[0],o[1],o[2]);}
+}
+function jumpTo(k){
+  stop();quiet=true;
+  if(k<st.i||st.finished){while(hist.length&&(st.i>k||st.finished)){back();}}
+  else{let guard=0;while(st.i<k&&!st.finished&&guard++<60)stepForward();}
+  quiet=false;
+  if(st.view)openFile(st.view,true);
+  showNow(st.i);
+  toast('已移到第 '+(st.i+1)+' 步：'+st.sc.stages[st.i].t,true);
 }
 function finish(){
   st.finished=true;st.waiting=false;rows()[st.i].classList.add('done');rows().forEach(x=>x.classList.remove('cur'));
@@ -1347,6 +1392,11 @@ function showNow(k){
     if(g.ex){dl.insertAdjacentHTML('beforeend','<dt>範例</dt><dd class="exv"></dd>');dl.lastChild.textContent=g.ex;}
     w.appendChild(dl);
   }
+  if(k!==st.i||st.finished){
+    const jb=document.createElement('button');jb.type='button';jb.className='ghost jump';
+    jb.textContent=k<st.i||st.finished?'回到這一步':'跳到這一步（中間的 Gate 會自動核准）';
+    jb.onclick=()=>jumpTo(k);w.appendChild(jb);
+  }
   if(g.kind==='gate'){const h=document.createElement('div');h.className='gatehint';h.textContent='按「核准」：目前所有 DRAFT 變成 APPROVED 並繼續。按「退回補充」：DRAFT 變成 REVIEW_REQUIRED，回到前一個 Stage 補充後重新送審。';w.appendChild(h);}
   n.appendChild(w);
 }
@@ -1365,12 +1415,10 @@ function stop(){st.playing=false;clearTimeout(st.timer);$('playBtn').textContent
 $('playBtn').addEventListener('click',()=>play(!st.playing));
 $('nextBtn').addEventListener('click',()=>{
   if(st.finished)return;clearTimeout(st.timer);
-  const g=st.sc.stages[st.i];
-  if(!g.kind){const was=st.playing;st.playing=false;complete();st.playing=was;if(was)play(true);}
-  else if(g.kind==='gate')approve();
-  else if(g.kind==='branch'){const o=g.options[0];pickBranch(o[0],o[1],o[2]);}
+  const was=st.playing;st.playing=false;stepForward();st.playing=was;if(was)play(true);
 });
 $('resetBtn').addEventListener('click',()=>load(st.sc.id,false));
+$('prevBtn').addEventListener('click',()=>{if(back())toast('已回到上一步：'+st.sc.stages[st.i].t,true);});
 $('autoApprove').addEventListener('change',()=>{if(st.playing&&st.sc.stages[st.i].kind==='gate'&&$('autoApprove').checked)schedule(approve,600);});
 addEventListener('resize',updateRail);
 
