@@ -30,3 +30,9 @@ description: 只有所有適用 Gate、Test、Traceability 與 Blocker 都完成
 - CHANGE 若影響 Requirement、Rule、UI、Design、Functional Scenario 或其他 Human 可理解行為，應同步規格書。
 - 純技術重構且 Human-visible / Business Behavior 未改變時，可以不改寫規格內容。
 - 若規格書與正式 Artifact 不一致，不得結案為已同步；應標記 `REVIEW_REQUIRED`。
+
+## Code Review Gate
+
+- 專案採用 `DEV-REVIEW-001`（`standards/` 中為 APPROVED）時，Completion 前確認本次所有實作都已完成審查，且沒有未解決的 `BLOCKER`；`MAJOR` 必須已修正或有 Human 核准的例外紀錄。
+- manifest `blockers` 仍有 Code Review 發現時不得結案。
+- 專案未採用該規範時，此 Gate 標示為 not applicable，不得視為已審查。

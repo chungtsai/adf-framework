@@ -7,7 +7,7 @@
 #
 # 用法（在專案根目錄）：
 #   curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/standards.sh | bash
-#   bash standards.sh [--recommended] [--exclude 8,xss] [--add 19,date] [--status DRAFT|APPROVED] [--list] [--yes] [--project <dir>] [--ref main]
+#   bash standards.sh [--recommended] [--exclude 8,xss] [--add 20,date] [--status DRAFT|APPROVED] [--list] [--yes] [--project <dir>] [--ref main]
 #   bash standards.sh --select date,sql-injection|1,4   # 只安裝指定項目（不套用建議項目）
 # 沒有選擇參數時以編號互動選擇；寫入前會列出摘要並詢問確認；--yes 或 ADF_YES=1 可略過（CI 使用）。
 set -euo pipefail

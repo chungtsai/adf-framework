@@ -6,7 +6,7 @@
 #
 # 用法（在專案根目錄）：
 #   irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/standards.ps1 | iex
-#   .\standards.ps1 [-Recommended] [-Exclude 8,xss] [-Add 19,date] [-Status DRAFT|APPROVED] [-List] [-Yes] [-Project <dir>] [-Ref main]
+#   .\standards.ps1 [-Recommended] [-Exclude 8,xss] [-Add 20,date] [-Status DRAFT|APPROVED] [-List] [-Yes] [-Project <dir>] [-Ref main]
 #   .\standards.ps1 -Select date,sql-injection|1,4   # 只安裝指定項目（不套用建議項目）
 # 沒有選擇參數時以編號互動選擇；寫入前會列出摘要並詢問確認；-Yes 或 ADF_YES=1 可略過（CI 使用）。
 param(

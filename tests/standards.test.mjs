@@ -16,8 +16,8 @@ function project(t,installed=true){
  const r=fs.mkdtempSync(path.join(os.tmpdir(),'adf-std-'));t.after(()=>fs.rmSync(r,{recursive:true,force:true}));
  if(installed) write(r,'.adf/migration.json','{"status":"verified"}');return r;
 }
-const REC=['sql-injection','data-scope','authorization','pagination','write-condition','file-path','param-token','legacy-vulnerability','xss','csrf','auth-session','mass-assignment','input-validation','personal-data','file-upload','secrets','audit-log','dependency'];
-const OPT=['date','display-parity','shared-message','redirect','xml','command','http-header','concurrency','rate-limit'];
+const REC=['sql-injection','data-scope','authorization','pagination','write-condition','file-path','param-token','legacy-vulnerability','xss','csrf','auth-session','mass-assignment','input-validation','personal-data','file-upload','secrets','audit-log','dependency','code-review'];
+const OPT=['date','display-parity','shared-message','redirect','xml','command','http-header','concurrency','rate-limit','solid'];
 const sh=(r,args,extra={})=>spawnSync('bash',[script,'--project',r,...args],{encoding:'utf8',env:{...process.env,ADF_SOURCE_DIR:repo,ADF_YES:'',...extra}});
 
 test('every pack lists the official standards it installs',t=>{
@@ -78,13 +78,13 @@ test('invalid requests are refused before any write',t=>{
  fs.symlinkSync(outside,path.join(r,'standards'),'dir');assert.throws(()=>standardsInstall(r,['date']),/Symlink/);assert.deepEqual(fs.readdirSync(outside),[]);
 });
 test('standards.sh installs selected numbers non-interactively as DRAFT',{skip:skipSh},t=>{
- const r=project(t);const res=sh(r,['--select','19,1','--yes']);assert.equal(res.status,0,res.stderr+res.stdout);
- assert.match(res.stdout,/\[19\] 年度/);assert.match(res.stdout,/已寫入：standards\/development\/security\/sql-injection\.md/);
+ const r=project(t);const res=sh(r,['--select','20,1','--yes']);assert.equal(res.status,0,res.stderr+res.stdout);
+ assert.match(res.stdout,/\[20\] 年度/);assert.match(res.stdout,/已寫入：standards\/development\/security\/sql-injection\.md/);
  assert.match(read(r,'standards/migration/roc-calendar.md'),/^status: DRAFT$/m);assert.ok(!fs.existsSync(path.join(r,'standards/development/message.md')));
  assert.ok(!fs.existsSync(path.join(r,'standards/development/security/xss.md')));
 });
 test('standards.sh installs recommended packs minus exclusions plus added optional packs',{skip:skipSh},t=>{
- const r=project(t);const res=sh(r,['--exclude','8,xss','--add','19','--yes']);assert.equal(res.status,0,res.stderr+res.stdout);
+ const r=project(t);const res=sh(r,['--exclude','8,xss','--add','20','--yes']);assert.equal(res.status,0,res.stderr+res.stdout);
  assert.match(res.stdout,/建議項目（預設全部安裝/);assert.match(res.stdout,/選填項目（輸入編號才安裝）/);
  for(const f of ['security/sql-injection.md','security/dependency.md','security/param-token.md','date-time.md']) assert.ok(fs.existsSync(path.join(r,'standards/development',f)),f);
  assert.ok(!fs.existsSync(path.join(r,'standards/development/security/xss.md')));assert.ok(!fs.existsSync(path.join(r,'standards/migration/legacy-vulnerability.md')));
@@ -106,7 +106,7 @@ test('standards.sh without a terminal or selection writes nothing',{skip:skipSh}
 });
 test('standards.sh requires an installed ADF project and supports --list',{skip:skipSh},t=>{
  const a=sh(project(t,false),['--list']);assert.notEqual(a.status,0);assert.match(a.stderr,/尚未安裝 ADF/);
- const r=project(t);const b=sh(r,['--list']);assert.equal(b.status,0,b.stderr);assert.match(b.stdout,/\[2\] 資料範圍保護/);assert.match(b.stdout,/\[19\] 年度/);assert.ok(!fs.existsSync(path.join(r,'standards')));
+ const r=project(t);const b=sh(r,['--list']);assert.equal(b.status,0,b.stderr);assert.match(b.stdout,/\[2\] 資料範圍保護/);assert.match(b.stdout,/\[20\] 年度/);assert.ok(!fs.existsSync(path.join(r,'standards')));
 });
 test('standards.ps1 does not pass double quotes inside arguments to native commands',()=>{
  const ps=fs.readFileSync(path.join(repo,'scripts/standards.ps1'),'utf8').split(/\r?\n/);
@@ -118,4 +118,18 @@ test('tool path through a symlink (macOS TMPDIR /var → /private/var) still run
  fs.symlinkSync(repo,path.join(dir,'src'));
  const res=sh(r,['--list'],{ADF_SOURCE_DIR:path.join(dir,'src')});
  assert.equal(res.status,0,res.stderr);assert.match(res.stdout,/建議項目/);
+});
+
+test('code review is recommended and SOLID is optional; both install as DRAFT with checkable rules',t=>{
+ const r=project(t);
+ assert.deepEqual(standardsSelect(r,{recommended:true}).filter(id=>['code-review','solid'].includes(id)),['code-review']);
+ assert.deepEqual(standardsSelect(r,{recommended:true,add:'DEV-SOLID-001'}).slice(-1),['solid']);
+ const res=standardsInstall(r,['code-review','solid']);assert.equal(res.written.length,2);
+ const review=read(r,'standards/development/code-review.md'),solid=read(r,'standards/development/solid.md');
+ assert.match(review,/^id: DEV-REVIEW-001$/m);assert.match(review,/^status: DRAFT$/m);
+ assert.match(review,/git diff HEAD/);assert.match(review,/git ls-files --others --exclude-standard/);
+ for(const s of ['BLOCKER','MAJOR','MINOR']) assert.match(review,new RegExp('`'+s+'`'));
+ assert.match(solid,/^id: DEV-SOLID-001$/m);
+ for(let n=1;n<=6;n++) assert.match(solid,new RegExp('DEV-SOLID-001-R'+n+' '));
+ assert.match(solid,/## 檢核表/);assert.match(solid,/## 驗證方式/);
 });

@@ -146,6 +146,14 @@
       "resources": ["standard/development/security/dependency.md"]
     },
     {
+      "id": "code-review",
+      "category": "recommended",
+      "title": "程式碼審查：實作完成後審查尚未 commit 的變更",
+      "summary": "commit 前審查 git diff 與新增檔案；依 Design、Rule 與適用規範逐項檢核；發現分 BLOCKER／MAJOR／MINOR 並追溯規則 ID，未解決不得結案。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/code-review.md"]
+    },
+    {
       "id": "date",
       "category": "optional",
       "title": "年度：舊系統民國年 → 新系統西元年",
@@ -216,6 +224,14 @@
       "summary": "登入、驗證碼、匯出、對外 API 依帳號與 IP 限制頻率；超過回應 429 並記錄。",
       "applies": ["NEW", "CHANGE", "MIGRATION"],
       "resources": ["standard/development/security/rate-limit.md"]
+    },
+    {
+      "id": "solid",
+      "category": "optional",
+      "title": "SOLID 設計原則：定義、檢核與驗證",
+      "summary": "單一職責與分層、新增種類不改既有分支、子類別可取代父類別、介面依需求切分、建構子注入可替換相依；附 Code Review 檢核表與可替換性測試。",
+      "applies": ["NEW", "CHANGE", "MIGRATION"],
+      "resources": ["standard/development/solid.md"]
     }
   ]
 }
