@@ -34,11 +34,13 @@ description: 依已核准的 design.md 與 BR/VAL/Q Rules 實作後端程式碼�
    - CHANGE：只修改受影響範圍，保留 manifest `behavior.preserve` 列出的行為。
    - MIGRATION：保留 Legacy Business Semantics；只有已核准的 `MIG-*` 能改變表示方式。
 4. **自我檢查**：逐一對照第 1 步的清單，確認每個 `BR-*`、`VAL-*`、`Q-*` 都已實作；跑專案既有的編譯與單元測試。
-5. **更新紀錄**：更新 `design.md` 的 `Traceability` 章節（元件 ↔ Rule ↔ 程式位置），把 manifest `status.development.backend` 改為 `done`。
+5. **Code Review**：專案 `standards/` 有 `DEV-REVIEW-001` 時，commit 前依它審查尚未 commit 的後端差異（含新增檔案），列出 `CR-*` 發現；`BLOCKER` 修正後重審，未解決的 `BLOCKER`／`MAJOR` 寫入 `blockers`。沒有該規範時至少執行第 4 步。
+6. **更新紀錄**：更新 `design.md` 的 `Traceability` 章節（元件 ↔ Rule ↔ 程式位置），把 manifest `status.development.backend` 改為 `done`。
 
 ## 輸出
 - 後端程式碼變更（只限第 1 步列出的範圍）。
 - `design/design.md` 的 `Traceability` 章節：每個 Rule 對應的類別、方法或 SQL 位置。
+- 已採用 `DEV-REVIEW-001` 時：Code Review 結果（`CR-*` 清單與結論）。
 - `manifest.yaml`：`status.development.backend: done`；有未解決問題時寫入 `blockers` 並維持 `pending`。
 
 ## 完成條件
@@ -46,6 +48,7 @@ description: 依已核准的 design.md 與 BR/VAL/Q Rules 實作後端程式碼�
 - 沒有修改 Design 範圍以外的檔案；若有必要的連帶修改，已在回覆中列出原因。
 - 專案既有編譯與單元測試通過。
 - 沒有 `OPEN` 狀態的 HIGH Risk 問題。
+- 已採用 `DEV-REVIEW-001` 的專案：沒有未解決的 `BLOCKER`，`MAJOR` 已修正或有 Human 核准的例外。
 
 ## 禁止事項
 - 不得新增、刪除或改寫 Requirement、Rule、Design；需要變更時回到對應 Stage。

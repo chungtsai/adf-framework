@@ -96,9 +96,17 @@
       "skill": "adf-standard-authoring",
       "path": "assets/standards/development/frontend/master-detail.md"
     },
+    "standard/development/code-review.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/code-review.md"
+    },
     "standard/development/pagination.md": {
       "skill": "adf-standard-authoring",
       "path": "assets/standards/development/pagination.md"
+    },
+    "standard/development/solid.md": {
+      "skill": "adf-standard-authoring",
+      "path": "assets/standards/development/solid.md"
     },
     "standard/development/security.md": {
       "skill": "adf-standard-authoring",

@@ -20,7 +20,7 @@ ADF 的目的不是讓 AI 單純寫得更快，而是把「相信 AI」轉成「
 
 ## v5.3 重點
 - 一鍵安裝與一鍵更新：`install.sh`／`update.sh`（Windows 為 `.ps1`），一行指令完成安裝或更新、逐檔比對與 VERIFY，失敗自動還原。
-- 專案起始規範 27 項：18 項安全性建議項目（預設全部安裝、以編號排除）與 9 項選填項目（以編號加入），以 `standards.sh`／`standards.ps1` 寫入專案 `standards/`；之後可用提示詞請 `adf-standard-authoring` 再加入。
+- 專案起始規範 29 項：19 項建議項目（安全性與程式碼審查，預設全部安裝、以編號排除）與 10 項選填項目（含 SOLID 設計原則，以編號加入），以 `standards.sh`／`standards.ps1` 寫入專案 `standards/`；之後可用提示詞請 `adf-standard-authoring` 再加入。
 - 操作台網站新增一鍵安裝與更新、專案規範安裝與日常提示詞。
 - Skill 名稱、數量、Work Type、Gate 規則與 Module 文件格式都不變。由 v5.2 升級見 [v5.2 → v5.3 SOP](docs/upgrades/5.2-to-5.3.md)，版本說明見 [docs/releases/5.3.md](docs/releases/5.3.md)。
 
@@ -314,20 +314,22 @@ ADF 安裝完成後，選擇要採用的起始規範，寫入專案 `standards/`
 | 16 | 機密資訊與設定管理 | `DEV-SEC-SECRET-001` | 全部 |
 | 17 | 稽核日誌：誰在何時對哪筆資料做了什麼 | `DEV-SEC-AUDIT-001` | 全部 |
 | 18 | 第三方元件：不得使用含已知高風險弱點的版本 | `DEV-SEC-DEP-001` | 全部 |
+| 19 | 程式碼審查：實作完成後審查尚未 commit 的變更 | `DEV-REVIEW-001` | 全部 |
 
 **選填項目（輸入編號才安裝）**
 
 | 編號 | 規範 | 寫入 | 適用 |
 |---|---|---|---|
-| 19 | 年度：舊系統民國年 → 新系統西元年 | `DEV-DATE-001`、`MIG-DATE-001` | 全部 |
-| 20 | 顯示規範（移轉）：新系統與舊系統一致即可 | `MIG-DISP-001` | MIGRATION |
-| 21 | 顯示規範（新專案）：採用共用訊息 | `DEV-MSG-001` | NEW／CHANGE |
-| 22 | 導向網址與伺服器端請求：Open Redirect、SSRF | `DEV-SEC-REDIRECT-001` | 全部 |
-| 23 | XML 外部實體（XXE）與不安全的反序列化 | `DEV-SEC-XML-001` | 全部 |
-| 24 | 作業系統指令：防止 Command Injection | `DEV-SEC-CMD-001` | 全部 |
-| 25 | HTTP 安全標頭與伺服器設定 | `DEV-SEC-HEADER-001` | 全部 |
-| 26 | 重複送出與同時修改 | `DEV-SEC-CONC-001` | 全部 |
-| 27 | 請求頻率限制 | `DEV-SEC-RATE-001` | 全部 |
+| 20 | 年度：舊系統民國年 → 新系統西元年 | `DEV-DATE-001`、`MIG-DATE-001` | 全部 |
+| 21 | 顯示規範（移轉）：新系統與舊系統一致即可 | `MIG-DISP-001` | MIGRATION |
+| 22 | 顯示規範（新專案）：採用共用訊息 | `DEV-MSG-001` | NEW／CHANGE |
+| 23 | 導向網址與伺服器端請求：Open Redirect、SSRF | `DEV-SEC-REDIRECT-001` | 全部 |
+| 24 | XML 外部實體（XXE）與不安全的反序列化 | `DEV-SEC-XML-001` | 全部 |
+| 25 | 作業系統指令：防止 Command Injection | `DEV-SEC-CMD-001` | 全部 |
+| 26 | HTTP 安全標頭與伺服器設定 | `DEV-SEC-HEADER-001` | 全部 |
+| 27 | 重複送出與同時修改 | `DEV-SEC-CONC-001` | 全部 |
+| 28 | 請求頻率限制 | `DEV-SEC-RATE-001` | 全部 |
+| 29 | SOLID 設計原則：定義、檢核與驗證 | `DEV-SOLID-001` | 全部 |
 
 ```bash
 # macOS / Linux：列出規範 → 輸入要排除的建議項目 → 輸入要加入的選填項目 → 選 DRAFT／APPROVED → 確認後寫入
@@ -337,8 +339,8 @@ curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/main/script
 irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/standards.ps1 | iex
 ```
 
-- 非互動（CI）：`bash -s -- --recommended --exclude 8 --add 19 --status DRAFT --yes`；`--exclude`、`--add` 可用編號、pack 代號或規範 ID（例如 `--add date,DEV-SEC-RATE-001`），`--exclude all` 表示建議項目全部不裝。PowerShell 用 `& ([scriptblock]::Create((irm …/standards.ps1))) -Recommended -Exclude 8 -Add 19 -Yes`。只看清單：`--list`／`-List`。
-- 只安裝指定項目（不套用建議項目）：`--select 1,19`／`-Select 1,19`。
+- 非互動（CI）：`bash -s -- --recommended --exclude 8 --add 20 --status DRAFT --yes`；`--exclude`、`--add` 可用編號、pack 代號或規範 ID（例如 `--add date,DEV-SEC-RATE-001`），`--exclude all` 表示建議項目全部不裝。PowerShell 用 `& ([scriptblock]::Create((irm …/standards.ps1))) -Recommended -Exclude 8 -Add 20 -Yes`。只看清單：`--list`／`-List`。
+- 只安裝指定項目（不套用建議項目）：`--select 1,20`／`-Select 1,20`。
 - 第 6、7 項共用 `DEV-SEC-TOKEN-001`，兩項都選時只寫入一次。
 - 寫入狀態：`DRAFT`（預設，之後由 `adf-standard-authoring`／`adf-migration-rule-authoring` 審查後核准）或 `APPROVED`（確認已審閱內容，檔案會記錄 `approved_at`）。每個檔案都會記錄 `source`。
 - 只新增檔案：同路徑或同 ID（含舊範例 `# DEV-…` 標題）已存在就略過，不覆蓋；不修改 Skill、`modules/`、`.adf/`。必須先完成 ADF 安裝（有 `.adf/migration.json`）。重新執行時已安裝的項目會略過，可用來補裝。

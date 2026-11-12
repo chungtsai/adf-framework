@@ -43,7 +43,9 @@ description: 建立或修訂跨 Module 可重用的 Development Standard。
 - `standard/development/security/rate-limit.md` → `assets/standards/development/security/rate-limit.md`。
 - `standard/development/frontend/dialog.md` → `assets/standards/development/frontend/dialog.md`。
 - `standard/development/frontend/master-detail.md` → `assets/standards/development/frontend/master-detail.md`。
+- `standard/development/code-review.md` → `assets/standards/development/code-review.md`。
 - `standard/development/pagination.md` → `assets/standards/development/pagination.md`。
+- `standard/development/solid.md` → `assets/standards/development/solid.md`。
 - `standard/development/security.md` → `assets/standards/development/security.md`。
 
 ## 起始規範
