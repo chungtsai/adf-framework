@@ -67,7 +67,7 @@ export function resolveResource(root,key) {
 function inventory(root) {
   const blockers=[], sources={};
   const owners=[...new Set(['adf-project-install',...Object.values(registry.resources).map(r=>r.skill)])];
-  // A completed installation requires all 33 skills, not merely resource owners.
+  // A completed installation requires all 34 skills, not merely resource owners.
   const names=json(path.join(here,'../references/skills.json'));
   for(const name of [...new Set([...owners,...names])]) try {const p=skillLocation(root,name);sources[name]=files(p,'');} catch(e){blockers.push(e.message);}
   for(const key of Object.keys(registry.resources)) try {resolveResource(root,key);}catch(e){blockers.push(e.message);}

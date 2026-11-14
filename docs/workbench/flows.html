@@ -274,7 +274,7 @@ footer{color:#88a8b7;font-size:13px}
     </div>
   </section>
 
-  <footer>內容依 ADF v5.4.1 的 SKILL.md、官方範本與 <code>core/invariants.md</code> 整理；此頁是互動導覽，不執行 Skill，也不會寫入任何專案檔案。範例案例、ID 與數值皆為示意。Stage 與 Gate 位置為示意，實際以 <code>adf-develop</code> 依 Artifact 與 Review 狀態判斷的結果為準。</footer>
+  <footer>內容依 ADF v5.5.0 的 SKILL.md、官方範本與 <code>core/invariants.md</code> 整理；此頁是互動導覽，不執行 Skill，也不會寫入任何專案檔案。範例案例、ID 與數值皆為示意。Stage 與 Gate 位置為示意，實際以 <code>adf-develop</code> 依 Artifact 與 Review 狀態判斷的結果為準。</footer>
 </div>
 
 <script>
@@ -311,7 +311,9 @@ const GATE_REQ={kind:'gate',sk:'Human Gate',t:'需求與規則核准',d:'確認�
   out:'沒有新檔案；目前所有 DRAFT 的 Artifact 由 Human 確認後改為 APPROVED。',ex:'主管看過 REQ-001 與 BR-001 後按「核准」，兩份文件改為 APPROVED。'};
 const GATE_PROTO={kind:'gate',sk:'adf-prototype-review',t:'Prototype 獨立審查',d:'獨立審查 Prototype 是否符合需求、規則與 Standard，再由 Human 確認。',
   out:'審查意見；通過後 Prototype 改為 APPROVED。',ex:'審查發現錯誤訊息沒有顯示在欄位下方（DEV-UI-001），退回修正後再核准。'};
-const GATE_DONE={kind:'gate',sk:'adf-development-complete',t:'Completion Gate',d:'所有適用的 Gate、Test、Traceability 與 Blocker 都完成才能結案。',
+const GATE_ACCEPT={kind:'gate',sk:'adf-acceptance-checklist',t:'Human 驗收簽核',d:'依本次 work_item.changes 產生驗收清單，Human 逐項操作並簽核。AI 不代填結果。',
+  out:'verification/acceptance-<work_item.id>.md：本次說明、影響範圍、AC-* 功能驗收與回歸確認、未解決項目、簽核；回收後 status.verification.acceptance 為 passed。',ex:'AC-001 送出假單後主管收到待簽 → 通過；AC-101 既有查詢排序不變 → 通過；驗收人簽核「通過」。'};
+const GATE_DONE={kind:'gate',sk:'adf-development-complete',t:'Completion Gate',d:'所有適用的 Gate、Test、Traceability、驗收簽核與 Blocker 都完成才能結案。',
   out:'結案判定；仍有 DRAFT 的 Artifact 經確認後改為 APPROVED。',ex:'所有 TC-* 都有結果、traceability.md 沒有缺口，Module 結案。'};
 
 /* ======== 情境 ======== */
@@ -345,6 +347,7 @@ const S=[
    out:'Raw Result：每個 TC 的實際輸出，作為 Evidence。',ex:'TC-001 → LEAVE_REQUEST 新增 id=1001，STATUS=PENDING'},
   {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace'],
    out:'traceability.md：每個需求能一路追到規則、設計、測試與結果。',ex:'REQ-001 → BR-001、VAL-001 → FS-001 → TC-001～003 → PASS'},
+  GATE_ACCEPT,
   GATE_DONE,
   {kind:'exit',sk:'結案',t:'Module 完成',d:'之後的修改另開 CHANGE Work Item。'}
  ],
@@ -359,6 +362,11 @@ work_item:
   intents:
     - FEATURE
   title: 線上請假
+  base_ref: 3f2a9c1
+  changes:
+    added: [REQ-001, REQ-002, BR-001, VAL-001]
+    modified: []
+    removed: []
 behavior:
   change_allowed: true
 status:
@@ -471,6 +479,7 @@ TC-004  回傳 3 筆，EMP_ID 全部 = A`,
    out:'新增的 TC-*，並列出要重跑的舊 TC-*。',ex:'TC-005 上午半天 → 扣 0.5 天；TC-001～004 重跑'},
   {sk:'adf-new-test',t:'執行測試',d:'',p:['raw'],out:'新舊測試的 Raw Result。',ex:'TC-005 特休餘額 10 → 9.5'},
   {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace'],out:'traceability.md 補上 REQ-003 這一列。',ex:'REQ-003 → BR-002、VAL-002 → TC-005、TC-006'},
+  GATE_ACCEPT,
   GATE_DONE,
   {kind:'exit',sk:'結案',t:'Module 回到完成狀態',d:'新的核准內容成為下一次 CHANGE 的 Baseline。'}
  ],
@@ -569,6 +578,7 @@ TC-001～004  與 Baseline 相同`,
   {sk:'adf-result-normalization',t:'正規化結果',d:'只處理已核准的表示差異。',p:[],out:'沒有新檔案；依 MIG-DATE-001 把民國年轉成西元再比對。',ex:'115/11/03 → 2026-11-03'},
   {sk:'adf-result-comparison',t:'逐欄比對並分類差異',d:'',p:['cmp'],out:'comparison.md：差異分類與 LB-* 涵蓋率。',ex:'TC-001 PASS；LB-004 尚未比對 → 涵蓋率 3／4'},
   {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace'],out:'traceability.md：LB-* → 規則 → 測試 → 比對結果。',ex:'LB-001 → Q-001 → TC-001 → PASS'},
+  GATE_ACCEPT,
   GATE_DONE,
   {kind:'exit',sk:'結案',t:'移轉完成',d:'新系統的行為有 Legacy 證據支持。'}
  ],
@@ -836,6 +846,7 @@ TC-002  OVERTIME_HOURS=4.02`,
   {sk:'前後端開發',t:'修正正確的那一層',d:'',p:['code'],out:'只修改有問題的程式。',ex:'LeaveService.days() 改用日期差計算'},
   {sk:'adf-new-test',t:'執行測試與 Regression',d:'剛補的測試要轉為通過，舊測試不能壞。',p:['raw'],out:'修正前後的 Raw Result。',ex:'TC-010 修正前 1 天、修正後 2 天'},
   {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace'],out:'traceability.md 加上錯誤與測試的對應。',ex:'WI-040 → TC-010 → PASS'},
+  GATE_ACCEPT,
   GATE_DONE,
   {kind:'exit',sk:'結案',t:'修正完成',d:''}
  ],
@@ -891,6 +902,7 @@ TC-002  OVERTIME_HOURS=4.02`,
   {sk:'Design / Implementation',t:'設計並實作修補',d:'',p:['design','code'],out:'design.md 的 Security 段落與修補程式。',ex:'不再接受 empId 參數，改用登入身分'},
   {sk:'adf-security-verification + Regression',t:'安全驗證與 Regression',d:'',p:['tc','raw'],out:'安全測試案例與結果。',ex:'TC-020 員工 A 帶 empId=B → 403'},
   {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace'],out:'traceability.md：弱點 → 修補 → 驗證。',ex:'SEC-001 → TC-020 → PASS'},
+  GATE_ACCEPT,
   GATE_DONE,
   {kind:'exit',sk:'結案',t:'修補完成',d:''}
  ],
@@ -946,6 +958,7 @@ Regression TC-001～006  與 Baseline 相同`,
   {sk:'Design / Implementation',t:'設計並重構',d:'',p:['design','code'],out:'新的程式結構。',ex:'新增 LeaveDayCalculator，LeaveService 改為呼叫它'},
   {sk:'Regression / Behavior Comparison',t:'比對重構前後的行為',d:'',p:['cmp'],out:'comparison.md：前後結果逐案比對。',ex:'10 個案例全部相同'},
   {sk:'adf-traceability-check',t:'檢查追溯',d:'',p:['trace'],out:'traceability.md。',ex:'REFACTOR 範圍 → TC-001～010 → 行為相同'},
+  GATE_ACCEPT,
   GATE_DONE,
   {kind:'exit',sk:'結案',t:'重構完成，行為不變',d:''}
  ],

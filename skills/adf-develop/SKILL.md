@@ -29,6 +29,11 @@ description: ADF 統一開發 Orchestrator，依 NEW、CHANGE、MIGRATION 與 In
 - Retrofit CHANGE 僅補 Scenario、Test 關聯與 Traceability，不應重新走 Implementation；除非過程發現並經 Human 確認存在真正的 Behavior Change。
 - 不新增 `FUNCTIONAL_SCENARIO` Work Type，不新增 Work Type。
 
+## Acceptance Routing
+
+- Traceability 完成後、`adf-development-complete` 之前，執行 `adf-acceptance-checklist` 產生本次 Work Item 的驗收清單；Human 填寫並簽核後再執行一次回收結果。
+- 驗收不通過時依清單回報的 `AC-*` 回到對應 Stage，修正後重新產生清單。
+
 ## Human-readable Specification
 
 - Module 使用 `specification.md` 作為 Human 閱讀入口；它是由正式 ADF Artifacts / Evidence 彙整出的 Read Model，不是新的 Source of Truth。

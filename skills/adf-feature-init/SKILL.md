@@ -22,3 +22,5 @@ description: 初始化或重用 ADF Module 結構與 manifest。
 先確認專案已導入；專案安裝由 adf-project-install 負責。從資源清單解析所有 Module 範本，來源缺少時提示安裝。只建立新的 Module；CHANGE 不覆寫既有文件或 manifest。
 
 既有系統導入時，`work_item.type`、`work_item.intents`、`module.origin`、`behavior.change_allowed` 依 `core/invariants.md`「Work Model」的情境表填寫，並依 manifest 範本末端的註解調整 `status` 與 `review.approval.required`。使用者沒說清楚有沒有 Legacy 時先詢問，不自行選擇情境。
+
+建立 Work Item（包含 CHANGE 重用既有 Module）時，`work_item.base_ref` 填目前的 git commit（`git rev-parse HEAD`；工作目錄有尚未 commit 的變更時先提醒使用者），`work_item.changes` 三個清單從空白開始，`status.verification.acceptance` 設為 `pending`。CHANGE 在既有 Module 開始新的 Work Item 時，只更新 `work_item` 區塊與本次需要重跑的 `status`，不清除 `behavior.preserve` 等既有紀錄；前一個 Work Item 的驗收清單保留在 `verification/`，不得刪除或改寫。
