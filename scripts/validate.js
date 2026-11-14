@@ -6,7 +6,7 @@ const registry=JSON.parse(fs.readFileSync(path.join(root,'skills/adf-project-ins
 const expected=JSON.parse(fs.readFileSync(path.join(root,'skills/adf-project-install/references/skills.json')));
 const dirs=fs.readdirSync(path.join(root,'skills')).filter(d=>fs.existsSync(path.join(root,'skills',d,'SKILL.md'))).sort();
 const errors=[];
-if(JSON.stringify(dirs)!==JSON.stringify(expected)||dirs.length!==33) errors.push('Expected the 33 declared skills');
+if(JSON.stringify(dirs)!==JSON.stringify(expected)||dirs.length!==34) errors.push('Expected the 34 declared skills');
 for(const name of dirs) {
  const folder=path.join(root,'skills',name),text=fs.readFileSync(path.join(folder,'SKILL.md'),'utf8');
  const front=text.match(/^---\s*\n([\s\S]*?)\n---/);

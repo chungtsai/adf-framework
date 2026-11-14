@@ -12,7 +12,7 @@ ADF 不發佈自己的 npm CLI。Skill 從 GitHub 正式 tag，統一使用 npx 
 
 正式 tag 一旦發布就會被使用者安裝，所以每個版本先以測試版驗收：
 
-1. **準備發布分支**：在分支上完成功能與升版（版本號、`compatible_tool_versions`、33 支 `release.json`、腳本預設、README、`docs/releases/`、`docs/upgrades/`、網站），`npm run validate` 與 `npm test` 通過。先不要合併到 `main`，避免網站與 `main` 的腳本指向還不存在的正式 tag。
+1. **準備發布分支**：在分支上完成功能與升版（版本號、`compatible_tool_versions`、34 支 `release.json`、腳本預設、README、`docs/releases/`、`docs/upgrades/`、網站），`npm run validate` 與 `npm test` 通過。先不要合併到 `main`，避免網站與 `main` 的腳本指向還不存在的正式 tag。
 2. **打測試版 tag**：在分支最新 commit 打 `v<版本>-beta.1`（接近定版可用 `-rc.N`）並推送。測試版與正式版的檔案內容版本相同，只是 tag 名稱不同。
 3. **驗收測試版**：在測試專案或分支：
    - 全新安裝：`curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/v<版本>-beta.N/scripts/install.sh | bash -s -- --version v<版本>-beta.N`
@@ -22,4 +22,4 @@ ADF 不發佈自己的 npm CLI。Skill 從 GitHub 正式 tag，統一使用 npx 
 4. **有問題**：在同一分支修正，打下一個 `-beta.N+1`，回到第 3 步。測試版 tag 不刪除也不移動，保留驗收紀錄。
 5. **定版**：合併到 `main`（網站隨之發布），在合併後的 commit 打正式 tag `v<版本>`。測試專案執行 `--version v<版本>` 更新回正式版。
 
-`project.mjs` 只接受 `v<版本>`、`v<版本>-beta.N`、`v<版本>-rc.N`（N 從 1 開始），且 33 支 Skill 的 `ref` 必須一致；其他後綴（例如 `-alpha`）一律視為不支援的來源。
+`project.mjs` 只接受 `v<版本>`、`v<版本>-beta.N`、`v<版本>-rc.N`（N 從 1 開始），且 34 支 Skill 的 `ref` 必須一致；其他後綴（例如 `-alpha`）一律視為不支援的來源。

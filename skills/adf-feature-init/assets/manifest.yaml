@@ -11,6 +11,13 @@ work_item:
   trigger:
     type: USER_REQUIREMENT
     standards: []
+  # 建立時的 git commit（沒有版控填 null）；之後不改寫
+  base_ref: null
+  # 本次新增／修改／刪除的 REQ、LB、BR、VAL、Q、UI、FS、TC（規則見 core/invariants.md）
+  changes:
+    added: []
+    modified: []
+    removed: []
 behavior:
   change_allowed: true
   preserve: []
@@ -42,6 +49,7 @@ status:
     normalization: not_applicable
     comparison: not_applicable
     traceability: pending
+    acceptance: pending
 blockers: []
 
 # 既有系統導入情境（對應 core/invariants.md「Work Model」）：

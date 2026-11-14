@@ -17,6 +17,13 @@
 - `STANDARD_CHANGE` 是 Framework-level Trigger，不是 Work Type。
 - 每個 Module 同一時間只允許一個 Active Work Item；Module 是主要隔離邊界。
 
+### 本次變更紀錄（`work_item.base_ref`、`work_item.changes`）
+- `work_item.base_ref`：建立 Work Item 時的版控基準（git commit）；專案沒有版控時填 `null`。建立後不得改寫。
+- `work_item.changes`：本次 Work Item 新增（`added`）、修改（`modified`）、刪除（`removed`）的穩定識別碼。任何 Skill 在本次新增、修改或刪除 `REQ-*`、`LB-*`、`BR-*`、`VAL-*`、`Q-*`、`UI-*`、`FS-*`、`TC-*` 時，必須在同一次寫入登記到對應清單；只改錯字或格式、行為不變時不登記。
+- 同一個 ID 只出現在一個清單：本次新增後又修改仍算 `added`；本次新增後又刪除則從清單移除。
+- `changes` 是驗收清單的範圍依據；與 `base_ref` 起的實際差異不一致時，以實際差異為準並標記 `REVIEW_REQUIRED`，不得自行刪除差異中的項目。
+- 5.5.0 之前建立、沒有這兩個欄位的 Work Item 照常進行；需要驗收清單時由 `adf-acceptance-checklist` 依版控差異與 Artifact 重建範圍，逐項請 Human 確認。
+
 ## Compact Artifacts
 
 Module 預設使用以下 Artifact（路徑相對於 Module 根目錄）：
@@ -32,6 +39,7 @@ Module 預設使用以下 Artifact（路徑相對於 Module 根目錄）：
 | Test Case | `verification/test-cases.md` | `TC-*` |
 | 結果比對（MIGRATION、RETROFIT_VERIFY） | `verification/comparison.md` | — |
 | Traceability | `verification/traceability.md` | — |
+| 驗收清單（每個 Work Item 一份） | `verification/acceptance-<work_item.id>.md` | `AC-*` |
 | 規格書（Read Model） | `specification.md` | 引用上列 ID |
 
 - `specification.md` 是給 Human 閱讀的彙整，不是 Source of Truth；與正式 Artifact 衝突時以正式 Artifact 為準並標記 `REVIEW_REQUIRED`。
@@ -44,7 +52,7 @@ Module 預設使用以下 Artifact（路徑相對於 Module 根目錄）：
 - AI 不能自行核准；需要 Human Gate 的 Stage 只有 Human 明確確認後才能標記 `APPROVED`。
 
 ## 識別碼與語言
-- 穩定識別碼維持英文：`REQ-*`、`LB-*`、`BR-*`、`VAL-*`、`Q-*`、`UI-*`、`FS-*`、`TC-*`、`DEV-*`、`MIG-*`。
+- 穩定識別碼維持英文：`REQ-*`、`LB-*`、`BR-*`、`VAL-*`、`Q-*`、`UI-*`、`FS-*`、`TC-*`、`AC-*`、`DEV-*`、`MIG-*`。
 - 人看的內容使用繁體中文；Skill ID、檔名、YAML/JSON Key、Work Type、Intent、Status 與程式代碼維持英文。術語對照見 `review/terminology.md`。
 
 ## Standards

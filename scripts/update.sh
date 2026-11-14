@@ -15,7 +15,7 @@ set -euo pipefail
 main() {
 
 REPO="https://github.com/chungtsai/adf-framework"
-VERSION="${ADF_VERSION:-v5.4.1}"
+VERSION="${ADF_VERSION:-v5.5.0}"
 AGENT="${ADF_AGENT:-}"
 PROJECT="."
 COPY_MODE=""   # 空白＝沿用目前安裝方式；copy / link

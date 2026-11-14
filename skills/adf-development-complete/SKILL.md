@@ -30,3 +30,10 @@ description: 只有所有適用 Gate、Test、Traceability 與 Blocker 都完成
 - CHANGE 若影響 Requirement、Rule、UI、Design、Functional Scenario 或其他 Human 可理解行為，應同步規格書。
 - 純技術重構且 Human-visible / Business Behavior 未改變時，可以不改寫規格內容。
 - 若規格書與正式 Artifact 不一致，不得結案為已同步；應標記 `REVIEW_REQUIRED`。
+
+## Acceptance Gate
+
+- Completion 前確認 `verification/acceptance-<work_item.id>.md` 存在，且 manifest `status.verification.acceptance` 為 `passed`；清單由 `adf-acceptance-checklist` 產生，結論只能由 Human 簽核。
+- `in_review` 或 `failed` 時不得結案；`有條件通過` 只有在 Human 明確核准例外、且條件已寫入 `blockers` 與後續 Work Item 時才能結案。
+- 只有 Human 可以把此 Gate 標示為 `not_applicable`（例如純技術變更且沒有任何可操作或可觀察的行為），理由寫入 manifest。
+- manifest 沒有 `status.verification.acceptance`（5.5.0 之前建立的 Work Item）時，提醒可執行 `adf-acceptance-checklist`，由 Human 決定是否補做；未補做時不得宣稱已完成驗收。
