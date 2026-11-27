@@ -1,8 +1,13 @@
-# ADF — AI Development Framework v5.5
+# ADF — AI Development Framework v5.6
 
 > **語言政策：人看的內容使用繁體中文；機器識別碼與程式代碼維持英文。**
 
 ADF 的目的不是讓 AI 單純寫得更快，而是把「相信 AI」轉成「相信可驗證的證據」。透過分析、規格、標準、設計、開發、測試、比對、Traceability 與 Human Gate，降低 AI 誤解需求與 Legacy 行為的風險。
+
+## v5.6.0 重點
+- 新增 Module 檢查工具（試用）`adf-project-install/scripts/module-check.mjs`：用程式檢查 Module 文件的格式、ID 連結、manifest 結構、Verification SQL 與疑似 Secret，計算 Requirement／Rule／Scenario／本次變更／Legacy 行為／驗收的覆蓋率，並以 `--gate` 做結案預檢。只讀檔案、不修改 Artifact、不判定核准；使用方式見下方「Quality Gate」。
+- 本版只發布工具，Skill 流程不變（Skill 不會自動執行它）；格式規則仍是草案（`docs/proposals/module-format.md`），收集回饋後再決定是否納入 Skill。
+- 既有 Module 與 Work Item 不需修改。由 v5.5 升級見 [v5.5 → v5.6 SOP](docs/upgrades/5.5-to-5.6.md)，版本說明見 [docs/releases/5.6.md](docs/releases/5.6.md)。
 
 ## v5.5.0 重點
 - 新增 `adf-acceptance-checklist`（Skill 增為 34 支）：讀取本次 Work Item 的變更紀錄、影響範圍與已核准 Artifact，產生 `verification/acceptance-<work_item.id>.md` 驗收清單（`AC-*`），列出本次說明、影響範圍、功能驗收、回歸確認、未解決項目與簽核欄；Human 填寫後再執行一次回收結果。AI 不代填結果、不代簽核。
@@ -159,6 +164,28 @@ Migration 不以「新系統能跑」為完成條件。ADF 先從 Legacy 建立�
 - **`adf-acceptance-checklist`** — 讀取本次 Work Item 的變更紀錄（`work_item.changes`）、影響範圍與已核准 Artifact，產生給 Human 逐項操作與簽核的驗收清單（`AC-*`），並回收驗收結果；AI 不代填結果。
 - **`adf-development-complete`** — 最終 Completion Gate；確認 Blocker、Review、Tests、Comparison、Traceability 與 Human 驗收簽核都符合條件。
 
+### Module 檢查工具（試用，v5.6.0 起）
+
+Gate 前可先用程式檢查，把「格式寫錯、ID 斷鏈、測試沒涵蓋」這類機械性問題找出來，Human 審查就能專注在內容本身：
+
+```bash
+node .claude/skills/adf-project-install/scripts/module-check.mjs modules/<module-id>          # 格式、連結與覆蓋率
+node .claude/skills/adf-project-install/scripts/module-check.mjs modules/<module-id> --gate   # 另做結案預檢
+```
+
+- Skill 裝在 `.agents/skills/` 時換成該路徑；`--json` 輸出 JSON（CI 用），`--no-git` 略過版控差異比對。
+- 檢查內容：
+  - 格式與 ID：表格欄位、ID 寫法與重複、狀態值。
+  - 連結：引用的 ID 不存在、TC 與 FS 互相不一致、沒有測試的 REQ／Rule、已刪除（`REMOVED`）的 ID 仍被引用。
+  - manifest：結構與允許值；`work_item.changes` 與 `base_ref` 起的實際差異。
+  - SQL 與 Secret：Verification SQL 只能用 `SELECT`；疑似金鑰或密碼。
+  - 覆蓋率：只計已核准的測試，分子與分母都寫出來。
+- 結案預檢依 `adf-development-complete` 的 12 個 Gate 回報「通過／阻擋／待確認／不適用」，結論為 `READY`、`HUMAN_REQUIRED` 或 `BLOCKED`。**工具的結論不等於核准**，結案仍須 Human 確認。
+- exit code：
+  - 一般檢查：`0` 沒有錯誤、`1` 有錯誤、`2` 工具無法執行。
+  - `--gate`：`0` READY、`1` BLOCKED、`3` HUMAN_REQUIRED。
+- 已知限制見 [docs/releases/5.6.md](docs/releases/5.6.md)「已知限制」（例如範本範例列殘留會被當成真資料）。
+
 ## Security
 
 - **`adf-security-analysis`** — SECURITY_FIX 前分析 Finding、Attack Surface、Data Flow、Trust Boundary、Authorization、Validation 與必須保留的正常 Business Behavior。
@@ -231,9 +258,9 @@ ADF_REF=main; t=$(mktemp -d) && curl -fsSL "https://codeload.github.com/chungtsa
 $r='main'; $t=Join-Path $env:TEMP "adf-$(New-Guid)"; Invoke-WebRequest -UseBasicParsing "https://codeload.github.com/chungtsai/adf-framework/zip/$r" -OutFile "$t.zip"; Expand-Archive "$t.zip" $t; & (Get-ChildItem "$t\*\scripts\install.ps1").FullName; Remove-Item -Recurse -Force $t, "$t.zip"
 ```
 
-`ADF_REF` 只決定安裝腳本取自哪個分支／tag；Skill 本身一律由 `npx skills` 從正式 tag（預設 v5.5.0）安裝，才能留下 `skills-lock.json` 來源紀錄。
+`ADF_REF` 只決定安裝腳本取自哪個分支／tag；Skill 本身一律由 `npx skills` 從正式 tag（預設 v5.6.0）安裝，才能留下 `skills-lock.json` 來源紀錄。
 
-腳本會依序：檢查是否為全新專案 → 下載同版本原始檔 → 專案層級 `npx skills add`（v5.5.0 全部 34 支）→ **逐檔比對每支 Skill 的 `SKILL.md`、`scripts/`、`assets/`、`references/` 都已放在正確位置且內容一致** → `PLAN`（計畫檔存在專案外暫存目錄）→ `APPLY` → `VERIFY`。只新增 Skill、`skills-lock.json` 與 `.adf/`，不碰其他檔案。有缺檔會停止並列出，不會自行補檔（補檔會與 `skills-lock.json` 雜湊不符）。
+腳本會依序：檢查是否為全新專案 → 下載同版本原始檔 → 專案層級 `npx skills add`（v5.6.0 全部 34 支）→ **逐檔比對每支 Skill 的 `SKILL.md`、`scripts/`、`assets/`、`references/` 都已放在正確位置且內容一致** → `PLAN`（計畫檔存在專案外暫存目錄）→ `APPLY` → `VERIFY`。只新增 Skill、`skills-lock.json` 與 `.adf/`，不碰其他檔案。有缺檔會停止並列出，不會自行補檔（補檔會與 `skills-lock.json` 雜湊不符）。
 
 安裝完成後的位置（Claude Code 預設）：
 
@@ -249,7 +276,7 @@ Codex 等其他 Agent 會放在 `.agents/skills/`。repo 根目錄的 `scripts/`
 **安裝完成後請 commit 進版控**：Skill 目錄（`.claude/skills/`，以及存在時的 `.agents/skills/`）、`skills-lock.json`、整個 `.adf/`，之後的 `modules/`、`standards/` 也一樣。沒進版控時，團隊成員 clone 下來沒有 Skill，`git worktree` 開出的工作目錄也不會有這些檔案，Agent 會改讀主 checkout 的實體路徑。要用丟棄式副本試跑，先 commit 再開 worktree，或直接複製整個專案資料夾。
 
 - 其他 Agent：`bash install.sh --agent codex`（PowerShell：`-Agent codex`），或設定環境變數 `ADF_AGENT`。
-- 指定版本：`--version v5.5.0` 或 `ADF_VERSION`。Windows 無法建立符號連結時加 `--copy` / `-Copy`。
+- 指定版本：`--version v5.6.0` 或 `ADF_VERSION`。Windows 無法建立符號連結時加 `--copy` / `-Copy`。
 - 想先看腳本內容：先下載 `install.sh` 檢查後再以 `bash install.sh` 執行。
 - 略過確認提示：`--yes`（`-Yes`）或 `ADF_YES=1`。
 - 偵測到任何舊版 ADF 痕跡會在安裝前停止、不寫入任何檔案，請改用下方移轉 SOP。
@@ -270,7 +297,7 @@ irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/updat
 
 只更新 Skill 與 `skills-lock.json`；不碰 `standards/`、`modules/`、CLAUDE.md、AGENTS.md、`.adf/`，不撤銷核准狀態。
 
-- 指定版本：`--version v5.5.0`（PowerShell：`-Version`）或 `ADF_VERSION`；預設為 main 分支腳本所記錄的最新正式版。測試版見下方「測試版（beta）」。
+- 指定版本：`--version v5.6.0`（PowerShell：`-Version`）或 `ADF_VERSION`；預設為 main 分支腳本所記錄的最新正式版。測試版見下方「測試版（beta）」。
 - 覆寫自動偵測：`--agent codex`、`--copy` / `--no-copy`（PowerShell：`-Agent`、`-Copy` / `-NoCopy`）。
 - 確定要覆蓋手動修改過的 Skill，或同版本重新安裝：`--force`（`-Force`）。
 - 略過確認提示：`--yes`（`-Yes`）或 `ADF_YES=1`。
@@ -278,18 +305,18 @@ irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/updat
 
 ## 測試版（beta）：正式發布前先試裝
 
-每個版本在打正式 tag 前，先從發布分支打測試版 tag（`v5.5.0-beta.1`、`v5.5.0-beta.2`…，接近定版可用 `v5.5.0-rc.1`），在測試專案或分支實際安裝、更新與試跑 Skill；有問題就修正後打下一個 beta，沒問題再打正式 tag。正式版只在測試版驗收後發布，避免使用者裝到有問題的正式版。
+每個版本在打正式 tag 前，先從發布分支打測試版 tag（`v5.6.0-beta.1`、`v5.6.0-beta.2`…，接近定版可用 `v5.6.0-rc.1`），在測試專案或分支實際安裝、更新與試跑 Skill；有問題就修正後打下一個 beta，沒問題再打正式 tag。正式版只在測試版驗收後發布，避免使用者裝到有問題的正式版。
 
 ```bash
 # 指令取自測試版 tag 本身，再以 --version 指定同一個 tag
-curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/v5.5.0-beta.1/scripts/install.sh | bash -s -- --version v5.5.0-beta.1
+curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/v5.6.0-beta.1/scripts/install.sh | bash -s -- --version v5.6.0-beta.1
 
 # Windows PowerShell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/chungtsai/adf-framework/v5.5.0-beta.1/scripts/install.ps1))) -Version v5.5.0-beta.1
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/chungtsai/adf-framework/v5.6.0-beta.1/scripts/install.ps1))) -Version v5.6.0-beta.1
 ```
 
-- 已安裝的專案執行同一行指令會自動改為更新到測試版；回到正式版用 `--version v5.4.1`（或正式版發布後 `--version v5.5.0`）。
-- 測試版與正式版的 Skill 內容版本相同（例如都是 `5.5.0`），差別只在 `skills-lock.json` 的 `ref`；`project.mjs` 接受 `v<版本>` 與 `v<版本>-beta.N`／`-rc.N`，但 34 支 Skill 的 `ref` 必須一致。`VERIFY` 會回報 `ref` 與 `prerelease`。
+- 已安裝的專案執行同一行指令會自動改為更新到測試版；回到正式版用 `--version v5.5.0`（或正式版發布後 `--version v5.6.0`）。
+- 測試版與正式版的 Skill 內容版本相同（例如都是 `5.6.0`），差別只在 `skills-lock.json` 的 `ref`；`project.mjs` 接受 `v<版本>` 與 `v<版本>-beta.N`／`-rc.N`，但 34 支 Skill 的 `ref` 必須一致。`VERIFY` 會回報 `ref` 與 `prerelease`。
 - 從測試版更新到同版號的正式版，更新腳本以 `skills-lock.json` 的 `ref` 判斷，不會誤判為「已是最新」。
 - 測試版只建議用在測試專案或分支；腳本會在寫入前提示。版號格式不是 `vX.Y.Z`、`vX.Y.Z-beta.N` 或 `vX.Y.Z-rc.N` 時直接停止。
 - 發布流程見 [docs/distribution.md](docs/distribution.md)「測試版與正式發布」。
@@ -364,7 +391,7 @@ irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/stand
 
 ## 既有專案：移轉與升級
 
-統一使用專案層級 `npx skills`。正式版本指令、手動來源轉接、前置備份與回復，從 v5.0 導入見 [v5.0 → v5.1 SOP](docs/upgrades/5.0-to-5.1.md)，從 v5.1 升級見 [v5.1 → v5.2 SOP](docs/upgrades/5.1-to-5.2.md)，從 v5.2 升級見 [v5.2 → v5.3 SOP](docs/upgrades/5.2-to-5.3.md)，從 v5.3 升級見 [v5.3 → v5.4 SOP](docs/upgrades/5.3-to-5.4.md)，從 v5.4 升級見 [v5.4 → v5.5 SOP](docs/upgrades/5.4-to-5.5.md)。v5.5.0 tag 發佈前，main 分支僅為候選版。
+統一使用專案層級 `npx skills`。正式版本指令、手動來源轉接、前置備份與回復，從 v5.0 導入見 [v5.0 → v5.1 SOP](docs/upgrades/5.0-to-5.1.md)，從 v5.1 升級見 [v5.1 → v5.2 SOP](docs/upgrades/5.1-to-5.2.md)，從 v5.2 升級見 [v5.2 → v5.3 SOP](docs/upgrades/5.2-to-5.3.md)，從 v5.3 升級見 [v5.3 → v5.4 SOP](docs/upgrades/5.3-to-5.4.md)，從 v5.4 升級見 [v5.4 → v5.5 SOP](docs/upgrades/5.4-to-5.5.md)，從 v5.5 升級見 [v5.5 → v5.6 SOP](docs/upgrades/5.5-to-5.6.md)。v5.6.0 tag 發佈前，main 分支僅為候選版。
 
 官方範本各自只有一個 owner，資源清單位於 `skills/adf-project-install/references/resources.json`；不建立專案 `.adf/templates/` 或客製範本。共用 Review 也採單一來源。規範範例歸位至 authoring Skills 的 assets，專案實際規範維持 `standards/`。
 

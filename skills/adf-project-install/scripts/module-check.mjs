@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ADF Module 檢查工具（原型）：格式與 SQL／Secret（L-*）、manifest 結構（M-*）、連結與版控差異（R-*）檢查，以及覆蓋率。
-// 依 docs/proposals/module-format.md；只讀檔案、不修改任何 Artifact，也不判定核准。
+// 規則依 adf-framework repo 的 docs/proposals/module-format.md（草案）；只讀檔案、不修改任何 Artifact，也不判定核准。
 // 用法：node module-check.mjs <module-dir> [--project <專案根目錄>] [--json] [--no-git] [--gate]
 // exit code：0 沒有 ERROR；1 有 ERROR；2 工具無法執行（找不到 Module、manifest 超出 YAML 子集等）
 // --gate（結案預檢）：0 READY；1 BLOCKED；3 HUMAN_REQUIRED；2 工具無法執行
@@ -165,7 +165,7 @@ function scalar(v, line) {
     const inner = v.slice(1, -1).trim();
     return inner ? inner.split(',').map(x => scalar(x, line)) : [];
   }
-  if (/^[|>&*{!]/.test(v)) throw new YamlError(`第 ${line} 行：不支援的 YAML 寫法「${v[0]}」（見草案 6.1）`);
+  if (/^[|>&*{!]/.test(v)) throw new YamlError(`第 ${line} 行：不支援的 YAML 寫法「${v[0]}」（只支援 2 空白縮排的欄位、清單與單行值；不支援 anchor、多行字串與單行 {}）`);
   if (v === 'true') return true;
   if (v === 'false') return false;
   if (v === 'null' || v === '~') return null;
@@ -514,7 +514,7 @@ export function checkModule(moduleDir, opts = {}) {
             if (!restOk) add('WARN', 'L-11', file, r.line, rowId, `「${c.names[0]}」含有不是識別碼的文字「${rest}」`);
             if (!ids.length && c.req && !restOk) add('ERROR', 'L-14', file, r.line, rowId, `「${c.names[0]}」沒有任何識別碼`);
             if (c.single && ids.length > 1)
-              add('WARN', 'L-10', file, r.line, rowId, `「${c.names[0]}」每列只能有一個識別碼（${ids.join('、')}）；舊寫法依草案 9.1 於下次 CHANGE 拆列`);
+              add('WARN', 'L-10', file, r.line, rowId, `「${c.names[0]}」每列只能有一個識別碼（${ids.join('、')}）；舊寫法照常讀取，下次 CHANGE 修改 traceability 時拆成一列一個`);
             for (const id of ids) {
               const p = prefixOf(id);
               if (p === 'REV-Q') continue;
@@ -792,7 +792,7 @@ export function computeGate({manifest, defs, findings, coverage, read}) {
   if (draftTc.length) g6.push(`仍有未核准的測試：${list(draftTc)}`);
   if (e.FAIL) g6.push(`FAIL：${list(e.failed)}`);
   if (e.NOT_RUN || e.BLOCKED) g6.push(`NOT_RUN ${e.NOT_RUN} 個、BLOCKED ${e.BLOCKED} 個`);
-  if (e.UNCERTAIN) g6.push(`結果不明（traceability 一列多個 Test 的舊寫法）：${list(e.uncertain)}，依草案 9.2 依執行紀錄拆列`);
+  if (e.UNCERTAIN) g6.push(`結果不明（traceability 一列多個 Test 的舊寫法）：${list(e.uncertain)}；可另開 DOCUMENTATION CHANGE，依可查證的執行紀錄拆成一列一個 Test，查無紀錄填 NOT_RUN`);
   if (e.NOT_RECORDED) g6.push(`traceability 沒有結果：${list(e.not_recorded)}`);
   gate('G-06', '測試與執行結果', g6.length ? 'BLOCKED' : 'PASS', g6.length ? g6 : [`已核准的 TC ${e.total} 個全部 PASS`]);
 
