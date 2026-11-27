@@ -157,7 +157,11 @@ test('manifest：支援的 YAML 子集，超出範圍明確拒絕', () => {
   assert.deepEqual(parseYaml('a:\n- x\n- "y # z"\n'), {a: ['x', 'y # z']});
   assert.deepEqual(parseYaml('history:\n  - stage: rules\n    status: APPROVED\n  - stage: design\n    note: ok\n'),
     {history: [{stage: 'rules', status: 'APPROVED'}, {stage: 'design', note: 'ok'}]});
-  for (const bad of ['a: |\n  text\n', 'a: &x 1\n', 'a:\n\tb: 1\n', 'a:\n   b: 1\n', 'a: 1\na: 2\n', 'a: {b: 1}\n'])
+  assert.deepEqual(parseYaml('approvals:\n  - {stage: rules, approved_at: 2026-11-11, questions: [REV-Q-01]}\n'),
+    {approvals: [{stage: 'rules', approved_at: '2026-11-11', questions: ['REV-Q-01']}]});
+  assert.deepEqual(parseYaml('entry: >-\n  line1\n  line2\n'), {entry: 'line1 line2'});
+  assert.deepEqual(parseYaml('notes: |\n  a\n  b\n'), {notes: 'a\nb'});
+  for (const bad of ['a: &x 1\n', 'a:\n\tb: 1\n', 'a:\n   b: 1\n', 'a: 1\na: 2\n', 'a: {b: 1\n'])
     assert.throws(() => parseYaml(bad), YamlError, bad);
 });
 

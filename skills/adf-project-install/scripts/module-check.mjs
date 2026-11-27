@@ -21,16 +21,16 @@ const RANGE = new RegExp(`${ID_BODY}\\s*[~～]\\s*${ID_BODY}`);
 export const findIds = text => [...new Set(String(text ?? '').match(idPattern()) || [])];
 export const prefixOf = id => id.startsWith('REV-Q-') ? 'REV-Q' : id.split('-')[0];
 const MODULE_PREFIXES = ['REQ', 'LB', 'BR', 'VAL', 'Q', 'UI', 'FS', 'TC'];
-const RULE_PREFIXES = ['BR', 'VAL', 'Q', 'UI'];
+const RULE_PREFIXES = ['BR', 'VAL', 'Q', 'UI', 'MIG'];
 
 // ---------- 列舉（草案第 4 節） ----------
-const ART_STATUS = ['DRAFT', 'APPROVED', 'VERIFIED', 'REVIEW_REQUIRED', 'UNKNOWN', 'CONFLICT', 'REMOVED'];
+const ART_STATUS = ['DRAFT', 'APPROVED', 'VERIFIED', 'CONFIRMED', 'REVIEW_REQUIRED', 'UNKNOWN', 'CONFLICT', 'REMOVED'];
 const OPEN_STATUS = ['REVIEW_REQUIRED', 'UNKNOWN', 'CONFLICT'];
 const TRACE_RESULT = ['PASS', 'FAIL', 'NOT_RUN', 'BLOCKED'];
-const COMPARE_CLASS = ['PASS', 'MIGRATION_DEFECT', 'APPROVED_BEHAVIOR_CHANGE', 'SPEC_GAP', 'LEGACY_UNKNOWN', 'TEST_DATA_PROBLEM', 'REVIEW_REQUIRED'];
+const COMPARE_CLASS = ['PASS', 'EQUIVALENT', 'MIGRATION_DEFECT', 'APPROVED_BEHAVIOR_CHANGE', 'SPEC_GAP', 'LEGACY_UNKNOWN', 'TEST_DATA_PROBLEM', 'REVIEW_REQUIRED'];
 const AC_RESULT = ['待驗收', '通過', '不通過', '不適用'];
 const LB_CATEGORY = ['輸入與驗證', '分支', '查詢', '交易', '副作用', '錯誤處理', '權限', '隱含行為'];
-const RULE_SECTIONS = {'businessrules': 'BR', 'validationrules': 'VAL', 'queryrules': 'Q', 'uirules': 'UI'};
+const RULE_SECTIONS = {'businessrules': 'BR', 'validationrules': 'VAL', 'queryrules': 'Q', 'uirules': 'UI', 'migrationrules': 'MIG'};
 const DONE = ['done', 'passed'];
 const BASELINE = 'approved baseline';
 const NA = '不適用';
@@ -43,7 +43,7 @@ export function sqlWrite(text) {
   const m = DML.exec(s);
   return m ? m[1].replace(/\s+/g, ' ').toUpperCase().split(' ').slice(0, 2).join(' ') : null;
 }
-const CLEANUP = /cleanup|清除|清理|還原測試資料/i;
+const CLEANUP = /cleanup|setup|清除|清理|還原測試資料|測試資料/i;
 const HUMAN_CONFIRM = /人工確認|Human\s*確認|Human\s+confirm/i;
 
 // ---------- Secret（L-09）：只回報類型與位置，不輸出內容 ----------
@@ -131,10 +131,12 @@ export function tables(text) {
 }
 
 function colMap(head, spec) {
-  const names = head.map(norm), pos = {};
+  const names = head.map(norm), shortNames = head.map(h => norm(String(h ?? '').replace(/[（(][^）)]*[）)]/g, '')));
+  const pos = {};
   for (const [key, c] of Object.entries(spec)) {
     const want = c.names.map(norm);
-    const i = names.findIndex((n, j) => want.includes(n) && !Object.values(pos).includes(j));
+    let i = names.findIndex((n, j) => want.includes(n) && !Object.values(pos).includes(j));
+    if (i < 0) i = shortNames.findIndex((n, j) => want.includes(n) && !Object.values(pos).includes(j));
     if (i >= 0) pos[key] = i;
   }
   return pos;
@@ -154,6 +156,22 @@ function stripComment(s) {
   return s;
 }
 
+function splitTopLevel(str, delim = ',') {
+  const out = [];
+  let cur = '', q = null, depth = 0;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (q) { cur += ch; if (ch === q && str[i - 1] !== '\\') q = null; continue; }
+    if (ch === '"' || ch === "'") { q = ch; cur += ch; continue; }
+    if (ch === '[' || ch === '{') { depth++; cur += ch; continue; }
+    if (ch === ']' || ch === '}') { depth--; cur += ch; continue; }
+    if (ch === delim && depth === 0) { out.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  if (cur || out.length) out.push(cur);
+  return out;
+}
+
 function scalar(v, line) {
   v = v.trim();
   if (/^['"]/.test(v)) {
@@ -163,9 +181,23 @@ function scalar(v, line) {
   if (v.startsWith('[')) {
     if (!v.endsWith(']')) throw new YamlError(`第 ${line} 行：清單沒有結束`);
     const inner = v.slice(1, -1).trim();
-    return inner ? inner.split(',').map(x => scalar(x, line)) : [];
+    return inner ? splitTopLevel(inner, ',').map(x => scalar(x, line)) : [];
   }
-  if (/^[|>&*{!]/.test(v)) throw new YamlError(`第 ${line} 行：不支援的 YAML 寫法「${v[0]}」（只支援 2 空白縮排的欄位、清單與單行值；不支援 anchor、多行字串與單行 {}）`);
+  if (v.startsWith('{')) {
+    if (!v.endsWith('}')) throw new YamlError(`第 ${line} 行：物件沒有結束`);
+    const inner = v.slice(1, -1).trim(), obj = {};
+    if (!inner) return obj;
+    for (const part of splitTopLevel(inner, ',')) {
+      if (!part.trim()) continue;
+      const idx = part.indexOf(':');
+      if (idx < 0) throw new YamlError(`第 ${line} 行：無法解析「${part.trim()}」`);
+      const k = part.slice(0, idx).trim().replace(/^['"]|['"]$/g, '');
+      const val = part.slice(idx + 1).trim();
+      obj[k] = val ? scalar(val, line) : null;
+    }
+    return obj;
+  }
+  if (/^[|>&*!]/.test(v)) throw new YamlError(`第 ${line} 行：不支援的 YAML 寫法「${v[0]}」（只支援 2 空白縮排的欄位、清單、單行 {} 與區塊字串 |/>；不支援 anchor 與 tag）`);
   if (v === 'true') return true;
   if (v === 'false') return false;
   if (v === 'null' || v === '~') return null;
@@ -173,19 +205,34 @@ function scalar(v, line) {
   return v;
 }
 
+const BLOCK_SCALAR = /^([|>])([+-])?(\d+)?$/;
+
 export function parseYaml(text) {
+  const rawLines = String(text ?? '').replace(/^﻿/, '').split(/\r?\n/);
   const lines = [];
-  String(text ?? '').replace(/^﻿/, '').split(/\r?\n/).forEach((raw, i) => {
+  rawLines.forEach((raw, i) => {
     if (/^\t| \t|^\s*\t/.test(raw)) throw new YamlError(`第 ${i + 1} 行：不可用 Tab 縮排`);
     const s = stripComment(raw).replace(/\s+$/, '');
     if (!s.trim()) return;
     if (/^(---|\.\.\.)\s*$/.test(s)) throw new YamlError(`第 ${i + 1} 行：不支援多文件（---）`);
     const indent = s.length - s.trimStart().length;
     if (indent % 2) throw new YamlError(`第 ${i + 1} 行：縮排必須是 2 個空白的倍數`);
-    lines.push({indent, content: s.trim(), line: i + 1});
+    lines.push({indent, content: s.trim(), line: i + 1, raw});
   });
   if (!lines.length) return {};
   const isItem = c => c === '-' || c.startsWith('- ');
+  function readBlockScalar(i, parentIndent, header) {
+    const [, style, chomp] = BLOCK_SCALAR.exec(header);
+    const parts = [];
+    let baseIndent = null;
+    while (i < lines.length && lines[i].indent > parentIndent) {
+      if (baseIndent === null) baseIndent = lines[i].indent;
+      parts.push(lines[i].raw.slice(baseIndent));
+      i++;
+    }
+    const textVal = style === '>' ? parts.map(p => p.trim()).join(' ') : parts.join('\n');
+    return [chomp === '-' ? textVal.replace(/\n+$/, '') : textVal, i];
+  }
   function block(i, indent) {
     if (isItem(lines[i].content)) {
       const arr = [];
@@ -204,8 +251,10 @@ export function parseYaml(text) {
         if (kv) {
           const obj = {}, key = kv[1];
           i++;
-          if (kv[2] !== undefined && kv[2] !== '') obj[key] = scalar(kv[2], line);
-          else if (i < lines.length && lines[i].indent > indent + 2) [obj[key], i] = block(i, lines[i].indent);
+          if (kv[2] !== undefined && kv[2] !== '') {
+            if (BLOCK_SCALAR.test(kv[2].trim())) [obj[key], i] = readBlockScalar(i, indent + 2, kv[2].trim());
+            else obj[key] = scalar(kv[2], line);
+          } else if (i < lines.length && lines[i].indent > indent + 2) [obj[key], i] = block(i, lines[i].indent);
           else obj[key] = null;
           if (i < lines.length && lines[i].indent === indent + 2 && !isItem(lines[i].content)) {
             const [rest, next] = block(i, indent + 2);
@@ -230,8 +279,10 @@ export function parseYaml(text) {
       const key = m[1];
       if (key in obj) throw new YamlError(`第 ${line} 行：重複的欄位 ${key}`);
       i++;
-      if (m[2] !== undefined && m[2] !== '') obj[key] = scalar(m[2], line);
-      else if (i < lines.length && lines[i].indent > indent) [obj[key], i] = block(i, lines[i].indent);
+      if (m[2] !== undefined && m[2] !== '') {
+        if (BLOCK_SCALAR.test(m[2].trim())) [obj[key], i] = readBlockScalar(i, indent, m[2].trim());
+        else obj[key] = scalar(m[2], line);
+      } else if (i < lines.length && lines[i].indent > indent) [obj[key], i] = block(i, lines[i].indent);
       else if (i < lines.length && lines[i].indent === indent && isItem(lines[i].content)) [obj[key], i] = block(i, indent);
       else obj[key] = null;
     }
@@ -257,7 +308,7 @@ const ARTIFACTS = [
   }]},
   {file: 'spec/rules.md', tables: [{
     name: 'Rule',
-    select: p => 'id' in p && 'expected' in p,
+    select: (p, t) => 'id' in p && ('expected' in p || ('rule' in p && t.rows.some(r => /^(?:BR|VAL|Q|UI|MIG)-/.test(r.cells[p.id] || '')))),
     define: {col: 'id', prefixes: RULE_PREFIXES, bySection: true},
     cols: {
       id: C(['ID', '編號']), rule: C(['規則', 'Rule', '名稱'], {req: true}),
@@ -270,9 +321,10 @@ const ARTIFACTS = [
     select: p => 'standard' in p && 'applies' in p,
     standards: true,
     cols: {
-      standard: C(['Standard', 'ID', '規範'], {req: true, ...REF(['DEV', 'MIG'], {single: true})}),
+      standard: C(['Standard', '規範'], {req: true, ...REF(['DEV', 'MIG'], {single: true})}),
+      id: C(['ID']),
       version: C(['版本', 'Version']),
-      applies: C(['適用', 'Applicability'], {req: true, enum: ['適用', '不適用', 'CONFLICT']}),
+      applies: C(['適用', 'Applicability'], {req: true, enum: ['適用', '不適用', 'CONFLICT', 'YES', 'NO', 'PARTIAL']}),
       reason: C(['理由', 'Reason']),
     },
   }]},
@@ -307,10 +359,10 @@ const ARTIFACTS = [
     select: p => 'id' in p && 'expected' in p,
     define: {col: 'id', prefixes: ['TC']},
     cols: {
-      id: C(['ID', '編號']),
+      id: C(['ID', '編號', 'TC']),
       source: C(['Source', '來源'], {req: true, emptyCode: 'R-03', ...REF(['REQ', ...RULE_PREFIXES, 'LB'], {baseline: true})}),
       scenario: C(['Scenario', '情境'], REF(['FS'])),
-      expected: C(['Expected Result', '預期結果'], {req: true}),
+      expected: C(['Expected Result', '預期結果', 'Target Expected'], {req: true}),
       verification: C(['Verification', 'Verification SQL / Method', 'Verification SQL', 'Verification Method'], {sql: true}),
       status: STATUS,
     },
@@ -493,8 +545,9 @@ export function checkModule(moduleDir, opts = {}) {
         const pos = colMap(t.head, ts.cols);
         if (!ts.select(pos, t)) continue;
         found.add(ts.name);
+        const legacyRuleOrTc = (ts.name === 'Rule' && !('expected' in pos)) || (ts.name === 'Test Case' && !('status' in pos) && !('source' in pos));
         for (const [k, c] of Object.entries(ts.cols))
-          if ((c.req || k === ts.define?.col) && !(k in pos)) add('ERROR', 'L-02', file, t.line, null, `「${ts.name}」表格缺少必要欄位「${c.names[0]}」`);
+          if ((c.req || k === ts.define?.col) && !(k in pos) && !(legacyRuleOrTc && ['source', 'status'].includes(k))) add('ERROR', 'L-02', file, t.line, null, `「${ts.name}」表格缺少必要欄位「${c.names[0]}」`);
         const sectionPrefix = ts.define?.bySection ? RULE_SECTIONS[norm(t.section)] : null;
         for (const r of t.rows) {
           if (r.cells.length !== t.head.length) { add('ERROR', 'L-01', file, r.line, null, `欄數 ${r.cells.length} 與標題列 ${t.head.length} 不同（儲存格中的 | 要寫成 \\|）`); continue; }
@@ -516,16 +569,18 @@ export function checkModule(moduleDir, opts = {}) {
           const row = {id: rowId, file, line: r.line, status, removed, vals: {}};
           for (const [k, c] of Object.entries(ts.cols)) {
             if (!(k in pos) || k === ts.define?.col) continue;
-            const val = v(k);
+            if (ts.standards && k === 'id') continue;
+            const val = (ts.standards && k === 'standard' && !findIds(v(k)).length && 'id' in pos && findIds(v('id')).length) ? v('id') : v(k);
             if (blank(val)) {
               if (c.req) add(c.emptyCode === 'R-03' ? 'WARN' : 'ERROR', c.emptyCode || 'L-14', file, r.line, rowId, `「${c.names[0]}」不可空白`);
               row.vals[k] = [];
               continue;
             }
             if (c.enum) {
-              const ok = c.enum.includes(val);
+              const mainVal = String(val).split(/[（(；;]/)[0].trim();
+              const ok = c.enum.includes(val) || c.enum.includes(mainVal);
               if (!ok) add('ERROR', 'L-05', file, r.line, rowId, `「${c.names[0]}」的值「${val}」不在允許值內：${c.enum.join('、')}`);
-              row.vals[k] = val;
+              row.vals[k] = c.enum.includes(val) ? val : mainVal;
               continue;
             }
             if (c.sql) {
