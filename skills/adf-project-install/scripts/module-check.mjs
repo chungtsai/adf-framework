@@ -1,0 +1,574 @@
+#!/usr/bin/env node
+// ADF Module 檢查工具（原型）：格式（L-*）、manifest（M-08）與連結（R-*）檢查。
+// 依 docs/proposals/module-format.md；只讀檔案、不修改任何 Artifact，也不判定核准。
+// 用法：node module-check.mjs <module-dir> [--project <專案根目錄>] [--json]
+// exit code：0 沒有 ERROR；1 有 ERROR；2 工具無法執行（找不到 Module、manifest 超出 YAML 子集等）
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+
+export const FORMAT = 1;
+
+// ---------- 識別碼（草案 2.1） ----------
+const PREFIX_SRC = 'REV-Q|REQ|LB|BR|VAL|Q|UI|FS|TC|AC|DEV|MIG';
+const ID_BODY = `(?:${PREFIX_SRC})(?:-[A-Z0-9]+)+`;
+const ID_FULL = new RegExp(`^${ID_BODY}$`);
+const idPattern = () => new RegExp(`(?<![A-Za-z0-9-])${ID_BODY}(?![A-Za-z0-9])`, 'g');
+const RANGE = new RegExp(`${ID_BODY}\\s*[~～]\\s*${ID_BODY}`);
+export const findIds = text => [...new Set(String(text ?? '').match(idPattern()) || [])];
+export const prefixOf = id => id.startsWith('REV-Q-') ? 'REV-Q' : id.split('-')[0];
+const MODULE_PREFIXES = ['REQ', 'LB', 'BR', 'VAL', 'Q', 'UI', 'FS', 'TC'];
+const RULE_PREFIXES = ['BR', 'VAL', 'Q', 'UI'];
+
+// ---------- 列舉（草案第 4 節） ----------
+const ART_STATUS = ['DRAFT', 'APPROVED', 'VERIFIED', 'REVIEW_REQUIRED', 'UNKNOWN', 'CONFLICT', 'REMOVED'];
+const OPEN_STATUS = ['REVIEW_REQUIRED', 'UNKNOWN', 'CONFLICT'];
+const TRACE_RESULT = ['PASS', 'FAIL', 'NOT_RUN', 'BLOCKED'];
+const COMPARE_CLASS = ['PASS', 'MIGRATION_DEFECT', 'APPROVED_BEHAVIOR_CHANGE', 'SPEC_GAP', 'LEGACY_UNKNOWN', 'TEST_DATA_PROBLEM', 'REVIEW_REQUIRED'];
+const AC_RESULT = ['待驗收', '通過', '不通過', '不適用'];
+const LB_CATEGORY = ['輸入與驗證', '分支', '查詢', '交易', '副作用', '錯誤處理', '權限', '隱含行為'];
+const RULE_SECTIONS = {'businessrules': 'BR', 'validationrules': 'VAL', 'queryrules': 'Q', 'uirules': 'UI'};
+const DONE = ['done', 'passed'];
+const BASELINE = 'approved baseline';
+const NA = '不適用';
+
+// ---------- Markdown（草案 1.2） ----------
+const norm = s => String(s ?? '').replace(/\s+/g, '').toLowerCase();
+const blank = v => v === '' || v === '—' || v === '-';
+
+function cells(line) {
+  let s = line.trim();
+  if (s.startsWith('|')) s = s.slice(1);
+  if (s.endsWith('|') && !s.endsWith('\\|')) s = s.slice(0, -1);
+  return s.split(/(?<!\\)\|/).map(c => c.replace(/\\\|/g, '|').replace(/<br\s*\/?>/gi, '\n')
+    .replace(/\*\*(.+?)\*\*/g, '$1').replace(/`([^`]*)`/g, '$1').split('\n').map(x => x.trim()).join('\n').trim());
+}
+
+/** 所有表格：{section, line, head, rows:[{line, cells}]}；line 為 1 起算 */
+export function tables(text) {
+  const lines = String(text ?? '').split(/\r?\n/), out = [];
+  let section = '', fence = false;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^\s*(```|~~~)/.test(lines[i])) { fence = !fence; continue; }
+    if (fence) continue;
+    const h = /^#{1,6}\s+(.*)$/.exec(lines[i]);
+    if (h) { section = h[1].trim(); continue; }
+    if (lines[i].trimStart().startsWith('|') && i + 1 < lines.length &&
+        /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(lines[i + 1])) {
+      const t = {section, line: i + 1, head: cells(lines[i]), rows: []};
+      i += 2;
+      while (i < lines.length && lines[i].trimStart().startsWith('|')) { t.rows.push({line: i + 1, cells: cells(lines[i])}); i++; }
+      i--;
+      out.push(t);
+    }
+  }
+  return out;
+}
+
+function colMap(head, spec) {
+  const names = head.map(norm), pos = {};
+  for (const [key, c] of Object.entries(spec)) {
+    const want = c.names.map(norm);
+    const i = names.findIndex((n, j) => want.includes(n) && !Object.values(pos).includes(j));
+    if (i >= 0) pos[key] = i;
+  }
+  return pos;
+}
+
+// ---------- manifest.yaml（草案 6.1 的 YAML 子集） ----------
+export class YamlError extends Error {}
+
+function stripComment(s) {
+  let q = null;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (q) { if (ch === q) q = null; continue; }
+    if (ch === '"' || ch === "'") q = ch;
+    else if (ch === '#' && (i === 0 || /\s/.test(s[i - 1]))) return s.slice(0, i);
+  }
+  return s;
+}
+
+function scalar(v, line) {
+  v = v.trim();
+  if (/^['"]/.test(v)) {
+    if (v.length < 2 || !v.endsWith(v[0])) throw new YamlError(`第 ${line} 行：引號沒有結束`);
+    return v.slice(1, -1);
+  }
+  if (v.startsWith('[')) {
+    if (!v.endsWith(']')) throw new YamlError(`第 ${line} 行：清單沒有結束`);
+    const inner = v.slice(1, -1).trim();
+    return inner ? inner.split(',').map(x => scalar(x, line)) : [];
+  }
+  if (/^[|>&*{!]/.test(v)) throw new YamlError(`第 ${line} 行：不支援的 YAML 寫法「${v[0]}」（見草案 6.1）`);
+  if (v === 'true') return true;
+  if (v === 'false') return false;
+  if (v === 'null' || v === '~') return null;
+  if (/^-?\d+$/.test(v)) return Number(v);
+  return v;
+}
+
+export function parseYaml(text) {
+  const lines = [];
+  String(text ?? '').replace(/^﻿/, '').split(/\r?\n/).forEach((raw, i) => {
+    if (/^\t| \t|^\s*\t/.test(raw)) throw new YamlError(`第 ${i + 1} 行：不可用 Tab 縮排`);
+    const s = stripComment(raw).replace(/\s+$/, '');
+    if (!s.trim()) return;
+    if (/^(---|\.\.\.)\s*$/.test(s)) throw new YamlError(`第 ${i + 1} 行：不支援多文件（---）`);
+    const indent = s.length - s.trimStart().length;
+    if (indent % 2) throw new YamlError(`第 ${i + 1} 行：縮排必須是 2 個空白的倍數`);
+    lines.push({indent, content: s.trim(), line: i + 1});
+  });
+  if (!lines.length) return {};
+  const isItem = c => c === '-' || c.startsWith('- ');
+  function block(i, indent) {
+    if (isItem(lines[i].content)) {
+      const arr = [];
+      while (i < lines.length && lines[i].indent === indent && isItem(lines[i].content)) {
+        const v = lines[i].content.slice(1).trim();
+        if (!v || /^[A-Za-z_][\w-]*:(\s|$)/.test(v)) throw new YamlError(`第 ${lines[i].line} 行：清單項目只支援單一值`);
+        arr.push(scalar(v, lines[i].line)); i++;
+      }
+      return [arr, i];
+    }
+    const obj = {};
+    while (i < lines.length && lines[i].indent === indent && !isItem(lines[i].content)) {
+      const {content, line} = lines[i];
+      const m = /^([A-Za-z_][\w-]*):(?:\s+(.*))?$/.exec(content);
+      if (!m) throw new YamlError(`第 ${line} 行：無法解析「${content}」`);
+      const key = m[1];
+      if (key in obj) throw new YamlError(`第 ${line} 行：重複的欄位 ${key}`);
+      i++;
+      if (m[2] !== undefined && m[2] !== '') obj[key] = scalar(m[2], line);
+      else if (i < lines.length && lines[i].indent > indent) [obj[key], i] = block(i, lines[i].indent);
+      else if (i < lines.length && lines[i].indent === indent && isItem(lines[i].content)) [obj[key], i] = block(i, indent);
+      else obj[key] = null;
+    }
+    if (i < lines.length && lines[i].indent > indent) throw new YamlError(`第 ${lines[i].line} 行：縮排不正確`);
+    return [obj, i];
+  }
+  const [value, next] = block(0, lines[0].indent);
+  if (next < lines.length) throw new YamlError(`第 ${lines[next].line} 行：縮排不正確`);
+  return value;
+}
+
+// ---------- Artifact 表格規格（草案第 5 節） ----------
+const C = (names, o = {}) => ({names, ...o});
+const REF = (prefixes, o = {}) => ({ref: prefixes, ...o});
+const STATUS = C(['Status', '狀態'], {req: true, enum: ART_STATUS});
+
+const ARTIFACTS = [
+  {file: 'spec/requirements.md', tables: [{
+    name: 'Requirement',
+    select: (p, t) => 'id' in p && t.rows.some(r => /^REQ-/.test(r.cells[p.id] || '')),
+    define: {col: 'id', prefixes: ['REQ']},
+    cols: {id: C(['ID', '編號']), name: C(['名稱', 'Title', 'Name', '需求', '標題'], {req: true}), status: STATUS},
+  }]},
+  {file: 'spec/rules.md', tables: [{
+    name: 'Rule',
+    select: p => 'id' in p && 'expected' in p,
+    define: {col: 'id', prefixes: RULE_PREFIXES, bySection: true},
+    cols: {
+      id: C(['ID', '編號']), rule: C(['規則', 'Rule', '名稱'], {req: true}),
+      expected: C(['預期行為', 'Expected', 'Expected Behavior']),
+      source: C(['Source', '來源'], {req: true, ...REF(['REQ', 'LB'], {baseline: true})}), status: STATUS,
+    },
+  }]},
+  {file: 'spec/standards.md', tables: [{
+    name: 'Standards 適用性',
+    select: p => 'standard' in p && 'applies' in p,
+    standards: true,
+    cols: {
+      standard: C(['Standard', 'ID', '規範'], {req: true, ...REF(['DEV', 'MIG'], {single: true})}),
+      version: C(['版本', 'Version']),
+      applies: C(['適用', 'Applicability'], {req: true, enum: ['適用', '不適用', 'CONFLICT']}),
+      reason: C(['理由', 'Reason']),
+    },
+  }]},
+  {file: 'analysis/legacy-behavior.md', tables: [{
+    name: 'Legacy 行為清單',
+    select: p => 'id' in p && 'certainty' in p && 'risk' in p,
+    define: {col: 'id', prefixes: ['LB']},
+    cols: {
+      id: C(['ID', '編號']), entry: C(['入口'], {req: true}), category: C(['類別'], {req: true, enum: LB_CATEGORY}),
+      behavior: C(['行為'], {req: true}), evidence: C(['證據位置']),
+      certainty: C(['確定度'], {req: true, enum: ['CONFIRMED', 'UNKNOWN']}), risk: C(['風險'], {req: true, enum: ['HIGH', 'NORMAL']}),
+      rules: C(['規則'], REF(RULE_PREFIXES)), status: C(['Status', '狀態'], {enum: ['REMOVED']}),
+    },
+  }, {
+    name: 'Legacy Finding',
+    select: p => 'id' in p && 'standards' in p,
+    cols: {id: C(['ID'], {req: true, ...REF(['LB'])}), standards: C(['對應規範'], REF(['DEV', 'MIG']))},
+  }]},
+  {file: 'verification/functional-scenarios.md', tables: [{
+    name: 'Functional Scenario',
+    select: p => 'id' in p && 'flow' in p,
+    define: {col: 'id', prefixes: ['FS']},
+    cols: {
+      id: C(['ID', '編號']), source: C(['Source', '來源'], {req: true, ...REF(['REQ', ...RULE_PREFIXES], {baseline: true})}),
+      flow: C(['User Flow', '操作步驟'], {req: true}), ui: C(['UI Expected'], {req: true}),
+      tests: C(['Related Test'], {req: true, ...REF(['TC'])}), status: STATUS,
+    },
+  }]},
+  {file: 'verification/test-cases.md', tables: [{
+    name: 'Test Case',
+    select: p => 'id' in p && 'expected' in p,
+    define: {col: 'id', prefixes: ['TC']},
+    cols: {
+      id: C(['ID', '編號']),
+      source: C(['Source', '來源'], {req: true, emptyCode: 'R-03', ...REF(['REQ', ...RULE_PREFIXES, 'LB'], {baseline: true})}),
+      scenario: C(['Scenario', '情境'], REF(['FS'])),
+      expected: C(['Expected Result', '預期結果'], {req: true}), status: STATUS,
+    },
+  }]},
+  {file: 'verification/traceability.md', tables: [{
+    name: 'Traceability',
+    select: p => 'source' in p && 'test' in p,
+    trace: true,
+    cols: {
+      source: C(['Source', '來源'], {req: true, ...REF(['REQ', 'LB'], {baseline: true, single: true})}),
+      rule: C(['Rule', '規則'], REF(RULE_PREFIXES)), standard: C(['Standard', '規範'], REF(['DEV', 'MIG'])),
+      fs: C(['Functional Scenario', 'Scenario', '情境'], REF(['FS'])),
+      test: C(['Test', '測試'], {req: true, ...REF(['TC'], {single: true, na: true})}),
+      result: C(['Result', '結果'], {req: true, enum: TRACE_RESULT}),
+    },
+  }]},
+  {file: 'verification/comparison.md', tables: [{
+    name: '差異清單',
+    select: p => 'tc' in p && 'cls' in p,
+    cols: {tc: C(['TC'], {req: true, ...REF(['TC'], {single: true})}), lb: C(['LB'], REF(['LB'])), cls: C(['分類'], {req: true, enum: COMPARE_CLASS})},
+  }, {
+    name: '未涵蓋的 Legacy 行為',
+    select: p => 'lb' in p && 'risk' in p && !('tc' in p),
+    cols: {lb: C(['LB'], {req: true, ...REF(['LB'], {single: true})}), risk: C(['風險'], {enum: ['HIGH', 'NORMAL']})},
+  }]},
+  {file: /^verification\/acceptance-.+\.md$/, tables: [{
+    name: '驗收項目',
+    select: p => 'id' in p && 'result' in p,
+    define: {col: 'id', prefixes: ['AC'], fileScope: true},
+    cols: {
+      id: C(['AC ID']), type: C(['類型'], {req: true, enum: ['功能', '回歸']}),
+      source: C(['來源 ID', '來源'], REF(MODULE_PREFIXES, {baseline: true})),
+      tests: C(['對應測試與目前結果', '對應測試'], REF(['TC'], {freeText: true})),
+      result: C(['結果'], {req: true, enum: AC_RESULT}), note: C(['備註']),
+    },
+  }]},
+];
+
+// ---------- 專案 standards/ ----------
+function walk(dir, out = []) {
+  for (const e of fs.readdirSync(dir, {withFileTypes: true})) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) walk(p, out); else if (e.isFile() && e.name.endsWith('.md')) out.push(p);
+  }
+  return out;
+}
+
+function findProject(moduleDir) {
+  let d = path.resolve(moduleDir);
+  for (;;) {
+    if (fs.existsSync(path.join(d, '.adf')) || fs.existsSync(path.join(d, 'standards'))) return d;
+    const up = path.dirname(d);
+    if (up === d) return null;
+    d = up;
+  }
+}
+
+function loadStandards(root) {
+  const dir = root && path.join(root, 'standards');
+  if (!dir || !fs.existsSync(dir)) return null;
+  const map = new Map();
+  for (const f of walk(dir)) {
+    const text = fs.readFileSync(f, 'utf8').replace(/^﻿/, '');
+    const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
+    if (!fm) continue;
+    const get = k => (new RegExp(`^${k}:\\s*(.*?)\\s*$`, 'm').exec(fm[1]) || [])[1]?.replace(/^['"]|['"]$/g, '');
+    const id = get('id');
+    if (!id) continue;
+    const subs = new Set(findIds(text.slice(fm[0].length)).filter(x => x.startsWith(`${id}-R`)));
+    map.set(id, {status: get('status') || '', file: path.relative(root, f).split(path.sep).join('/'), subs});
+  }
+  return map;
+}
+
+// ---------- 主程式 ----------
+export function checkModule(moduleDir, opts = {}) {
+  const dir = path.resolve(moduleDir);
+  if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) throw new Error(`找不到 Module 資料夾：${moduleDir}`);
+  const findings = [];
+  const add = (level, code, file, line, id, message) => findings.push({level, code, file, line: line ?? null, id: id ?? null, message});
+  const read = rel => { const p = path.join(dir, rel); return fs.existsSync(p) ? fs.readFileSync(p, 'utf8').replace(/^﻿/, '') : null; };
+
+  // manifest
+  let manifest = null;
+  const mtext = read('manifest.yaml');
+  if (mtext === null) add('ERROR', 'M-01', 'manifest.yaml', null, null, '找不到 manifest.yaml');
+  else manifest = parseYaml(mtext); // YamlError 交給呼叫端（exit 2）
+
+  const files = [];
+  const listDir = rel => { const p = path.join(dir, rel); return fs.existsSync(p) ? fs.readdirSync(p).map(f => `${rel}/${f}`) : []; };
+  for (const a of ARTIFACTS) {
+    const names = typeof a.file === 'string' ? [a.file] : listDir('verification').filter(f => a.file.test(f)).sort();
+    for (const f of names) { const text = read(f); if (text !== null) files.push({file: f, text, spec: a}); }
+  }
+
+  const defs = new Map();          // id → {file, line, status, removed, row}
+  const acDefs = new Map();        // file → Set(AC)
+  const refs = [];                 // {file, line, from, removed, col, id, finalTrace}
+  const rows = {TC: [], FS: [], RULE: [], TRACE: [], STD: []};
+
+  const define = (id, file, line, status, row) => {
+    const prev = defs.get(id);
+    if (prev) { add('ERROR', 'L-04', file, line, id, `${id} 重複定義（第一次在 ${prev.file}:${prev.line}）`); return; }
+    defs.set(id, {file, line, status, removed: status === 'REMOVED', row});
+  };
+
+  for (const {file, text, spec} of files) {
+    const found = new Set();
+    for (const t of tables(text)) {
+      for (const ts of spec.tables) {
+        const pos = colMap(t.head, ts.cols);
+        if (!ts.select(pos, t)) continue;
+        found.add(ts.name);
+        for (const [k, c] of Object.entries(ts.cols))
+          if ((c.req || k === ts.define?.col) && !(k in pos)) add('ERROR', 'L-02', file, t.line, null, `「${ts.name}」表格缺少必要欄位「${c.names[0]}」`);
+        const sectionPrefix = ts.define?.bySection ? RULE_SECTIONS[norm(t.section)] : null;
+        for (const r of t.rows) {
+          if (r.cells.length !== t.head.length) { add('ERROR', 'L-01', file, r.line, null, `欄數 ${r.cells.length} 與標題列 ${t.head.length} 不同（儲存格中的 | 要寫成 \\|）`); continue; }
+          const v = k => (k in pos ? r.cells[pos[k]] : '');
+          const status = v('status') || '';
+          const removed = status === 'REMOVED';
+          let rowId = null;
+          if (ts.define) {
+            rowId = v(ts.define.col);
+            if (!ID_FULL.test(rowId)) { add('ERROR', 'L-03', file, r.line, rowId || null, `「${rowId || '（空白）'}」不是有效的識別碼`); continue; }
+            const p = prefixOf(rowId);
+            if (sectionPrefix && p !== sectionPrefix) add('ERROR', 'L-06', file, r.line, rowId, `${rowId} 位於「${t.section}」章節，前綴應為 ${sectionPrefix}`);
+            else if (!ts.define.prefixes.includes(p)) add('ERROR', 'L-03', file, r.line, rowId, `${file} 不能定義 ${p} 前綴的識別碼`);
+            if (ts.define.fileScope) {
+              const set = acDefs.get(file) || new Set(); acDefs.set(file, set);
+              if (set.has(rowId)) add('ERROR', 'L-04', file, r.line, rowId, `${rowId} 在本檔重複定義`); else set.add(rowId);
+            } else define(rowId, file, r.line, status, {file, line: r.line});
+          }
+          const row = {id: rowId, file, line: r.line, status, removed, vals: {}};
+          for (const [k, c] of Object.entries(ts.cols)) {
+            if (!(k in pos) || k === ts.define?.col) continue;
+            const val = v(k);
+            if (blank(val)) {
+              if (c.req) add(c.emptyCode === 'R-03' ? 'WARN' : 'ERROR', c.emptyCode || 'L-14', file, r.line, rowId, `「${c.names[0]}」不可空白`);
+              row.vals[k] = [];
+              continue;
+            }
+            if (c.enum) {
+              const ok = c.enum.includes(val);
+              if (!ok) add('ERROR', 'L-05', file, r.line, rowId, `「${c.names[0]}」的值「${val}」不在允許值內：${c.enum.join('、')}`);
+              row.vals[k] = val;
+              continue;
+            }
+            if (!c.ref) { row.vals[k] = val; continue; }
+            if (RANGE.test(val)) add('ERROR', 'L-07', file, r.line, rowId, `「${c.names[0]}」不可寫範圍（${RANGE.exec(val)[0]}），請逐一列出`);
+            const ids = findIds(val);
+            const rest = val.replace(idPattern(), '').replace(/[、,，;；\s]+/g, ' ').trim();
+            const restOk = !rest || (c.baseline && norm(rest) === norm(BASELINE)) || ((c.na || c.baseline) && rest === NA) || c.freeText;
+            if (!restOk) add('WARN', 'L-11', file, r.line, rowId, `「${c.names[0]}」含有不是識別碼的文字「${rest}」`);
+            if (!ids.length && c.req && !restOk) add('ERROR', 'L-14', file, r.line, rowId, `「${c.names[0]}」沒有任何識別碼`);
+            if (c.single && ids.length > 1)
+              add('WARN', 'L-10', file, r.line, rowId, `「${c.names[0]}」每列只能有一個識別碼（${ids.join('、')}）；舊寫法依草案 9.1 於下次 CHANGE 拆列`);
+            for (const id of ids) {
+              const p = prefixOf(id);
+              if (p === 'REV-Q') continue;
+              if (!c.ref.includes(p)) { add('ERROR', 'L-12', file, r.line, rowId, `「${c.names[0]}」不能引用 ${p}（允許：${c.ref.join('、')}）`); continue; }
+              refs.push({file, line: r.line, from: rowId, removed, col: c.names[0], id, trace: ts.trace, ac: ts.define?.fileScope});
+            }
+            row.vals[k] = ids;
+          }
+          if (ts.define?.prefixes.includes('TC')) rows.TC.push(row);
+          if (ts.define?.prefixes.includes('FS')) rows.FS.push(row);
+          if (ts.define?.bySection) rows.RULE.push(row);
+          if (ts.trace) rows.TRACE.push(row);
+          if (ts.standards) rows.STD.push(row);
+          if (ts.standards && ['不適用', 'CONFLICT'].includes(row.vals.applies) && blank(v('reason')))
+            add('ERROR', 'L-14', file, r.line, null, `適用為「${row.vals.applies}」時「理由」不可空白`);
+        }
+      }
+    }
+    if (file === 'spec/requirements.md') {
+      const heads = [...text.matchAll(new RegExp(`^#{2,6}\\s+(REQ-[A-Z0-9]+(?:-[A-Z0-9]+)*)\\b(.*)$`, 'gm'))];
+      const lines = text.split(/\r?\n/);
+      for (const m of heads) {
+        const line = text.slice(0, m.index).split('\n').length;
+        let status = '';
+        for (let i = line; i < lines.length && !/^#{1,6}\s/.test(lines[i]); i++) {
+          const s = /^\s*[-*]?\s*(?:status|狀態)\s*[:：]\s*(\S+)/i.exec(lines[i]);
+          if (s) { status = s[1]; break; }
+        }
+        if (!status) add('ERROR', 'L-14', file, line, m[1], `${m[1]} 沒有「Status:」行`);
+        else if (!ART_STATUS.includes(status)) add('ERROR', 'L-05', file, line, m[1], `Status「${status}」不在允許值內：${ART_STATUS.join('、')}`);
+        define(m[1], file, line, status, {file, line});
+      }
+      if (heads.length && found.has('Requirement')) add('WARN', 'L-13', file, null, null, 'Requirement 同時使用表格與標題兩種寫法');
+    }
+  }
+
+  // 專案 standards
+  const project = opts.project ? path.resolve(opts.project) : findProject(dir);
+  const standards = loadStandards(project);
+  let stdSkipped = false;
+  const stdLookup = id => {
+    if (!standards) return undefined;
+    if (standards.has(id)) return standards.get(id);
+    const m = /^(.*)-R\d+$/.exec(id);
+    const parent = m && standards.get(m[1]);
+    return parent && parent.subs.has(id) ? parent : null;
+  };
+
+  // R-01／R-09：引用
+  for (const r of refs) {
+    const p = prefixOf(r.id);
+    if (p === 'DEV' || p === 'MIG') {
+      const s = stdLookup(r.id);
+      if (s === undefined) { stdSkipped = true; continue; }
+      if (!s) add('ERROR', 'R-01', r.file, r.line, r.from, `「${r.col}」引用的 ${r.id} 在專案 standards/ 中不存在`);
+      continue;
+    }
+    const d = defs.get(r.id);
+    if (!d) { add('ERROR', 'R-01', r.file, r.line, r.from, `「${r.col}」引用的 ${r.id} 不存在`); continue; }
+    if (d.removed && !r.removed) add('ERROR', 'R-09', r.file, r.line, r.from, `「${r.col}」引用了已刪除（REMOVED）的 ${r.id}`);
+  }
+  // traceability：Result 已定案的歷史列不檢查 R-09（草案 R-09）
+  for (const f of findings.filter(x => x.code === 'R-09' && x.file === 'verification/traceability.md')) {
+    const row = rows.TRACE.find(t => t.line === f.line);
+    if (row && ['PASS', 'FAIL'].includes(row.vals.result)) findings.splice(findings.indexOf(f), 1);
+  }
+  if (stdSkipped) add('INFO', 'R-06', null, null, null, '找不到專案 standards/，略過 DEV-*／MIG-* 的存在檢查（可用 --project 指定專案根目錄）');
+
+  // R-06：Standards 適用性
+  if (standards) for (const r of rows.STD) {
+    if (r.vals.applies !== '適用') continue;
+    for (const id of r.vals.standard || []) {
+      const s = stdLookup(id);
+      if (s && s.status !== 'APPROVED') add('ERROR', 'R-06', r.file, r.line, id, `${id} 的狀態是 ${s.status || '（空白）'}，適用的規範必須是 APPROVED（${s.file}）`);
+    }
+  }
+
+  // R-02：TC.Scenario ↔ FS.Related Test
+  const live = list => list.filter(r => r.id && !r.removed);
+  const tcById = new Map(live(rows.TC).map(r => [r.id, r])), fsById = new Map(live(rows.FS).map(r => [r.id, r]));
+  for (const tc of tcById.values()) for (const fs of tc.vals.scenario || []) {
+    const f = fsById.get(fs);
+    if (f && !(f.vals.tests || []).includes(tc.id)) add('ERROR', 'R-02', tc.file, tc.line, tc.id, `${tc.id} 的 Scenario 是 ${fs}，但 ${fs} 的 Related Test 沒有列出 ${tc.id}`);
+  }
+  for (const f of fsById.values()) for (const t of f.vals.tests || []) {
+    const tc = tcById.get(t);
+    if (tc && !(tc.vals.scenario || []).includes(f.id)) add('ERROR', 'R-02', f.file, f.line, f.id, `${f.id} 的 Related Test 有 ${t}，但 ${t} 的 Scenario 沒有填 ${f.id}`);
+  }
+
+  // R-03：孤兒（沒有任何有效 TC 驗證的 REQ 與 Rule）
+  const covered = new Set();
+  for (const tc of tcById.values()) for (const s of tc.vals.source || []) covered.add(s);
+  for (const t of rows.TRACE) for (const tc of t.vals.test || []) if (tcById.has(tc)) for (const s of t.vals.source || []) covered.add(s);
+  for (const rule of live(rows.RULE)) if (covered.has(rule.id)) for (const s of rule.vals.source || []) covered.add(s);
+  for (const [id, d] of defs) {
+    if (d.removed || !['REQ', ...RULE_PREFIXES].includes(prefixOf(id)) || covered.has(id)) continue;
+    add('WARN', 'R-03', d.file, d.line, id, `${id} 沒有任何有效的 TC 驗證（直接引用、經 traceability 或經 Rule 皆無）`);
+  }
+
+  // R-07：狀態矛盾
+  for (const tc of tcById.values()) {
+    if (tc.status !== 'VERIFIED') continue;
+    for (const s of tc.vals.source || []) {
+      const d = defs.get(s);
+      if (d && !['APPROVED', 'VERIFIED'].includes(d.status) && prefixOf(s) !== 'LB')
+        add('ERROR', 'R-07', tc.file, tc.line, tc.id, `${tc.id} 已是 VERIFIED，但 Source ${s} 的狀態是 ${d.status || '（空白）'}`);
+    }
+  }
+  const st = manifest?.status?.verification || {};
+  const openIn = file => [...defs.entries()].filter(([, d]) => d.file === file && OPEN_STATUS.includes(d.status)).map(([id]) => id);
+  const pairs = [['status.verification.test_generation', st.test_generation, ['verification/test-cases.md', 'verification/functional-scenarios.md']]];
+  for (const [key, val, fl] of pairs) {
+    if (!DONE.includes(val)) continue;
+    const open = fl.flatMap(openIn);
+    if (open.length) add('WARN', 'R-07', 'manifest.yaml', null, null, `${key} 為 ${val}，但仍有未定案項目：${open.join('、')}`);
+  }
+
+  // R-04／M-08：本次變更紀錄
+  const ch = manifest?.work_item?.changes;
+  if (manifest && (ch === undefined || ch === null)) add('INFO', 'R-04', 'manifest.yaml', null, null, '沒有 work_item.changes（5.5.0 之前的 Work Item），略過變更紀錄檢查');
+  else if (ch) {
+    const seen = new Map();
+    for (const kind of ['added', 'modified', 'removed']) {
+      const list = ch[kind] ?? [];
+      if (!Array.isArray(list)) { add('ERROR', 'M-03', 'manifest.yaml', null, null, `work_item.changes.${kind} 必須是清單`); continue; }
+      for (const id of list.map(String)) {
+        if (seen.has(id)) add('ERROR', 'M-08', 'manifest.yaml', null, id, `${id} 同時出現在 changes.${seen.get(id)} 與 changes.${kind}`);
+        seen.set(id, kind);
+        if (!ID_FULL.test(id) || !MODULE_PREFIXES.includes(prefixOf(id))) { add('ERROR', 'L-03', 'manifest.yaml', null, id, `changes.${kind} 的「${id}」不是 Module 識別碼`); continue; }
+        const d = defs.get(id);
+        if (kind === 'removed') {
+          if (!d) add('ERROR', 'R-04', 'manifest.yaml', null, id, `changes.removed 的 ${id} 找不到定義（刪除時應保留該列並標 REMOVED）`);
+          else if (!d.removed) add('ERROR', 'R-04', 'manifest.yaml', null, id, `changes.removed 的 ${id} 狀態不是 REMOVED（${d.file}:${d.line}）`);
+        } else if (!d) add('ERROR', 'R-04', 'manifest.yaml', null, id, `changes.${kind} 的 ${id} 找不到定義`);
+        else if (d.removed) add('ERROR', 'R-04', 'manifest.yaml', null, id, `changes.${kind} 的 ${id} 已標 REMOVED，應改列在 changes.removed`);
+      }
+    }
+  }
+
+  // R-08：規格書（Read Model）
+  const spec = read('specification.md');
+  if (spec !== null) {
+    const lines = spec.split(/\r?\n/);
+    const reported = new Set();
+    lines.forEach((l, i) => {
+      for (const id of findIds(l)) {
+        const p = prefixOf(id);
+        if (!MODULE_PREFIXES.includes(p) || reported.has(id)) continue;
+        const d = defs.get(id);
+        if (!d) { reported.add(id); add('WARN', 'R-08', 'specification.md', i + 1, id, `規格書提到的 ${id} 不存在`); }
+        else if (d.removed) { reported.add(id); add('WARN', 'R-08', 'specification.md', i + 1, id, `規格書提到的 ${id} 已標 REMOVED`); }
+      }
+    });
+  }
+
+  const order = {ERROR: 0, WARN: 1, INFO: 2};
+  findings.sort((a, b) => String(a.file ?? '').localeCompare(String(b.file ?? '')) || (a.line ?? 0) - (b.line ?? 0) || order[a.level] - order[b.level]);
+  const summary = {error: 0, warn: 0, info: 0};
+  for (const f of findings) summary[f.level.toLowerCase()]++;
+  return {
+    tool: 'adf-module-check', format: FORMAT,
+    module: project ? path.relative(project, dir).split(path.sep).join('/') || '.' : dir,
+    work_item: manifest?.work_item?.id ?? null,
+    summary, findings,
+  };
+}
+
+export function formatText(result) {
+  const out = [`ADF Module 檢查：${result.module}${result.work_item ? `（${result.work_item}）` : ''}`];
+  const label = {ERROR: '錯誤', WARN: '警告', INFO: '資訊'};
+  for (const f of result.findings) {
+    const where = f.file ? `${f.file}${f.line ? `:${f.line}` : ''}` : '（Module）';
+    out.push(`  [${label[f.level]}] ${f.code} ${where}  ${f.message}`);
+  }
+  const s = result.summary;
+  out.push(`結果：錯誤 ${s.error}、警告 ${s.warn}、資訊 ${s.info}`);
+  return out.join('\n');
+}
+
+const isMain = () => { try { return fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } };
+if (process.argv[1] && isMain()) {
+  const argv = process.argv.slice(2);
+  const json = argv.includes('--json');
+  const pi = argv.indexOf('--project');
+  const project = pi >= 0 ? argv[pi + 1] : undefined;
+  const target = argv.filter((a, i) => !a.startsWith('--') && (pi < 0 || i !== pi + 1))[0];
+  if (!target) { console.error('用法：node module-check.mjs <module-dir> [--project <專案根目錄>] [--json]'); process.exit(2); }
+  try {
+    const result = checkModule(target, {project});
+    console.log(json ? JSON.stringify(result, null, 2) : formatText(result));
+    process.exit(result.summary.error ? 1 : 0);
+  } catch (e) {
+    const message = e instanceof YamlError ? `manifest.yaml 超出支援的 YAML 範圍：${e.message}` : e.message;
+    if (json) console.log(JSON.stringify({tool: 'adf-module-check', format: FORMAT, fatal: message}, null, 2));
+    else console.error(`無法執行：${message}`);
+    process.exit(2);
+  }
+}

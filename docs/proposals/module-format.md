@@ -333,6 +333,11 @@ Status: APPROVED
 | L-01～L-07 | 格式 | 表格欄數、必要欄位、ID 語法、ID 重複、狀態值、前綴與章節不符、範圍寫法 |
 | L-08 | 格式 | Verification SQL 出現 `INSERT`／`UPDATE`／`DELETE`／`MERGE`／DDL（Cleanup SQL 區塊除外） |
 | L-09 | 格式 | 疑似 Secret（`password=`、Token 樣式字串） |
+| L-10 | 格式 | 單值引用欄位（traceability 的 Source、Test 等）寫了多個 ID：舊寫法，`WARN`（9.1） |
+| L-11 | 格式 | 引用欄位含有不是 ID 的文字（`Approved Baseline`、`不適用` 除外）：`WARN` |
+| L-12 | 格式 | 引用了該欄位不允許的前綴（例如 `TC.Scenario` 寫了 `TC-*`） |
+| L-13 | 格式 | Requirement 同時使用表格與標題兩種寫法：`WARN` |
+| L-14 | 格式 | 必要欄位空白（`TC.Source` 空白改報 R-03） |
 | M-01～M-09 | manifest | 見 6.2 |
 | R-01 | 連結 | 引用的 ID 不存在 |
 | R-02 | 連結 | `TC.Scenario` 和 `FS.Related Test` 不一致 |
@@ -343,6 +348,21 @@ Status: APPROVED
 | R-07 | 連結 | 狀態矛盾：TC 為 `VERIFIED`，但 Source 不是 `APPROVED`；manifest 為 `done`／`passed`，對應 Artifact 卻仍有 `REVIEW_REQUIRED`／`UNKNOWN`／`CONFLICT` |
 | R-08 | 連結 | `specification.md` 提到的 ID 不存在，或提到的是 `REMOVED` 的項目 |
 | R-09 | 連結 | 有效的列（不是 `REMOVED`）引用了 `REMOVED` 的 ID，例如 TC 的 Source 是已刪除的 REQ。`REMOVED` 的列本身與 traceability 中 Result 已定案的歷史列不檢查 |
+
+### 原型進度
+
+`skills/adf-project-install/scripts/module-check.mjs`（測試：`tests/module-check.test.mjs`）已實作：
+
+- L-01～L-07、L-10～L-14。
+- M-08，以及 manifest 的 YAML 子集解析。
+- R-01～R-04、R-06～R-09。R-07 的 manifest 部分目前只對應 `status.verification.test_generation`。
+
+尚未實作：
+
+- L-08、L-09。
+- M-01～M-07、M-09。
+- R-05：需要讀 git 差異。
+- 覆蓋率（第 8 節）。
 
 ## 8. 覆蓋率定義
 
