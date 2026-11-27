@@ -673,4 +673,10 @@ test('相容實務寫法：rules 標題、REQ/說明欄名、status.*.reason、t
   const r2 = checkModule(moduleDir(t, {'spec/rules.md': badRules}).dir);
   assert.ok(only(r2, 'L-06').some(f => f.id === 'BR-002'));
   assert.equal(only(r2, 'L-13').length, 1);
+  // G-06：TC 狀態為非標準值（非 APPROVED／VERIFIED）時不可誤判通過
+  const nonStdTc = FILES['verification/test-cases.md'].replaceAll('| APPROVED |', '| PASS（既有） |');
+  const r3 = checkModule(moduleDir(t, {...READY, 'verification/test-cases.md': nonStdTc}).dir, {gate: true});
+  const g6 = r3.gate.gates.find(g => g.id === 'G-06');
+  assert.equal(g6.state, 'BLOCKED');
+  assert.match(g6.reasons[0], /仍有未核准的測試/);
 });

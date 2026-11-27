@@ -852,11 +852,11 @@ export function computeGate({manifest, defs, findings, coverage, read}) {
 
   // G-06 測試與執行結果
   const tcs = [...defs].filter(([id, d]) => prefixOf(id) === 'TC' && !d.removed);
-  const draftTc = tcs.filter(([, d]) => d.status === 'DRAFT').map(([id]) => id);
+  const unapprovedTc = tcs.filter(([, d]) => !GOOD_TC.includes(d.status)).map(([id]) => id);
   const e = coverage.execution;
   const g6 = [];
   if (!tcs.length) g6.push('沒有任何 Test Case');
-  if (draftTc.length) g6.push(`仍有未核准的測試：${list(draftTc)}`);
+  if (unapprovedTc.length) g6.push(`仍有未核准的測試：${list(unapprovedTc)}`);
   if (e.FAIL) g6.push(`FAIL：${list(e.failed)}`);
   if (e.NOT_RUN || e.BLOCKED) g6.push(`NOT_RUN ${e.NOT_RUN} 個、BLOCKED ${e.BLOCKED} 個`);
   if (e.UNCERTAIN) g6.push(`結果不明（traceability 一列多個 Test 的舊寫法）：${list(e.uncertain)}；可另開 DOCUMENTATION CHANGE，依可查證的執行紀錄拆成一列一個 Test，查無紀錄填 NOT_RUN`);

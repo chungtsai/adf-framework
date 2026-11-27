@@ -402,7 +402,7 @@ Status: APPROVED
 | G-03 | Blockers | `manifest.blockers` 不是空的（「有條件通過」的例外由 Human 判斷） | — |
 | G-04 | 各 Stage 狀態 | 有不是 `done`／`passed`／`not_applicable` 的 `status.*`；MIGRATION 的 `comparison`、RETROFIT_VERIFY 的 `legacy_baseline`／`normalization` 標為 `not_applicable` | — |
 | G-05 | 未定案項目 | 有 `REVIEW_REQUIRED`、`UNKNOWN`、`CONFLICT` 的項目 | — |
-| G-06 | 測試與執行結果 | 沒有 TC；有 `DRAFT` 的 TC；已核准 TC 有 `FAIL`／`NOT_RUN`／`BLOCKED`／結果不明／traceability 沒有結果 | — |
+| G-06 | 測試與執行結果 | 沒有 TC；有未核准（非 `APPROVED`／`VERIFIED`）的 TC；已核准 TC 有 `FAIL`／`NOT_RUN`／`BLOCKED`／結果不明／traceability 沒有結果 | — |
 | G-07 | Traceability | Requirement、Rule 或本次變更有未涵蓋項目 | 沒有任何 Requirement 與 Rule |
 | G-08 | Legacy 行為與結果比對（MIGRATION、RETROFIT_VERIFY） | 沒有行為清單或 `comparison.md`；有比對未通過的 `LB` | 有未涵蓋的高風險 `LB`（需記錄 Human 決策） |
 | G-09 | Functional Scenario | 有 FS 沒有已核准的測試 | 沒有任何 FS（由 Human 判斷是否不適用） |
