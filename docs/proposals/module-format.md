@@ -149,8 +149,8 @@
 
 | 欄位 | 別名 | 類型 |
 |---|---|---|
-| **ID** | 編號 | ID（`REQ`） |
-| **名稱** | Title、Name、需求、標題 | 文字 |
+| **ID** | 編號、REQ | ID（`REQ`） |
+| **名稱** | Title、Name、需求、標題、說明、Description、描述 | 文字 |
 | 描述 | Description | 文字 |
 | Source | 來源、Evidence | 文字（需求來源，例如會議、文件） |
 | **Status** | 狀態 | 列舉 4.1 |
@@ -188,6 +188,8 @@ Status: APPROVED
 | **Status** | 狀態 | 列舉 4.1 |
 
 前綴和章節不符（例如 `VAL-003` 寫在 Business Rules）回報 `ERROR`。
+
+相容寫法（既有 Module）：可在各章節下以 `##`～`######` 標題定義規則（例如 `### VAL-001：規則名稱`），底下可附 `- **Source**：REQ-001` 與 `Status: APPROVED` 行；同一個 Module 混用表格與標題兩種寫法時回報 `WARN`（`L-13`）。
 
 ### 5.3 `spec/standards.md`（新定）
 
@@ -245,7 +247,7 @@ Status: APPROVED
 
 | 欄位 | 類型 |
 |---|---|
-| **Source** | 引用，**單一** ID（`REQ`、`LB`）或 `Approved Baseline` |
+| **Source** | 引用，**單一** ID（`REQ`、`LB`、`BR`、`VAL`、`Q`、`UI`）或 `Approved Baseline` |
 | Rule | 引用（`BR`、`VAL`、`Q`、`UI`） |
 | Standard | 引用（`DEV`、`MIG`） |
 | Design | 文字（`design/design.md` 的章節名稱） |
@@ -275,7 +277,7 @@ Status: APPROVED
 
 - 縮排固定 2 個空白，不可用 Tab。
 - 巢狀 mapping（`key: value`、`key:` 換行縮排）。
-- 區塊清單（`- item`），以及單行的 `[]`、`[A, B]`。
+- 區塊清單（`- item` 與物件清單 `- key: value`），以及單行的 `[]`、`[A, B]`。
 - 純量：字串（可加單引號或雙引號）、`true`／`false`、`null`／`~`、整數。
 - `#` 註解（行首或值後面，前面要有空白）。
 - 不支援：anchor／alias（`&`、`*`）、多行字串（`|`、`>`）、單行的 `{}` mapping、多文件（`---`）。

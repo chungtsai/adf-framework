@@ -190,9 +190,35 @@ export function parseYaml(text) {
     if (isItem(lines[i].content)) {
       const arr = [];
       while (i < lines.length && lines[i].indent === indent && isItem(lines[i].content)) {
-        const v = lines[i].content.slice(1).trim();
-        if (!v || /^[A-Za-z_][\w-]*:(\s|$)/.test(v)) throw new YamlError(`第 ${lines[i].line} 行：清單項目只支援單一值`);
-        arr.push(scalar(v, lines[i].line)); i++;
+        const {content, line} = lines[i];
+        const v = content.slice(1).trim();
+        if (!v) {
+          i++;
+          if (i < lines.length && lines[i].indent > indent) {
+            const [val, next] = block(i, lines[i].indent);
+            arr.push(val); i = next;
+          } else arr.push(null);
+          continue;
+        }
+        const kv = /^([A-Za-z_][\w-]*):(?:\s+(.*))?$/.exec(v);
+        if (kv) {
+          const obj = {}, key = kv[1];
+          i++;
+          if (kv[2] !== undefined && kv[2] !== '') obj[key] = scalar(kv[2], line);
+          else if (i < lines.length && lines[i].indent > indent + 2) [obj[key], i] = block(i, lines[i].indent);
+          else obj[key] = null;
+          if (i < lines.length && lines[i].indent === indent + 2 && !isItem(lines[i].content)) {
+            const [rest, next] = block(i, indent + 2);
+            for (const [k, val] of Object.entries(rest)) {
+              if (k in obj) throw new YamlError(`第 ${line} 行：重複的欄位 ${k}`);
+              obj[k] = val;
+            }
+            i = next;
+          }
+          arr.push(obj);
+          continue;
+        }
+        arr.push(scalar(v, line)); i++;
       }
       return [arr, i];
     }
@@ -227,7 +253,7 @@ const ARTIFACTS = [
     name: 'Requirement',
     select: (p, t) => 'id' in p && t.rows.some(r => /^REQ-/.test(r.cells[p.id] || '')),
     define: {col: 'id', prefixes: ['REQ']},
-    cols: {id: C(['ID', '編號']), name: C(['名稱', 'Title', 'Name', '需求', '標題'], {req: true}), status: STATUS},
+    cols: {id: C(['ID', '編號', 'REQ']), name: C(['名稱', 'Title', 'Name', '需求', '標題', '說明', 'Description', '描述'], {req: true}), status: STATUS},
   }]},
   {file: 'spec/rules.md', tables: [{
     name: 'Rule',
@@ -294,7 +320,7 @@ const ARTIFACTS = [
     select: p => 'source' in p && 'test' in p,
     trace: true,
     cols: {
-      source: C(['Source', '來源'], {req: true, ...REF(['REQ', 'LB'], {baseline: true, single: true})}),
+      source: C(['Source', '來源'], {req: true, ...REF(['REQ', 'LB', ...RULE_PREFIXES], {baseline: true, single: true})}),
       rule: C(['Rule', '規則'], REF(RULE_PREFIXES)), standard: C(['Standard', '規範'], REF(['DEV', 'MIG'])),
       fs: C(['Functional Scenario', 'Scenario', '情境'], REF(['FS'])),
       test: C(['Test', '測試'], {req: true, ...REF(['TC'], {single: true, na: true})}),
@@ -378,7 +404,7 @@ function checkManifest(m, add) {
   if (list.includes('BASELINE_ADOPTION') && m.review?.approval?.required !== true) add('WARN', 'M-04', F, null, null, 'BASELINE_ADOPTION 必須 Human Approval，review.approval.required 應為 true');
   // M-05：狀態值
   const walkStatus = (v, p) => {
-    if (isObj(v)) { for (const [k, x] of Object.entries(v)) if (`${p}.${k}` !== 'status.prototype.reason') walkStatus(x, `${p}.${k}`); return; }
+    if (isObj(v)) { for (const [k, x] of Object.entries(v)) if (!(k === 'reason' && 'status' in v)) walkStatus(x, `${p}.${k}`); return; }
     const isAccept = p === 'status.verification.acceptance';
     if (STAGE_STATUS.includes(v) || (isAccept && ACCEPT_ONLY.includes(v))) return;
     if (ACCEPT_ONLY.includes(v)) add('WARN', 'M-05', F, null, null, `${p} 的「${v}」只用於 status.verification.acceptance`);
@@ -533,6 +559,47 @@ export function checkModule(moduleDir, opts = {}) {
             add('ERROR', 'L-14', file, r.line, null, `適用為「${row.vals.applies}」時「理由」不可空白`);
         }
       }
+    }
+    if (file === 'spec/rules.md') {
+      const lines = text.split(/\r?\n/);
+      let section = '', fence = false, headCount = 0;
+      const ruleHeadRe = new RegExp(`^#{2,6}\\s+((?:${RULE_PREFIXES.join('|')})-[A-Z0-9]+(?:-[A-Z0-9]+)*)\\b(.*)$`);
+      for (let i = 0; i < lines.length; i++) {
+        if (/^\s*(```|~~~)/.test(lines[i])) { fence = !fence; continue; }
+        if (fence) continue;
+        const m = ruleHeadRe.exec(lines[i]);
+        if (!m) {
+          const h = /^#{1,6}\s+(.*)$/.exec(lines[i]);
+          if (h) section = h[1].trim();
+          continue;
+        }
+        headCount++;
+        const id = m[1], line = i + 1, p = prefixOf(id);
+        const sectionPrefix = RULE_SECTIONS[norm(section)];
+        if (sectionPrefix && p !== sectionPrefix) add('ERROR', 'L-06', file, line, id, `${id} 位於「${section}」章節，前綴應為 ${sectionPrefix}`);
+        let status = '', srcIds = [];
+        const body = [m[2].trim()];
+        for (let j = i + 1; j < lines.length && !/^#{1,6}\s/.test(lines[j]); j++) {
+          const ln = lines[j];
+          const s = /^\s*[-*]?\s*\*{0,2}(?:status|狀態)\*{0,2}\s*[:：]\s*(\S+)/i.exec(ln);
+          if (s) { if (!status) status = s[1].replace(/[`*]/g, ''); continue; }
+          const src = /^\s*[-*]?\s*\*{0,2}(?:source|來源)\*{0,2}\s*[:：]\s*(.+)$/i.exec(ln);
+          if (src) {
+            for (const sid of findIds(src[1])) {
+              const sp = prefixOf(sid);
+              if (sp === 'REQ' || sp === 'LB') { srcIds.push(sid); refs.push({file, line: j + 1, from: id, removed: false, col: 'Source', id: sid}); }
+            }
+          }
+          if (ln.trim()) body.push(ln.trim().replace(/\s+/g, ' '));
+        }
+        if (status && !ART_STATUS.includes(status)) add('ERROR', 'L-05', file, line, id, `Status「${status}」不在允許值內：${ART_STATUS.join('、')}`);
+        const removed = status === 'REMOVED';
+        define(id, file, line, status, {file, line}, body.join('\u0001'));
+        const row = {id, file, line, status, removed, vals: {source: srcIds}};
+        (rowsBy['Rule'] ||= []).push(row);
+        rows.RULE.push(row);
+      }
+      if (headCount && found.has('Rule')) add('WARN', 'L-13', file, null, null, 'Rule 同時使用表格與標題兩種寫法');
     }
     if (file === 'spec/requirements.md') {
       const heads = [...text.matchAll(new RegExp(`^#{2,6}\\s+(REQ-[A-Z0-9]+(?:-[A-Z0-9]+)*)\\b(.*)$`, 'gm'))];
@@ -765,7 +832,7 @@ export function computeGate({manifest, defs, findings, coverage, read}) {
   // G-04 各 Stage 狀態（不含另外判斷的 acceptance）
   const pending = [], wrongNa = [];
   const walk = (v, p) => {
-    if (isObj(v)) { for (const [k, x] of Object.entries(v)) if (`${p}.${k}` !== 'status.prototype.reason') walk(x, `${p}.${k}`); return; }
+    if (isObj(v)) { for (const [k, x] of Object.entries(v)) if (!(k === 'reason' && 'status' in v)) walk(x, `${p}.${k}`); return; }
     if (p === 'status.verification.acceptance') return;
     if (!done(v) && v !== 'not_applicable') pending.push(`${p}（${v ?? '未填'}）`);
   };

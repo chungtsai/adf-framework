@@ -155,7 +155,9 @@ test('manifest：支援的 YAML 子集，超出範圍明確拒絕', () => {
   assert.deepEqual(m.work_item.intents, ['FEATURE']);
   assert.deepEqual(m.work_item.changes.added, ['REQ-001', 'BR-001', 'TC-001']);
   assert.deepEqual(parseYaml('a:\n- x\n- "y # z"\n'), {a: ['x', 'y # z']});
-  for (const bad of ['a: |\n  text\n', 'a: &x 1\n', 'a:\n\tb: 1\n', 'a:\n   b: 1\n', 'a: 1\na: 2\n', 'a:\n  - b: 1\n'])
+  assert.deepEqual(parseYaml('history:\n  - stage: rules\n    status: APPROVED\n  - stage: design\n    note: ok\n'),
+    {history: [{stage: 'rules', status: 'APPROVED'}, {stage: 'design', note: 'ok'}]});
+  for (const bad of ['a: |\n  text\n', 'a: &x 1\n', 'a:\n\tb: 1\n', 'a:\n   b: 1\n', 'a: 1\na: 2\n', 'a: {b: 1}\n'])
     assert.throws(() => parseYaml(bad), YamlError, bad);
 });
 
@@ -647,4 +649,28 @@ test('結案預檢 CLI：exit code 0 READY、1 BLOCKED、3 HUMAN_REQUIRED', t =>
   const blocked = run(moduleDir(t, {...READY, 'manifest.yaml': READY_MANIFEST.replace('  design: done', '  design: pending')}).dir);
   assert.equal(blocked.status, 1);
   assert.match(blocked.stdout, /\[阻擋\] G-04 各 Stage 狀態\n      - 尚未完成：status\.design（pending）/);
+});
+
+test('相容實務寫法：rules 標題、REQ/說明欄名、status.*.reason、traceability 引用 Rule', t => {
+  const manifest = READY_MANIFEST
+    .replace('  standards: done', '  standards:\n    status: not_applicable\n    reason: "Baseline Adoption 不套用"')
+    .replace('  design: done', '  design:\n    status: not_applicable\n    reason: "不新增設計"') +
+    '  history:\n    - stage: rules\n      status: APPROVED\n';
+  const reqs = `# Requirements\n\n| REQ | 說明 | Status |\n|---|---|---|\n| REQ-001 | 帳號查詢 | APPROVED |\n| REQ-002 | 匯出 | APPROVED |\n`;
+  const rules = `# Rules\n\n## Business Rules\n\n### BR-001：只查有效\n- **Source**：REQ-001\n- **Status**：APPROVED\n\n## Validation Rules\n\n### VAL-001：日期格式\n- **Source**：REQ-001\n- **Status**：APPROVED\n`;
+  const trace = READY['verification/traceability.md'] + '| VAL-001 | | | | | TC-001 | PASS |\n';
+  const r = checkModule(moduleDir(t, {
+    ...READY,
+    'manifest.yaml': manifest,
+    'spec/requirements.md': reqs,
+    'spec/rules.md': rules,
+    'verification/traceability.md': trace,
+  }).dir, {gate: true});
+  assert.deepEqual(r.findings, []);
+  assert.equal(r.gate.verdict, 'READY');
+  // 標題寫法的章節前綴錯誤（L-06）與混用表格/標題（L-13）仍會被抓出
+  const badRules = rules + '\n### BR-002：放錯章節\n- **Source**：REQ-001\n- **Status**：APPROVED\n\n## Validation Rules\n\n| ID | 規則 | 預期行為 | Source | Status |\n|---|---|---|---|---|\n| VAL-002 | 混用表格 | 報錯 | REQ-001 | APPROVED |\n';
+  const r2 = checkModule(moduleDir(t, {'spec/rules.md': badRules}).dir);
+  assert.ok(only(r2, 'L-06').some(f => f.id === 'BR-002'));
+  assert.equal(only(r2, 'L-13').length, 1);
 });
