@@ -7,6 +7,7 @@ ADF 的目的不是讓 AI 單純寫得更快，而是把「相信 AI」轉成「
 ## v5.6.0 重點
 - 新增 Module 檢查工具（試用）`adf-project-install/scripts/module-check.mjs`：用程式檢查 Module 文件的格式、ID 連結、manifest 結構、Verification SQL 與疑似 Secret，計算 Requirement／Rule／Scenario／本次變更／Legacy 行為／驗收的覆蓋率，並以 `--gate` 做結案預檢。只讀檔案、不修改 Artifact、不判定核准；使用方式見下方「Quality Gate」。
 - 本版只發布工具，Skill 流程不變（Skill 不會自動執行它）；格式規則仍是草案（`docs/proposals/module-format.md`），收集回饋後再決定是否納入 Skill。
+- 支援新版 npx skills（1.9 起）的 `skills-lock.json` version 2：v5.5.0 以前用新版 npx 安裝或更新會出現 `Unsupported npx skills lock format`，v5.6.0 同時支援 version 1 與 2。
 - 既有 Module 與 Work Item 不需修改。由 v5.5 升級見 [v5.5 → v5.6 SOP](docs/upgrades/5.5-to-5.6.md)，版本說明見 [docs/releases/5.6.md](docs/releases/5.6.md)。
 
 ## v5.5.0 重點

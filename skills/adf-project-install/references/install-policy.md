@@ -22,4 +22,4 @@ APPLY 備份舊範本與舊 project.yaml，記錄移轉前後受保護檔案的�
 盤點全域 Skill 只讀，不刪除其他專案的全域資源。若存在，確認本次 Agent 僅使用專案來源，保存 Agent 設定或載入結果等證據。在 resolution JSON 中加入 global_dispositions: [{path: "盤點輸出的全域路徑", disposition: "project_scope_only", human_confirmed: true, evidence: "設定/載入證據說明"}]。沒有明確證據則阻擋完成，不能僅因 project 路徑存在就假設 Agent 不會混用。
 
 ## 安裝來源
-檢查專案 skills-lock.json 的 version=1、GitHub source、ref=v5.6.0 或同版號測試版 v5.6.0-beta.N／-rc.N（與 resources.json 版本一致，34 支一致）、skillPath 與 computedHash；沒有安裝工具來源紀錄的手動副本不能宣稱已轉接完成。未知 lockfile 格式保留並阻擋，不由 ADF 偽造或改寫。正式 tag 發布前，分支與測試版只供驗收，不能標示正式移轉完成。
+檢查專案 skills-lock.json 的 version=1 或 2（npx skills 1.9 起寫入 2，兩者的 computedHash 算法不同，皆依 npx 的算法驗證；其他版本阻擋）、GitHub source、ref=v5.6.0 或同版號測試版 v5.6.0-beta.N／-rc.N（與 resources.json 版本一致，34 支一致）、skillPath 與 computedHash；沒有安裝工具來源紀錄的手動副本不能宣稱已轉接完成。未知 lockfile 格式保留並阻擋，不由 ADF 偽造或改寫。正式 tag 發布前，分支與測試版只供驗收，不能標示正式移轉完成。

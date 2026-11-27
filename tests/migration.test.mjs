@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import {fileURLToPath} from 'node:url';
-import {plan,apply,verify,restore,resolveResource} from '../skills/adf-project-install/scripts/project.mjs';
+import {plan,apply,verify,restore,resolveResource,skillHash} from '../skills/adf-project-install/scripts/project.mjs';
 const repo=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const registry=JSON.parse(fs.readFileSync(path.join(repo,'skills/adf-project-install/references/resources.json')));
 function digest(folder){const paths=[];function walk(p){for(const n of fs.readdirSync(p)){const f=path.join(p,n);if(fs.statSync(f).isDirectory())walk(f);else paths.push(path.relative(folder,f).split(path.sep).join('/'));}}walk(folder);const h=crypto.createHash('sha256');for(const rel of paths.sort((a,b)=>a.localeCompare(b))){h.update(rel);h.update(fs.readFileSync(path.join(folder,rel)));}return h.digest('hex');}
@@ -52,3 +52,23 @@ test('lockfile pinned to the previous release tag is rejected',t=>{const r=fixtu
 test('lockfile from a pre-release tag of the same version verifies and reports prerelease',t=>{const r=fixture(t);const lock=JSON.parse(fs.readFileSync(path.join(r,'skills-lock.json')));for(const s of Object.values(lock.skills)) s.ref=`v${registry.version}-beta.2`;fs.writeFileSync(path.join(r,'skills-lock.json'),JSON.stringify(lock));assert.deepEqual(plan(r).blockers,[]);apply(r,plan(r));const v=verify(r);assert.equal(v.ref,`v${registry.version}-beta.2`);assert.equal(v.prerelease,true);});
 test('formal install reports prerelease false',t=>{const r=fixture(t);apply(r,plan(r));const v=verify(r);assert.equal(v.ref,`v${registry.version}`);assert.equal(v.prerelease,false);});
 test('mixed or unsupported pre-release refs are rejected',t=>{for(const mutate of [l=>{Object.values(l.skills)[0].ref=`v${registry.version}-beta.1`;},l=>{for(const s of Object.values(l.skills)) s.ref=`v${registry.version}-alpha.1`;},l=>{for(const s of Object.values(l.skills)) s.ref=`v${registry.version}-beta.0`;}]){const r=fixture(t);const lock=JSON.parse(fs.readFileSync(path.join(r,'skills-lock.json')));mutate(lock);fs.writeFileSync(path.join(r,'skills-lock.json'),JSON.stringify(lock));assert.ok(plan(r).blockers.some(s=>/formal npx source|Mixed npx source refs/.test(s)),JSON.stringify(plan(r).blockers));}});
+
+// npx skills 1.9 起 skills-lock.json 為 version 2，computedHash 算法改變；npx 讀到 version 1 時會自動遷移成 version 2。
+test('npx skills lock version 2: computedHash matches npx skills 1.9.1 (CRLF, excluded files, byte order)',()=>{
+ const folder=path.join(repo,'tests/fixtures/npx-lock-v2/sample-skill');
+ const rels=[];(function walk(p,pre){for(const n of fs.readdirSync(p)){const f=path.join(p,n);if(fs.statSync(f).isDirectory())walk(f,pre+n+'/');else rels.push(pre+n);}})(folder,'');
+ // 預期值由 npx skills 1.9.1 的 computeSkillFolderHash 對同一個資料夾計算
+ assert.equal(skillHash(folder,rels,2),'886cbbd61372fc2fe5ab4fb936802e1c0246feb251c30302d3362009a9bc1e19');
+ assert.notEqual(skillHash(folder,rels,1),skillHash(folder,rels,2));
+});
+test('PLAN accepts lock version 2, still detects modified skills, and blocks unknown lock versions',t=>{
+ const r=fixture(t);const lockPath=path.join(r,'skills-lock.json');const lock=JSON.parse(fs.readFileSync(lockPath));
+ lock.version=2;
+ for(const name of Object.keys(lock.skills)){const folder=path.join(r,'.agents/skills',name);const rels=[];(function walk(p,pre){for(const n of fs.readdirSync(p)){const f=path.join(p,n);if(fs.statSync(f).isDirectory())walk(f,pre+n+'/');else rels.push(pre+n);}})(folder,'');lock.skills[name].computedHash=skillHash(folder,rels,2);lock.skills[name].commit='0'.repeat(40);}
+ fs.writeFileSync(lockPath,JSON.stringify(lock,null,2));
+ assert.deepEqual(plan(r).blockers,[]);
+ fs.appendFileSync(path.join(r,'.agents/skills/adf-ask/SKILL.md'),'\nlocal edit\n');
+ assert.ok(plan(r).blockers.some(b=>b.includes('Installed skill differs from npx lock: adf-ask')));
+ lock.version=3;fs.writeFileSync(lockPath,JSON.stringify(lock,null,2));
+ assert.ok(plan(r).blockers.some(b=>b.includes('Unsupported npx skills lock format (version 3)')));
+});
