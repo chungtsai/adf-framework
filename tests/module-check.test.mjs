@@ -6,7 +6,7 @@ import path from 'node:path';
 import os from 'node:os';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {checkModule, parseYaml, findIds, tables, YamlError, formatCoverage, sqlWrite, secretFindings} from '../skills/adf-project-install/scripts/module-check.mjs';
+import {checkModule, parseYaml, findIds, tables, YamlError, formatCoverage, sqlWrite, secretFindings, formatGate} from '../skills/adf-project-install/scripts/module-check.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const cli = path.join(repo, 'skills/adf-project-install/scripts/module-check.mjs');
@@ -537,4 +537,114 @@ test('M-09 放寬：建立時 base_ref 為 null，導入 git 後補一次 commit
 
   setBase('null');
   assert.match(only(checkModule(dir), 'M-09')[0].message, /目前為 null/);
+});
+
+// ---------- 結案預檢 ----------
+const READY_MANIFEST = MANIFEST
+  .replace(/status:\n  analysis[\s\S]*?blockers: \[\]\nreview:/, `status:
+  analysis: done
+  specification: done
+  standards: done
+  prototype:
+    status: not_applicable
+    reason: 純查詢
+  design: done
+  development:
+    backend: done
+    frontend: done
+  verification:
+    test_generation: done
+    execution: done
+    security: not_applicable
+    legacy_baseline: not_applicable
+    normalization: not_applicable
+    comparison: not_applicable
+    traceability: done
+    acceptance: passed
+blockers: []
+review:`)
+  .replace('  status: IN_PROGRESS', '  status: APPROVED');
+const ACCEPTANCE = `# 驗收清單：WI-001
+
+## 3. 驗收項目
+
+| AC ID | 類型 | 來源 ID | 驗收項目 | 操作步驟 | 預期結果 | 對應測試與目前結果 | 結果 | 備註 |
+|---|---|---|---|---|---|---|---|---|
+| AC-001 | 功能 | REQ-001、BR-001 | 查詢 | | | TC-001 PASS | 通過 | |
+
+## 5. 簽核
+
+| 驗收人 | 日期 | 結論 | 說明 |
+|---|---|---|---|
+| 王小明 | 2026-11-27 | 通過 | |
+`;
+const READY = {
+  'manifest.yaml': READY_MANIFEST,
+  'verification/traceability.md': FILES['verification/traceability.md'] + '| REQ-002 | | | 匯出 | | TC-003 | PASS |\n',
+  'verification/acceptance-WI-001.md': ACCEPTANCE,
+  'spec/standards.md': '# Applicable Standards\n\n| Standard | 版本 | 適用 | 理由 |\n|---|---|---|---|\n',
+};
+const gateOf = (t, overrides = {}) => checkModule(moduleDir(t, {...READY, ...overrides}).dir, {gate: true}).gate;
+const states = g => Object.fromEntries(g.gates.map(x => [x.id, x.state]));
+
+test('結案預檢：全部 Gate 通過時為 READY，並註明結論不等於核准', t => {
+  const g = gateOf(t);
+  assert.deepEqual(Object.entries(states(g)).filter(([, v]) => v !== 'PASS'), [['G-08', 'NOT_APPLICABLE']]);
+  assert.equal(g.verdict, 'READY');
+  assert.match(formatGate(g), /結論：工具沒有找到阻擋項目\n工具的結論不等於核准/);
+});
+
+test('結案預檢：各 Gate 的阻擋條件', t => {
+  const s = states(gateOf(t, {
+    'manifest.yaml': READY_MANIFEST.replace('  design: done', '  design: pending').replace('acceptance: passed', 'acceptance: in_review')
+      .replace('blockers: []\nreview:', 'blockers:\n  - 等待資安掃描\nreview:').replace('unresolved: 0', 'unresolved: 1').replace('total: 0', 'total: 1'),
+    'spec/rules.md': FILES['spec/rules.md'].replace('| 顯示「請輸入帳號」 | REQ-001 | APPROVED |', '| 顯示「請輸入帳號」 | REQ-001 | REVIEW_REQUIRED |'),
+    'verification/traceability.md': READY['verification/traceability.md'].replace('| TC-003 | PASS |', '| TC-003 | FAIL |'),
+    'spec/standards.md': '# Applicable Standards\n\n| Standard | 版本 | 適用 | 理由 |\n|---|---|---|---|\n| DEV-SQL-001 | 1.0 | CONFLICT | 與既有寫法衝突 |\n',
+  }));
+  for (const id of ['G-02', 'G-03', 'G-04', 'G-05', 'G-06', 'G-11', 'G-12']) assert.equal(s[id], 'BLOCKED', id);
+});
+
+test('結案預檢：Traceability 未涵蓋、FS 缺測試、規格書不同步', t => {
+  const g = gateOf(t, {
+    'spec/requirements.md': FILES['spec/requirements.md'] + '| REQ-003 | 列印 | | APPROVED |\n',
+    'verification/functional-scenarios.md': FILES['verification/functional-scenarios.md'] + '| FS-002 | REQ-002 | 已登入 | | 1. 匯出 | 下載 | | | | APPROVED |\n',
+    'specification.md': FILES['specification.md'] + '另見 TC-099。\n',
+  });
+  assert.deepEqual([states(g)['G-07'], states(g)['G-09'], states(g)['G-10']], ['BLOCKED', 'BLOCKED', 'BLOCKED']);
+  assert.match(g.gates.find(x => x.id === 'G-07').reasons[0], /Requirement 未涵蓋：REQ-003/);
+});
+
+test('結案預檢：驗收清單未簽核或有未通過項目', t => {
+  const unsigned = gateOf(t, {'verification/acceptance-WI-001.md': ACCEPTANCE.replace('| 王小明 | 2026-11-27 | 通過 | |', '| | | `通過`／`有條件通過`／`不通過` | |')});
+  assert.deepEqual(unsigned.gates.find(x => x.id === 'G-11').reasons, ['簽核表沒有 Human 填寫的結論']);
+  const failed = gateOf(t, {'verification/acceptance-WI-001.md': ACCEPTANCE.replace('| TC-001 PASS | 通過 |', '| TC-001 PASS | 待驗收 |')});
+  assert.match(failed.gates.find(x => x.id === 'G-11').reasons[0], /AC-001（待驗收）/);
+  const old = gateOf(t, {'manifest.yaml': READY_MANIFEST.replace('    acceptance: passed\n', '')});
+  assert.equal(states(old)['G-11'], 'HUMAN');
+});
+
+test('結案預檢：MIGRATION 需要比對，高風險未涵蓋交 Human 決定', t => {
+  const mig = READY_MANIFEST.replace('  type: NEW', '  type: MIGRATION').replace('  origin: NEW', '  origin: MIGRATION');
+  const noCmp = gateOf(t, {'manifest.yaml': mig});
+  assert.equal(states(noCmp)['G-04'], 'BLOCKED', 'MIGRATION 的 comparison 不可 not_applicable');
+  assert.equal(states(noCmp)['G-08'], 'BLOCKED');
+  const lb = `# Legacy Behavior\n\n## 行為清單\n\n| ID | 入口 | 類別 | 行為 | 證據位置 | 確定度 | 風險 | 規則 |\n|---|---|---|---|---|---|---|---|\n| LB-001 | 查詢 | 查詢 | 空白不加條件 | a:1 | CONFIRMED | NORMAL | BR-001 |\n| LB-002 | 查詢 | 交易 | 失敗回滾 | a:2 | CONFIRMED | HIGH | |\n`;
+  const cmp = `# Result Comparison\n\n## 差異清單\n\n| TC | LB | 面向 | 欄位 | Legacy | Target | 分類 | 依據 | 處理 |\n|---|---|---|---|---|---|---|---|---|\n| TC-001 | LB-001 | 畫面 | name | A | A | PASS | — | — |\n`;
+  const g = gateOf(t, {'manifest.yaml': mig.replace('    comparison: not_applicable', '    comparison: done'), 'analysis/legacy-behavior.md': lb, 'verification/comparison.md': cmp});
+  assert.equal(states(g)['G-08'], 'HUMAN');
+  assert.match(g.gates.find(x => x.id === 'G-08').reasons[0], /未涵蓋的高風險 LB：LB-002/);
+  const defect = gateOf(t, {'manifest.yaml': mig.replace('    comparison: not_applicable', '    comparison: done'), 'analysis/legacy-behavior.md': lb, 'verification/comparison.md': cmp.replace('| PASS | — | — |', '| MIGRATION_DEFECT | — | — |')});
+  assert.equal(states(defect)['G-08'], 'BLOCKED');
+});
+
+test('結案預檢 CLI：exit code 0 READY、1 BLOCKED、3 HUMAN_REQUIRED', t => {
+  const run = dir => spawnSync(process.execPath, [cli, dir, '--gate'], {encoding: 'utf8'});
+  assert.equal(run(moduleDir(t, READY).dir).status, 0);
+  const human = run(moduleDir(t, {...READY, 'specification.md': null}).dir);
+  assert.equal(human.status, 3, human.stdout);
+  assert.match(human.stdout, /結論：待 Human 確認/);
+  const blocked = run(moduleDir(t, {...READY, 'manifest.yaml': READY_MANIFEST.replace('  design: done', '  design: pending')}).dir);
+  assert.equal(blocked.status, 1);
+  assert.match(blocked.stdout, /\[阻擋\] G-04 各 Stage 狀態\n      - 尚未完成：status\.design（pending）/);
 });

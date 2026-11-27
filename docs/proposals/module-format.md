@@ -384,6 +384,38 @@ Status: APPROVED
 
 覆蓋率（第 8 節）的結果放在 JSON 的 `coverage`，文字輸出附在檢查結果之後；覆蓋率不影響 exit code。
 
+### 結案預檢（`--gate`）
+
+依 `adf-development-complete` 的各 Gate 與 `core/invariants.md` 彙整「能不能結案」。每個 Gate 判為：
+
+- `PASS`（通過）。
+- `BLOCKED`（阻擋）。
+- `HUMAN`（待確認）：工具無法判斷，需要 Human 決定。
+- `NOT_APPLICABLE`（不適用）。
+
+| Gate | 內容 | 阻擋條件 | 待確認條件 |
+|---|---|---|---|
+| G-01 | 格式、manifest 與連結檢查 | 有任何 `ERROR` | — |
+| G-02 | Review 與 Human Approval | 有未解決問題或 `review.blockers`；需要 Approval（含 `BASELINE_ADOPTION`）但尚未核准 | — |
+| G-03 | Blockers | `manifest.blockers` 不是空的（「有條件通過」的例外由 Human 判斷） | — |
+| G-04 | 各 Stage 狀態 | 有不是 `done`／`passed`／`not_applicable` 的 `status.*`；MIGRATION 的 `comparison`、RETROFIT_VERIFY 的 `legacy_baseline`／`normalization` 標為 `not_applicable` | — |
+| G-05 | 未定案項目 | 有 `REVIEW_REQUIRED`、`UNKNOWN`、`CONFLICT` 的項目 | — |
+| G-06 | 測試與執行結果 | 沒有 TC；有 `DRAFT` 的 TC；已核准 TC 有 `FAIL`／`NOT_RUN`／`BLOCKED`／結果不明／traceability 沒有結果 | — |
+| G-07 | Traceability | Requirement、Rule 或本次變更有未涵蓋項目 | 沒有任何 Requirement 與 Rule |
+| G-08 | Legacy 行為與結果比對（MIGRATION、RETROFIT_VERIFY） | 沒有行為清單或 `comparison.md`；有比對未通過的 `LB` | 有未涵蓋的高風險 `LB`（需記錄 Human 決策） |
+| G-09 | Functional Scenario | 有 FS 沒有已核准的測試 | 沒有任何 FS（由 Human 判斷是否不適用） |
+| G-10 | 規格書 | R-08（規格書引用不存在或已刪除的 ID） | 沒有 `specification.md` |
+| G-11 | 驗收 | 狀態不是 `passed`；沒有驗收清單；有不是 `通過`／`不適用` 的項目；簽核表沒有結論或結論不是通過 | 沒有 `status.verification.acceptance`（5.5.0 之前的 Work Item） |
+| G-12 | Standards 適用性 | 有 `CONFLICT` | 沒有 `spec/standards.md` |
+
+結論：
+
+- 有任何阻擋 → `BLOCKED`。
+- 沒有阻擋、但有待確認 → `HUMAN_REQUIRED`。
+- 都沒有 → `READY`。
+
+exit code 依序為 `1`、`3`、`0`。報告固定註明「工具的結論不等於核准；結案仍須 Human 在 Development Complete Gate 確認」：規格書內容是否同步、例外核准等需要人判斷的部分，都留給這一步。
+
 ## 8. 覆蓋率定義
 
 「已核准的 TC」指 Status 為 `APPROVED` 或 `VERIFIED` 的 TC；`REMOVED` 的項目不算分子也不算分母。

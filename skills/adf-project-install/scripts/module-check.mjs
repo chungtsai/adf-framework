@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // ADF Module 檢查工具（原型）：格式與 SQL／Secret（L-*）、manifest 結構（M-*）、連結與版控差異（R-*）檢查，以及覆蓋率。
 // 依 docs/proposals/module-format.md；只讀檔案、不修改任何 Artifact，也不判定核准。
-// 用法：node module-check.mjs <module-dir> [--project <專案根目錄>] [--json] [--no-git]
+// 用法：node module-check.mjs <module-dir> [--project <專案根目錄>] [--json] [--no-git] [--gate]
 // exit code：0 沒有 ERROR；1 有 ERROR；2 工具無法執行（找不到 Module、manifest 超出 YAML 子集等）
+// --gate（結案預檢）：0 READY；1 BLOCKED；3 HUMAN_REQUIRED；2 工具無法執行
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -718,8 +719,177 @@ export function checkModule(moduleDir, opts = {}) {
     summary, findings,
     coverage: computeCoverage({defs, rowsBy, manifest}),
   };
+  if (opts.gate) result.gate = computeGate({manifest, defs, findings, coverage: result.coverage, read});
   Object.defineProperty(result, 'defs', {value: defs, enumerable: false}); // 供 R-05 讀 base_ref 版本用，不輸出
   return result;
+}
+
+// ---------- 結案預檢（gate-report） ----------
+// 依 adf-development-complete 的各 Gate 與 core/invariants.md 彙整「能不能結案」。
+// 工具只報告事實：結論為 READY 也只代表沒有找到阻擋項目，結案仍須 Human 在 Development Complete Gate 確認。
+export const GATE_STATES = {PASS: '通過', BLOCKED: '阻擋', HUMAN: '待確認', NOT_APPLICABLE: '不適用'};
+
+export function computeGate({manifest, defs, findings, coverage, read}) {
+  const gates = [];
+  const gate = (id, name, state, reasons = []) => gates.push({id, name, state, reasons: reasons.filter(Boolean)});
+  const m = manifest || {};
+  const wi = m.work_item || {};
+  const intents = Array.isArray(wi.intents) ? wi.intents : [];
+  const isMigration = wi.type === 'MIGRATION', isRetrofit = intents.includes('RETROFIT_VERIFY'), isBaseline = intents.includes('BASELINE_ADOPTION');
+  const list = ids => ids.slice(0, 20).join('、') + (ids.length > 20 ? ` 等 ${ids.length} 項` : '');
+  const done = v => DONE.includes(v);
+
+  // G-01 檢查工具
+  const errors = findings.filter(f => f.level === 'ERROR');
+  const byCode = [...new Set(errors.map(f => f.code))];
+  gate('G-01', '格式、manifest 與連結檢查', errors.length ? 'BLOCKED' : 'PASS',
+    errors.length ? [`有 ${errors.length} 個錯誤（${byCode.join('、')}），請先修正`] : ['沒有錯誤']);
+
+  // G-02 Review 與 Human Approval
+  const rv = m.review || {}, q = rv.questions || {};
+  const approvalRequired = rv.approval?.required === true || isBaseline;
+  const g2 = [];
+  if (Number.isInteger(q.unresolved) && q.unresolved > 0) g2.push(`仍有 ${q.unresolved} 個未解決問題`);
+  if (Array.isArray(rv.blockers) && rv.blockers.length) g2.push(`review.blockers：${list(rv.blockers.map(String))}`);
+  if (approvalRequired && !(rv.approval?.approved === true && rv.status === 'APPROVED'))
+    g2.push(`${isBaseline ? 'BASELINE_ADOPTION 必須 Human Approval；' : ''}review 尚未核准（review.status：${rv.status ?? '（未填）'}）`);
+  else if (!approvalRequired && rv.status && !['APPROVED', 'READY_FOR_REVIEW', 'IN_PROGRESS'].includes(rv.status)) g2.push(`review.status 為 ${rv.status}`);
+  gate('G-02', 'Review 與 Human Approval', g2.length ? 'BLOCKED' : 'PASS', g2.length ? g2 : [approvalRequired ? '已核准' : '不需要另外的 Approval，且沒有未解決問題']);
+
+  // G-03 Blockers
+  const blockers = Array.isArray(m.blockers) ? m.blockers.map(b => (isObj(b) ? JSON.stringify(b) : String(b))) : [];
+  gate('G-03', 'Blockers', blockers.length ? 'BLOCKED' : 'PASS', blockers.length
+    ? [`manifest.blockers 有 ${blockers.length} 項：${list(blockers)}`, '若為驗收「有條件通過」且 Human 已明確核准例外、條件已寫入後續 Work Item，由 Human 判斷可否結案']
+    : ['沒有 blockers']);
+
+  // G-04 各 Stage 狀態（不含另外判斷的 acceptance）
+  const pending = [], wrongNa = [];
+  const walk = (v, p) => {
+    if (isObj(v)) { for (const [k, x] of Object.entries(v)) if (`${p}.${k}` !== 'status.prototype.reason') walk(x, `${p}.${k}`); return; }
+    if (p === 'status.verification.acceptance') return;
+    if (!done(v) && v !== 'not_applicable') pending.push(`${p}（${v ?? '未填'}）`);
+  };
+  if (isObj(m.status)) walk(m.status, 'status');
+  const must = [];
+  if (isMigration) must.push('comparison');
+  if (isRetrofit) must.push('legacy_baseline', 'normalization');
+  for (const k of must) if (m.status?.verification?.[k] === 'not_applicable') wrongNa.push(`status.verification.${k}`);
+  const g4 = [];
+  if (pending.length) g4.push(`尚未完成：${list(pending)}`);
+  if (wrongNa.length) g4.push(`${isRetrofit ? 'RETROFIT_VERIFY' : 'MIGRATION'} 不可標為 not_applicable：${wrongNa.join('、')}（MIGRATION 需通過 Semantic Comparison）`);
+  gate('G-04', '各 Stage 狀態', g4.length ? 'BLOCKED' : 'PASS', g4.length ? g4 : ['全部為完成或不適用']);
+
+  // G-05 未定案項目
+  const open = [...defs].filter(([, d]) => OPEN_STATUS.includes(d.status)).map(([id, d]) => `${id}（${d.status}）`);
+  gate('G-05', '未定案項目（REVIEW_REQUIRED／UNKNOWN／CONFLICT）', open.length ? 'BLOCKED' : 'PASS', open.length ? [list(open)] : ['沒有未定案項目']);
+
+  // G-06 測試與執行結果
+  const tcs = [...defs].filter(([id, d]) => prefixOf(id) === 'TC' && !d.removed);
+  const draftTc = tcs.filter(([, d]) => d.status === 'DRAFT').map(([id]) => id);
+  const e = coverage.execution;
+  const g6 = [];
+  if (!tcs.length) g6.push('沒有任何 Test Case');
+  if (draftTc.length) g6.push(`仍有未核准的測試：${list(draftTc)}`);
+  if (e.FAIL) g6.push(`FAIL：${list(e.failed)}`);
+  if (e.NOT_RUN || e.BLOCKED) g6.push(`NOT_RUN ${e.NOT_RUN} 個、BLOCKED ${e.BLOCKED} 個`);
+  if (e.UNCERTAIN) g6.push(`結果不明（traceability 一列多個 Test 的舊寫法）：${list(e.uncertain)}，依草案 9.2 依執行紀錄拆列`);
+  if (e.NOT_RECORDED) g6.push(`traceability 沒有結果：${list(e.not_recorded)}`);
+  gate('G-06', '測試與執行結果', g6.length ? 'BLOCKED' : 'PASS', g6.length ? g6 : [`已核准的 TC ${e.total} 個全部 PASS`]);
+
+  // G-07 Traceability 覆蓋
+  const g7 = [];
+  const miss = (label, mt) => { if (mt && mt.total && mt.uncovered.length) g7.push(`${label}未涵蓋：${list(mt.uncovered)}`); };
+  miss('Requirement ', coverage.requirement);
+  for (const [p, mt] of Object.entries(coverage.rules)) miss(`Rule ${p} `, mt);
+  miss('本次變更', coverage.changes);
+  const anyDenominator = coverage.requirement.total || Object.values(coverage.rules).some(x => x.total);
+  gate('G-07', 'Traceability（Source → Test）', g7.length ? 'BLOCKED' : anyDenominator ? 'PASS' : 'HUMAN',
+    g7.length ? g7 : anyDenominator ? ['Requirement 與 Rule 都有已核准的測試'] : ['沒有任何 Requirement 或 Rule，請 Human 確認 Source（例如 Approved Baseline）']);
+
+  // G-08 Legacy 行為與結果比對（MIGRATION／RETROFIT_VERIFY）
+  if (isMigration || isRetrofit) {
+    const l = coverage.legacy, cmp = read('verification/comparison.md');
+    const g8 = [];
+    let state = 'PASS';
+    if (!l) { g8.push('沒有 analysis/legacy-behavior.md 的行為清單'); state = 'BLOCKED'; }
+    if (cmp === null) { g8.push('沒有 verification/comparison.md'); state = 'BLOCKED'; }
+    if (l && l.pass.uncovered.length) { g8.push(`比對未通過的 LB：${list(l.pass.uncovered)}`); state = 'BLOCKED'; }
+    if (l && l.high_risk.uncovered.length) {
+      g8.push(`未涵蓋的高風險 LB：${list(l.high_risk.uncovered)}；需 Human 決定並記錄在 comparison.md 的「Human 決策」`);
+      if (state === 'PASS') state = 'HUMAN';
+    }
+    if (l && state === 'PASS') g8.push(`整體涵蓋 ${l.overall.covered}／${l.overall.total}（${pct(l.overall)}）、高風險 ${l.high_risk.covered}／${l.high_risk.total}（${pct(l.high_risk)}）、通過 ${l.pass.covered}／${l.pass.total}`);
+    if (l && l.overall.uncovered.length && state !== 'BLOCKED') g8.push(`未涵蓋（非高風險）：${list(l.overall.uncovered.filter(x => !l.high_risk.uncovered.includes(x)))}`);
+    gate('G-08', 'Legacy 行為與結果比對', state, g8);
+  } else gate('G-08', 'Legacy 行為與結果比對', 'NOT_APPLICABLE', ['不是 MIGRATION／RETROFIT_VERIFY']);
+
+  // G-09 Functional Scenario
+  const fsTotal = coverage.scenario.total;
+  if (!fsTotal) gate('G-09', 'Functional Scenario', 'HUMAN', ['沒有任何 FS；若 Module 有使用者操作流程應補建，沒有時請 Human 確認不適用']);
+  else gate('G-09', 'Functional Scenario', coverage.scenario.uncovered.length ? 'BLOCKED' : 'PASS',
+    coverage.scenario.uncovered.length ? [`沒有已核准測試的 FS：${list(coverage.scenario.uncovered)}`] : [`${fsTotal} 個 FS 都有已核准的測試`]);
+
+  // G-10 Human-readable Specification
+  const spec = read('specification.md');
+  const r08 = findings.filter(f => f.code === 'R-08');
+  if (spec === null) gate('G-10', '規格書（specification.md）', 'HUMAN', ['沒有 specification.md；有 Human-visible／Business Behavior 的 Module 應建立，純技術變更請 Human 確認不需要']);
+  else gate('G-10', '規格書（specification.md）', r08.length ? 'BLOCKED' : 'PASS',
+    r08.length ? [`規格書與正式 Artifact 不一致：${list(r08.map(f => f.id))}`] : ['引用的 ID 都存在；內容是否與本次核准的 Artifact 同步，由 Human 在結案時確認']);
+
+  // G-11 驗收
+  const acc = m.status?.verification?.acceptance;
+  const accFile = wi.id ? `verification/acceptance-${wi.id}.md` : null;
+  const accText = accFile ? read(accFile) : null;
+  if (acc === undefined) gate('G-11', '驗收（Acceptance）', 'HUMAN', ['5.5.0 之前建立的 Work Item 沒有驗收狀態；可執行 adf-acceptance-checklist，由 Human 決定是否補做；未補做時不得宣稱已完成驗收']);
+  else if (acc === 'not_applicable') gate('G-11', '驗收（Acceptance）', 'NOT_APPLICABLE', ['已標示不適用；只有 Human 可以這樣標示，理由需寫入 manifest']);
+  else {
+    const g11 = [];
+    if (!done(acc)) g11.push(`status.verification.acceptance 為 ${acc}${acc === 'in_review' ? '（等待 Human 簽核）' : ''}`);
+    if (accText === null) g11.push(`沒有 ${accFile ?? 'verification/acceptance-<work_item.id>.md'}`);
+    else {
+      const items = [], sign = [];
+      for (const t of tables(accText)) {
+        const pos = colMap(t.head, {id: C(['AC ID']), result: C(['結果']), conclusion: C(['結論']), signer: C(['驗收人'])});
+        if ('id' in pos && 'result' in pos) for (const r of t.rows) { const v = r.cells[pos.result]; if (v !== '通過' && v !== '不適用') items.push(`${r.cells[pos.id]}（${v || '空白'}）`); }
+        if ('conclusion' in pos) for (const r of t.rows) { const c = r.cells[pos.conclusion].replace(/[`／]/g, ' ').trim(); if (['通過', '有條件通過', '不通過'].includes(c)) sign.push(c); }
+      }
+      if (items.length) g11.push(`尚未通過的驗收項目：${list(items)}`);
+      if (!sign.length) g11.push('簽核表沒有 Human 填寫的結論');
+      else if (!sign.includes('通過') || sign.includes('不通過')) g11.push(`簽核結論：${sign.join('、')}`);
+    }
+    gate('G-11', '驗收（Acceptance）', g11.length ? 'BLOCKED' : 'PASS', g11.length ? g11 : ['已由 Human 簽核通過']);
+  }
+
+  // G-12 Standards 適用性衝突
+  const std = read('spec/standards.md');
+  const conflicts = [];
+  if (std !== null) for (const t of tables(std)) {
+    const pos = colMap(t.head, {standard: C(['Standard', 'ID', '規範']), applies: C(['適用', 'Applicability'])});
+    if ('standard' in pos && 'applies' in pos) for (const r of t.rows) if (r.cells[pos.applies] === 'CONFLICT') conflicts.push(r.cells[pos.standard]);
+  }
+  gate('G-12', 'Standards 適用性', conflicts.length ? 'BLOCKED' : std === null ? 'HUMAN' : 'PASS',
+    conflicts.length ? [`有衝突、尚待 Human 決定：${list(conflicts)}`] : std === null ? ['沒有 spec/standards.md，請 Human 確認本 Module 不適用任何專案規範'] : ['沒有衝突']);
+
+  const count = s => gates.filter(g => g.state === s).length;
+  const verdict = count('BLOCKED') ? 'BLOCKED' : count('HUMAN') ? 'HUMAN_REQUIRED' : 'READY';
+  return {verdict, blocked: count('BLOCKED'), human: count('HUMAN'), gates};
+}
+
+const VERDICT = {
+  BLOCKED: '阻擋：不得結案',
+  HUMAN_REQUIRED: '待 Human 確認：工具沒有找到阻擋項目，但有需要 Human 判斷的 Gate',
+  READY: '工具沒有找到阻擋項目',
+};
+
+export function formatGate(g) {
+  const out = ['結案預檢（依 adf-development-complete 的各 Gate）'];
+  for (const x of g.gates) {
+    out.push(`  [${GATE_STATES[x.state]}] ${x.id} ${x.name}`);
+    for (const r of x.reasons) out.push(`      - ${r}`);
+  }
+  out.push(`結論：${VERDICT[g.verdict]}${g.blocked ? `（阻擋 ${g.blocked} 項）` : ''}${g.human ? `（待確認 ${g.human} 項）` : ''}`);
+  out.push('工具的結論不等於核准；結案仍須 Human 在 Development Complete Gate 確認。');
+  return out.join('\n');
 }
 
 // ---------- 版控檢查 ----------
@@ -946,20 +1116,22 @@ export function formatText(result) {
   const s = result.summary;
   out.push(`結果：錯誤 ${s.error}、警告 ${s.warn}、資訊 ${s.info}`);
   if (result.coverage) out.push('', formatCoverage(result.coverage));
+  if (result.gate) out.push('', formatGate(result.gate));
   return out.join('\n');
 }
 
 const isMain = () => { try { return fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } };
 if (process.argv[1] && isMain()) {
   const argv = process.argv.slice(2);
-  const json = argv.includes('--json'), noGit = argv.includes('--no-git');
+  const json = argv.includes('--json'), noGit = argv.includes('--no-git'), gate = argv.includes('--gate');
   const pi = argv.indexOf('--project');
   const project = pi >= 0 ? argv[pi + 1] : undefined;
   const target = argv.filter((a, i) => !a.startsWith('--') && (pi < 0 || i !== pi + 1))[0];
-  if (!target) { console.error('用法：node module-check.mjs <module-dir> [--project <專案根目錄>] [--json] [--no-git]'); process.exit(2); }
+  if (!target) { console.error('用法：node module-check.mjs <module-dir> [--project <專案根目錄>] [--json] [--no-git] [--gate]'); process.exit(2); }
   try {
-    const result = checkModule(target, {project, git: !noGit});
+    const result = checkModule(target, {project, git: !noGit, gate});
     console.log(json ? JSON.stringify(result, null, 2) : formatText(result));
+    if (gate) process.exit({READY: 0, BLOCKED: 1, HUMAN_REQUIRED: 3}[result.gate.verdict]);
     process.exit(result.summary.error ? 1 : 0);
   } catch (e) {
     const message = e instanceof YamlError ? `manifest.yaml 超出支援的 YAML 範圍：${e.message}` : e.message;
