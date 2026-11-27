@@ -7,7 +7,7 @@ CHECK / PLAN 唯讀；APPLY 只執行計畫；VERIFY 驗證後才完成。RESTOR
 resources.json 指定各資源的唯一 owner。先解析本專案 .agents/skills/<owner>，再確認 .claude/skills/<owner> 若存在是同一來源或相同內容。允許 Agent 符號連結指向本專案 .agents/skills，但禁止指向全域或專案外。不同內容、未知版本、缺少 release.json 或缺少資源都阻擋使用；不得自行複製替代品。
 
 ## 相容性
-工具版本為 5.6.0，支持專案文件格式 5.0、5.1；由 5.1.0、5.2.0、5.3.0、5.4.0、5.4.1、5.5.0 寫入的 `.adf/project.yaml` 格式相同，可直接沿用（相容清單見 resources.json 的 `compatible_tool_versions`）。舊專案沒有設定時記錄 document_schema=5.0、adopted_base=unknown，不因安裝工具而宣稱既有內容已升級。新專案記錄 5.1，但官方規範預設仍未採用。已完成舊 Module 不重設核准；補做另走 CHANGE。
+工具版本為 5.6.0，支持專案文件格式 5.0、5.1；由 5.1.0、5.2.0、5.3.0、5.4.0、5.4.1、5.5.0、5.5.1 寫入的 `.adf/project.yaml` 格式相同，可直接沿用（相容清單見 resources.json 的 `compatible_tool_versions`）。舊專案沒有設定時記錄 document_schema=5.0、adopted_base=unknown，不因安裝工具而宣稱既有內容已升級。新專案記錄 5.1，但官方規範預設仍未採用。已完成舊 Module 不重設核准；補做另走 CHANGE。
 
 ## 客製內容
 PLAN 會攔截未知 .adf/templates 檔案。歸位時由人確認必要內容，將業務規則保存到 standards 或 modules 需求文件。以專案外 JSON resolution 檔記錄 entries: [{source, source_hash, destination, destination_hash, human_confirmed:true}]，source 相對 .adf/templates，destination 只限 standards/ 或 modules/，雜湊為 SHA-256。執行 PLAN <project> <resolution.json>。此紀錄證明人確認的歸位，工具不假裝自動理解語意；原檔仍備份保留。

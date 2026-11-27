@@ -7,8 +7,12 @@ ADF 的目的不是讓 AI 單純寫得更快，而是把「相信 AI」轉成「
 ## v5.6.0 重點
 - 新增 Module 檢查工具（試用）`adf-project-install/scripts/module-check.mjs`：用程式檢查 Module 文件的格式、ID 連結、manifest 結構、Verification SQL 與疑似 Secret，計算 Requirement／Rule／Scenario／本次變更／Legacy 行為／驗收的覆蓋率，並以 `--gate` 做結案預檢。只讀檔案、不修改 Artifact、不判定核准；使用方式見下方「Quality Gate」。
 - 本版只發布工具，Skill 流程不變（Skill 不會自動執行它）；格式規則仍是草案（`docs/proposals/module-format.md`），收集回饋後再決定是否納入 Skill。
-- 支援新版 npx skills（1.9 起）的 `skills-lock.json` version 2：v5.5.0 以前用新版 npx 安裝或更新會出現 `Unsupported npx skills lock format`，v5.6.0 同時支援 version 1 與 2。
+- 包含 v5.5.1 的新版 npx skills（1.9 起）`skills-lock.json` version 2 支援。
 - 既有 Module 與 Work Item 不需修改。由 v5.5 升級見 [v5.5 → v5.6 SOP](docs/upgrades/5.5-to-5.6.md)，版本說明見 [docs/releases/5.6.md](docs/releases/5.6.md)。
+
+## v5.5.1 重點
+- 修正版：支援新版 npx skills（1.9 起）寫入的 `skills-lock.json` version 2。v5.5.0 用新版 npx 全新安裝會在 PLAN 出現 `Unsupported npx skills lock format`，更新則在 VERIFY 失敗後自動還原；v5.5.1 同時支援 version 1 與 2。
+- Skill 內容與流程不變。已在 v5.5.0 的專案直接更新；安裝時卡住的專案（有 Skill、沒有 `.adf/`）依 [v5.4 → v5.5 SOP](docs/upgrades/5.4-to-5.5.md) 第 6 步恢復。版本說明見 [docs/releases/5.5.md](docs/releases/5.5.md)。
 
 ## v5.5.0 重點
 - 新增 `adf-acceptance-checklist`（Skill 增為 34 支）：讀取本次 Work Item 的變更紀錄、影響範圍與已核准 Artifact，產生 `verification/acceptance-<work_item.id>.md` 驗收清單（`AC-*`），列出本次說明、影響範圍、功能驗收、回歸確認、未解決項目與簽核欄；Human 填寫後再執行一次回收結果。AI 不代填結果、不代簽核。
@@ -310,13 +314,13 @@ irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/updat
 
 ```bash
 # 指令取自測試版 tag 本身，再以 --version 指定同一個 tag
-curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/v5.6.0-beta.1/scripts/install.sh | bash -s -- --version v5.6.0-beta.1
+curl -fsSL https://raw.githubusercontent.com/chungtsai/adf-framework/v5.6.0-beta.2/scripts/install.sh | bash -s -- --version v5.6.0-beta.2
 
 # Windows PowerShell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/chungtsai/adf-framework/v5.6.0-beta.1/scripts/install.ps1))) -Version v5.6.0-beta.1
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/chungtsai/adf-framework/v5.6.0-beta.2/scripts/install.ps1))) -Version v5.6.0-beta.2
 ```
 
-- 已安裝的專案執行同一行指令會自動改為更新到測試版；回到正式版用 `--version v5.5.0`（或正式版發布後 `--version v5.6.0`）。
+- 已安裝的專案執行同一行指令會自動改為更新到測試版；回到正式版用 `--version v5.5.1`（或正式版發布後 `--version v5.6.0`）。
 - 測試版與正式版的 Skill 內容版本相同（例如都是 `5.6.0`），差別只在 `skills-lock.json` 的 `ref`；`project.mjs` 接受 `v<版本>` 與 `v<版本>-beta.N`／`-rc.N`，但 34 支 Skill 的 `ref` 必須一致。`VERIFY` 會回報 `ref` 與 `prerelease`。
 - 從測試版更新到同版號的正式版，更新腳本以 `skills-lock.json` 的 `ref` 判斷，不會誤判為「已是最新」。
 - 測試版只建議用在測試專案或分支；腳本會在寫入前提示。版號格式不是 `vX.Y.Z`、`vX.Y.Z-beta.N` 或 `vX.Y.Z-rc.N` 時直接停止。
