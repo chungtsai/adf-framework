@@ -351,19 +351,37 @@ Status: APPROVED
 
 ### 原型進度
 
-`skills/adf-project-install/scripts/module-check.mjs`（測試：`tests/module-check.test.mjs`）已實作：
+`skills/adf-project-install/scripts/module-check.mjs`（測試：`tests/module-check.test.mjs`）已實作第 6 節與本節列出的全部檢查（L-01～L-14、M-01～M-09、R-01～R-09），以及第 8 節的覆蓋率；R-07 的 manifest 部分目前只對應 `status.verification.test_generation`。實作細節：
 
-- L-01～L-07、L-10～L-14。
-- M-08，以及 manifest 的 YAML 子集解析。
-- R-01～R-04、R-06～R-09。R-07 的 manifest 部分目前只對應 `status.verification.test_generation`。
+- **L-08 SQL**：
+  - 檢查範圍：TC 的 `Verification` 欄、FS 的 `Data Verification` 欄，以及 `functional-scenarios.md`、`test-cases.md`、`acceptance-*.md` 中的程式碼區塊。
+  - 只認 SQL 語法（`INSERT INTO`、`UPDATE x SET`、`DELETE FROM`、`MERGE INTO`、DDL、`GRANT`、`EXEC`、`CALL`、`FOR UPDATE`），字串常值與註解內的關鍵字不算，所以說明文字裡的「DELETE」不會誤報。
+  - 程式碼區塊所在標題或前 3 行有「Cleanup／清除／清理」時視為 Cleanup SQL：
+    - 有註明「人工確認」→ 不報。
+    - 沒註明 → `WARN`。
+  - 其他含資料異動的 SQL → `ERROR`。
+- **L-09 Secret**：
+  - 掃描 Module 內所有文字檔。
+  - 明確格式（私密金鑰、AWS／GitHub／Slack Token、`sk-` 金鑰、JWT、連線字串內含密碼）→ `ERROR`。
+  - `password=`、`token:`、`密碼：` 等關鍵字 → `WARN`：工具分不出正式環境還是測試帳號，交給 Human 判斷。
+  - 佔位字（`<...>`、`${...}`、`***`、「請洽…」）不報。
+  - 訊息只寫類型與行號，不輸出內容。
+- **M-01**：欄位清單直接讀 `adf-feature-init/assets/manifest.yaml`（owner 範本，repo 與安裝後目錄結構相同），不在工具裡另抄一份；缺少 5.5.0 新增欄位時只報 `INFO`。
+- **M-09**：
+  - 從 git 歷史找出 `work_item.id` 相同、第一次出現 `base_ref` 的 manifest 版本，與目前的值比較。
+  - `base_ref` 指向的 commit 不存在時 `WARN`（可能是 shallow clone）。
+- **R-05**：
+  - 把 `base_ref` 時的 Module 從 git 取出，以同一套規則解析後逐一比較每個 ID：
+    - 新增：base_ref 時不存在，現在存在且不是 `REMOVED`。
+    - 修改：內容摘要不同。
+    - 刪除：現在是 `REMOVED`。
+  - 內容摘要包含整列所有欄位、但**不含 Status**，所以只改核准狀態不算修改。
+  - 未登記的修改提示「只改錯字或格式可不登記，請 Human 確認」。
+  - 整列被刪除時另外提醒應保留並標 `REMOVED`。
+  - 全部以 `WARN` 加 `REVIEW_REQUIRED` 呈現，不自動修正 `changes`。
+- **沒有 git 時**：`base_ref` 為 `null` 時不提示；`base_ref` 有值時以 `INFO` 說明略過。CLI 可用 `--no-git` 關閉。
 
-尚未實作：
-
-- L-08、L-09。
-- M-01～M-07、M-09。
-- R-05：需要讀 git 差異。
-
-覆蓋率（第 8 節）已實作，結果放在 JSON 的 `coverage`，文字輸出附在檢查結果之後；覆蓋率不影響 exit code。
+覆蓋率（第 8 節）的結果放在 JSON 的 `coverage`，文字輸出附在檢查結果之後；覆蓋率不影響 exit code。
 
 ## 8. 覆蓋率定義
 

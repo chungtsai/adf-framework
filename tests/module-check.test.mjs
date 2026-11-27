@@ -6,7 +6,7 @@ import path from 'node:path';
 import os from 'node:os';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {checkModule, parseYaml, findIds, tables, YamlError, formatCoverage} from '../skills/adf-project-install/scripts/module-check.mjs';
+import {checkModule, parseYaml, findIds, tables, YamlError, formatCoverage, sqlWrite, secretFindings} from '../skills/adf-project-install/scripts/module-check.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const cli = path.join(repo, 'skills/adf-project-install/scripts/module-check.mjs');
@@ -22,15 +22,57 @@ work_item:
   intents:
     - FEATURE
   title: 帳號查詢
+  trigger:
+    type: USER_REQUIREMENT
+    standards: []
   base_ref: null # 沒有版控
   changes:
     added: [REQ-001, BR-001, TC-001]
     modified: []
     removed: []
+behavior:
+  change_allowed: true
+  preserve: []
+  approved_changes: []
+impact:
+  ui: unknown
+  backend: unknown
+  database: unknown
+revalidation:
+  required: false
+  reason: null
+  standards: []
 status:
+  analysis: done
+  specification: done
+  standards: pending
+  prototype:
+    status: not_applicable
+    reason: 純查詢
+  design: pending
+  development:
+    backend: pending
+    frontend: pending
   verification:
     test_generation: pending
+    execution: pending
+    security: not_applicable
+    legacy_baseline: not_applicable
+    normalization: not_applicable
+    comparison: not_applicable
+    traceability: pending
     acceptance: pending
+blockers: []
+review:
+  status: IN_PROGRESS
+  questions:
+    total: 0
+    answered: 0
+    unresolved: 0
+  blockers: []
+  approval:
+    required: false
+    approved: false
 `;
 
 const FILES = {
@@ -324,4 +366,150 @@ test('執行結果：每個 TC 取最後一次；一列多 Test 時只有 PASS �
   const e = checkModule(dir).coverage.execution;
   assert.deepEqual([e.PASS, e.FAIL, e.UNCERTAIN, e.NOT_RECORDED, e.failed, e.uncertain], [0, 1, 2, 0, ['TC-001'], ['TC-002', 'TC-003']]);
   assert.match(formatCoverage(checkModule(dir).coverage), /執行（已核准的 TC 3 個）：PASS 0、FAIL 1、NOT_RUN 0、BLOCKED 0、結果不明 2、未記錄 0；失敗：TC-001；結果不明：TC-002、TC-003/);
+});
+
+test('L-08 SQL 判斷：只認 SQL 語法，字串與註解內的關鍵字不算', () => {
+  assert.equal(sqlWrite("SELECT * FROM ACCOUNT WHERE STATUS = 'DELETE FROM X'"), null);
+  assert.equal(sqlWrite('SELECT 1 -- 之後 DELETE FROM X\nFROM DUAL'), null);
+  assert.equal(sqlWrite('確認 DELETE 成功、資料已 UPDATE'), null);
+  assert.equal(sqlWrite("delete from ACCOUNT where ID='T1'"), 'DELETE FROM');
+  assert.equal(sqlWrite('UPDATE ACCOUNT SET NAME = 1'), 'UPDATE ACCOUNT');
+  assert.equal(sqlWrite('SELECT * FROM A WHERE ID = 1 FOR UPDATE'), 'FOR UPDATE');
+  assert.equal(sqlWrite('CREATE OR REPLACE VIEW V AS SELECT 1'), 'CREATE OR');
+});
+
+test('L-08 表格與程式碼區塊：Verification 不可異動，Cleanup 須註明人工確認', t => {
+  const fs_ = FILES['verification/functional-scenarios.md'] + `
+## 資料異動驗證
+
+\`\`\`sql
+SELECT COUNT(*) FROM ACCOUNT WHERE ACCOUNT = 'TEST001';
+\`\`\`
+
+驗證後：
+
+\`\`\`sql
+DELETE FROM ACCOUNT WHERE ACCOUNT = 'TEST001';
+\`\`\`
+
+### Cleanup SQL
+
+\`\`\`sql
+DELETE FROM ACCOUNT WHERE ACCOUNT = 'TEST001';
+\`\`\`
+
+### Cleanup SQL（人工確認後執行）
+
+\`\`\`sql
+DELETE FROM ACCOUNT WHERE ACCOUNT = 'TEST001';
+\`\`\`
+`;
+  const {dir} = moduleDir(t, {
+    'verification/functional-scenarios.md': fs_,
+    'verification/test-cases.md': edit('verification/test-cases.md', '| 畫面 | APPROVED |', "| UPDATE ACCOUNT SET STATUS='N' | APPROVED |"),
+  });
+  const r = only(checkModule(dir), 'L-08').map(f => [f.level, f.file, f.line]);
+  assert.deepEqual(r, [
+    ['ERROR', 'verification/functional-scenarios.md', 17],
+    ['WARN', 'verification/functional-scenarios.md', 23],
+    ['ERROR', 'verification/test-cases.md', 6],
+  ]);
+});
+
+test('L-09 Secret：明確格式為 ERROR、關鍵字為 WARN、佔位字不報，訊息不含內容', t => {
+  const fake = 'ghp_' + 'a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8';
+  assert.deepEqual(secretFindings('password: <測試密碼>\ntoken=${TOKEN}\n密碼：請洽管理者\npwd=***').length, 0);
+  const {dir} = moduleDir(t, {
+    'design/design.md': `# Design\n\n連線：jdbc:oracle://app:Sup3rS3cret@db01\n\nGitHub：${fake}\n\n測試帳號 password=Test1234\n`,
+  });
+  const r = only(checkModule(dir), 'L-09');
+  assert.deepEqual(r.map(f => [f.level, f.file, f.line]), [['ERROR', 'design/design.md', 3], ['ERROR', 'design/design.md', 5], ['WARN', 'design/design.md', 7]]);
+  assert.ok(r.every(f => !f.message.includes('Sup3rS3cret') && !f.message.includes(fake) && !f.message.includes('Test1234')));
+});
+
+test('M-01～M-07 manifest 結構', t => {
+  const m = MANIFEST.replace('impact:\n  ui: unknown\n', 'impact:\n')
+    .replace('title: 帳號查詢', 'title: CHANGE_ME')
+    .replace('    - FEATURE', '    - FEATURE\n    - HOTFIX')
+    .replace('origin: NEW', 'origin: LEGACY')
+    .replace('  design: pending', '  design: in_review')
+    .replace('    backend: pending', '    backend: finished')
+    .replace('review:\n  status: IN_PROGRESS', 'review:\n  status: APPROVED')
+    .replace('total: 0', 'total: 3').replace('unresolved: 0', 'unresolved: 1')
+    .replace('    approved: false', '    approved: true');
+  const r = checkModule(moduleDir(t, {'manifest.yaml': m}).dir);
+  const msg = code => only(r, code).map(f => `${f.level} ${f.message}`);
+  assert.deepEqual(msg('M-01'), ['ERROR 缺少欄位：impact.ui']);
+  assert.deepEqual(msg('M-02'), ['ERROR 仍是 CHANGE_ME：work_item.title']);
+  assert.deepEqual(msg('M-03').map(s => s.split('不在')[0]), ['ERROR work_item.intents 的「HOTFIX」', 'ERROR module.origin「LEGACY」']);
+  assert.deepEqual(msg('M-05').map(s => s.split('」')[0]), ['ERROR status.development.backend 的「finished', 'WARN status.design 的「in_review']);
+  assert.deepEqual(msg('M-06'), ['ERROR review.questions.total（3）應等於 answered（0）+ unresolved（1）']);
+  assert.deepEqual(msg('M-07'), ['ERROR 仍有 1 個未解決問題，review.status 不可為 APPROVED']);
+  const approvedOnly = checkModule(moduleDir(t, {'manifest.yaml': MANIFEST.replace('    approved: false', '    approved: true')}).dir);
+  assert.match(only(approvedOnly, 'M-07')[0].message, /review\.status 必須是 APPROVED（目前：IN_PROGRESS）/);
+});
+
+test('M-04 既有系統導入情境的欄位組合', t => {
+  const rv = MANIFEST.replace('    - FEATURE', '    - RETROFIT_VERIFY').replace('  type: NEW', '  type: MIGRATION');
+  const r = checkModule(moduleDir(t, {'manifest.yaml': rv}).dir);
+  assert.deepEqual(only(r, 'M-04').map(f => `${f.level} ${f.message.split('（')[0]}`), [
+    'ERROR RETROFIT_VERIFY 的 module.origin 必須是 MIGRATION',
+    'ERROR RETROFIT_VERIFY 的 behavior.change_allowed 必須是 false',
+    'WARN RETROFIT_VERIFY 只驗證、不修改 Target，status.development.backend 應為 not_applicable',
+    'WARN RETROFIT_VERIFY 只驗證、不修改 Target，status.development.frontend 應為 not_applicable',
+  ]);
+  const ba = MANIFEST.replace('    - FEATURE', '    - BASELINE_ADOPTION').replace('change_allowed: true', 'change_allowed: false')
+    .replace('    backend: pending\n    frontend: pending', '    backend: not_applicable\n    frontend: not_applicable').replace('    required: false', '    required: true');
+  assert.deepEqual(only(checkModule(moduleDir(t, {'manifest.yaml': ba}).dir), 'M-04'), []);
+});
+
+const skipGit = spawnSync('git', ['--version']).status !== 0;
+const gitRun = (cwd, ...args) => {
+  const r = spawnSync('git', ['-c', 'user.email=t@example.invalid', '-c', 'user.name=t', '-c', 'commit.gpgsign=false', ...args], {cwd, encoding: 'utf8'});
+  assert.equal(r.status, 0, r.stderr);
+  return r.stdout.trim();
+};
+
+test('M-09／R-05 版控：base_ref 不可改寫；changes 與實際差異比對', {skip: skipGit}, t => {
+  // 基準 commit：前一個 Work Item（WI-000）已完成時的 Module
+  const {root, dir} = moduleDir(t, {'manifest.yaml': MANIFEST.replace('id: WI-001', 'id: WI-000').replace(/  changes:\n[\s\S]*?removed: \[\]\n/, '  changes:\n    added: []\n    modified: []\n    removed: []\n')});
+  gitRun(root, 'init', '-q');
+  gitRun(root, 'add', '-A');
+  gitRun(root, 'commit', '-q', '-m', 'base');
+  const base = gitRun(root, 'rev-parse', 'HEAD');
+  // 建立 Work Item：記下 base_ref 並提交
+  const wi = MANIFEST.replace('base_ref: null # 沒有版控', `base_ref: ${base}`);
+  const setManifest = changes => write(dir, 'manifest.yaml', wi.replace(/  changes:\n[\s\S]*?removed: \[\]\n/, changes));
+  setManifest('  changes:\n    added: []\n    modified: []\n    removed: []\n');
+  gitRun(root, 'commit', '-q', '-am', 'start WI-001');
+
+  // 本次實際變更：新增 REQ-003、修改 BR-001 的預期行為、刪除 VAL-001（標 REMOVED）、TC-002 改 Source；TC-003 只改 Status（不算修改）
+  write(dir, 'spec/requirements.md', FILES['spec/requirements.md'] + '| REQ-003 | 帳號列印 | 列印清單 | APPROVED |\n');
+  write(dir, 'spec/rules.md', FILES['spec/rules.md'].replace('查詢結果不含停用帳號', '查詢結果不含停用與鎖定帳號').replace('| 顯示「請輸入帳號」 | REQ-001 | APPROVED |', '| 顯示「請輸入帳號」 | REQ-001 | REMOVED |'));
+  write(dir, 'verification/test-cases.md', edit('verification/test-cases.md', '| 畫面 | APPROVED |', '| 畫面 | DRAFT |').replace('| TC-002 | VAL-001 |', '| TC-002 | REQ-001 |').replace('| 檔案 | APPROVED |', '| 檔案 | DRAFT |'));
+
+  setManifest('  changes:\n    added: [REQ-003]\n    modified: [BR-001, TC-002]\n    removed: [VAL-001]\n');
+  let r = checkModule(dir);
+  assert.deepEqual(only(r, 'R-05'), [], JSON.stringify(only(r, 'R-05')));
+  assert.deepEqual(only(r, 'M-09'), []);
+
+  // 漏登記、登記錯類別、登記了沒有差異的 ID
+  setManifest('  changes:\n    added: [BR-001, TC-001]\n    modified: []\n    removed: [VAL-001]\n');
+  r = checkModule(dir);
+  assert.deepEqual(only(r, 'R-05').map(f => f.message.replace(/（[0-9a-f]{7}）/, '（hash）')), [
+    'REVIEW_REQUIRED：changes.added 登記了 TC-001，但與 base_ref（hash）相比沒有對應差異',
+    'REVIEW_REQUIRED：REQ-003 與 base_ref（hash）相比為新增，但 changes.added 沒有登記',
+    'REVIEW_REQUIRED：BR-001 登記在 changes.added，但與 base_ref（hash）相比實際為修改',
+    'REVIEW_REQUIRED：TC-002 與 base_ref（hash）相比為修改，但 changes.modified 沒有登記（只改錯字或格式、行為不變時可不登記，請 Human 確認）',
+  ]);
+
+  // 整列刪除
+  write(dir, 'spec/requirements.md', FILES['spec/requirements.md'].replace('| REQ-002 | 帳號匯出 | 匯出 Excel | APPROVED |\n', '') + '| REQ-003 | 帳號列印 | 列印清單 | APPROVED |\n');
+  assert.ok(only(checkModule(dir), 'R-05').some(f => f.id === 'REQ-002' && /整列被刪除/.test(f.message)));
+
+  // base_ref 被改寫
+  write(dir, 'manifest.yaml', wi.replace(base, gitRun(root, 'rev-parse', 'HEAD')));
+  assert.match(only(checkModule(dir), 'M-09')[0].message, /建立後不得改寫/);
+  write(dir, 'manifest.yaml', wi.replace(base, 'deadbeef'));
+  assert.deepEqual(only(checkModule(dir), 'M-09').map(f => f.level), ['ERROR', 'WARN']);
 });

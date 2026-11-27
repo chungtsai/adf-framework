@@ -1,10 +1,12 @@
 #!/usr/bin/env node
-// ADF Module 檢查工具（原型）：格式（L-*）、manifest（M-08）與連結（R-*）檢查。
+// ADF Module 檢查工具（原型）：格式與 SQL／Secret（L-*）、manifest 結構（M-*）、連結與版控差異（R-*）檢查，以及覆蓋率。
 // 依 docs/proposals/module-format.md；只讀檔案、不修改任何 Artifact，也不判定核准。
-// 用法：node module-check.mjs <module-dir> [--project <專案根目錄>] [--json]
+// 用法：node module-check.mjs <module-dir> [--project <專案根目錄>] [--json] [--no-git]
 // exit code：0 沒有 ERROR；1 有 ERROR；2 工具無法執行（找不到 Module、manifest 超出 YAML 子集等）
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 
 export const FORMAT = 1;
@@ -31,6 +33,68 @@ const RULE_SECTIONS = {'businessrules': 'BR', 'validationrules': 'VAL', 'queryru
 const DONE = ['done', 'passed'];
 const BASELINE = 'approved baseline';
 const NA = '不適用';
+
+// ---------- SQL 安全（L-08） ----------
+// 只認 SQL 語法（INSERT INTO、UPDATE x SET、DELETE FROM…），避免把說明文字裡的「DELETE」當成 SQL
+const DML = /\b(INSERT\s+INTO|UPDATE\s+[\w."[\]]+\s+SET|DELETE\s+FROM|MERGE\s+INTO|TRUNCATE\s+TABLE|DROP\s+(?:TABLE|VIEW|INDEX|PROCEDURE|FUNCTION|SEQUENCE|TRIGGER)|ALTER\s+(?:TABLE|VIEW|INDEX|SEQUENCE)|CREATE\s+(?:OR\s+REPLACE\s+)?(?:TABLE|VIEW|INDEX|PROCEDURE|FUNCTION|SEQUENCE|TRIGGER)|GRANT\s+\w+|REVOKE\s+\w+|EXEC(?:UTE)?\s+[\w.]+|CALL\s+[\w.]+\s*\(|FOR\s+UPDATE)\b/i;
+export function sqlWrite(text) {
+  const s = String(text ?? '').replace(/'(?:[^']|'')*'/g, "''").replace(/--[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  const m = DML.exec(s);
+  return m ? m[1].replace(/\s+/g, ' ').toUpperCase().split(' ').slice(0, 2).join(' ') : null;
+}
+const CLEANUP = /cleanup|清除|清理|還原測試資料/i;
+const HUMAN_CONFIRM = /人工確認|Human\s*確認|Human\s+confirm/i;
+
+// ---------- Secret（L-09）：只回報類型與位置，不輸出內容 ----------
+const SECRET_STRONG = [
+  ['私密金鑰', /-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----/],
+  ['AWS Access Key', /\bAKIA[0-9A-Z]{16}\b/],
+  ['GitHub Token', /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36}\b|\bgithub_pat_[A-Za-z0-9_]{22,}/],
+  ['Slack Token', /\bxox[abprs]-[A-Za-z0-9-]{10,}/],
+  ['API Key（sk-）', /\bsk-[A-Za-z0-9_-]{20,}/],
+  ['JWT', /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/],
+];
+const URL_CRED = /\b[a-z][a-z0-9+.-]*:\/\/[^\s:/@<>]+:([^\s@/<>]+)@/gi;
+const SECRET_KEY = /(?<![A-Za-z])(password|passwd|pwd|secret|api[_-]?key|access[_-]?key|client[_-]?secret|token|密碼|金鑰)\s*[:=：]\s*["']?([^\s"'，。、|<>]+)/gi;
+const PLACEHOLDER = v => v.length < 4 || /^(\*+|x+|\.{3}|…+|-+|—+|CHANGE_ME|null|none|請.*|略|空白)$/i.test(v) || /^[<${]/.test(v);
+const TEXT_EXT = new Set(['.md', '.yaml', '.yml', '.json', '.sql', '.txt', '.csv', '.properties', '.xml', '.env']);
+export function secretFindings(text) {
+  const out = [];
+  String(text ?? '').split(/\r?\n/).forEach((l, i) => {
+    for (const [kind, re] of SECRET_STRONG) if (re.test(l)) out.push({line: i + 1, kind, strong: true});
+    for (const m of l.matchAll(URL_CRED)) if (!PLACEHOLDER(m[1])) out.push({line: i + 1, kind: '連線字串內含帳號密碼', strong: true});
+    for (const m of l.matchAll(SECRET_KEY)) if (!PLACEHOLDER(m[2])) out.push({line: i + 1, kind: `疑似${m[1]}`, strong: false});
+  });
+  return out;
+}
+
+// ---------- manifest 結構（M-*） ----------
+const WORK_TYPES = ['NEW', 'CHANGE', 'MIGRATION'];
+const INTENTS = ['FEATURE', 'BUGFIX', 'SECURITY_FIX', 'REFACTOR', 'PERFORMANCE', 'DOCUMENTATION', 'RETROFIT_VERIFY', 'BASELINE_ADOPTION'];
+const ORIGINS = ['NEW', 'MIGRATION'];
+const REVIEW_STATUS = ['IN_PROGRESS', 'QUESTIONS_PENDING', 'READY_FOR_REVIEW', 'APPROVED', 'CHANGES_REQUESTED'];
+const STAGE_STATUS = ['pending', 'done', 'passed', 'not_applicable'];
+const ACCEPT_ONLY = ['in_review', 'failed'];
+const PRE_55 = p => p === 'work_item.base_ref' || p.startsWith('work_item.changes') || p === 'status.verification.acceptance';
+// 欄位清單以 owner Skill 的範本為唯一來源（repo 與安裝後的 Skill 目錄結構相同）
+const TEMPLATE = fileURLToPath(new URL('../../adf-feature-init/assets/manifest.yaml', import.meta.url));
+const isObj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+const getPath = (o, p) => p.split('.').reduce((x, k) => (isObj(x) && k in x ? x[k] : undefined), o);
+function leaves(o, prefix = '', out = []) {
+  for (const [k, v] of Object.entries(o)) {
+    const p = prefix ? `${prefix}.${k}` : k;
+    if (isObj(v) && Object.keys(v).length) leaves(v, p, out); else out.push(p);
+  }
+  return out;
+}
+
+// ---------- git（M-09、R-05） ----------
+function git(cwd, args) {
+  try {
+    const r = spawnSync('git', args, {cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024});
+    return r.status === 0 ? r.stdout : null;
+  } catch { return null; }
+}
 
 // ---------- Markdown（草案 1.2） ----------
 const norm = s => String(s ?? '').replace(/\s+/g, '').toLowerCase();
@@ -207,6 +271,7 @@ const ARTIFACTS = [
     cols: {
       id: C(['ID', '編號']), source: C(['Source', '來源'], {req: true, ...REF(['REQ', ...RULE_PREFIXES], {baseline: true})}),
       flow: C(['User Flow', '操作步驟'], {req: true}), ui: C(['UI Expected'], {req: true}),
+      data: C(['Data Verification', 'Verification SQL', 'Verification Method'], {sql: true}),
       tests: C(['Related Test'], {req: true, ...REF(['TC'])}), status: STATUS,
     },
   }]},
@@ -218,7 +283,9 @@ const ARTIFACTS = [
       id: C(['ID', '編號']),
       source: C(['Source', '來源'], {req: true, emptyCode: 'R-03', ...REF(['REQ', ...RULE_PREFIXES, 'LB'], {baseline: true})}),
       scenario: C(['Scenario', '情境'], REF(['FS'])),
-      expected: C(['Expected Result', '預期結果'], {req: true}), status: STATUS,
+      expected: C(['Expected Result', '預期結果'], {req: true}),
+      verification: C(['Verification', 'Verification SQL / Method', 'Verification SQL', 'Verification Method'], {sql: true}),
+      status: STATUS,
     },
   }]},
   {file: 'verification/traceability.md', tables: [{
@@ -264,6 +331,70 @@ function walk(dir, out = []) {
   return out;
 }
 
+function walkAll(dir, out = []) {
+  for (const e of fs.readdirSync(dir, {withFileTypes: true})) {
+    if (e.name === '.git' || e.name === 'node_modules') continue;
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) walkAll(p, out); else if (e.isFile()) out.push(p);
+  }
+  return out;
+}
+
+function checkManifest(m, add) {
+  const F = 'manifest.yaml';
+  // M-01：範本中的欄位
+  if (fs.existsSync(TEMPLATE)) {
+    const missing = leaves(parseYaml(fs.readFileSync(TEMPLATE, 'utf8'))).filter(p => getPath(m, p) === undefined);
+    const old = missing.filter(PRE_55), other = missing.filter(p => !PRE_55(p));
+    if (other.length) add('ERROR', 'M-01', F, null, null, `缺少欄位：${other.join('、')}`);
+    if (old.length) add('INFO', 'M-01', F, null, null, `缺少 5.5.0 新增的欄位：${old.join('、')}（5.5.0 之前建立的 Work Item 照常進行）`);
+  } else add('INFO', 'M-01', F, null, null, '找不到 adf-feature-init 的 manifest 範本，略過欄位完整性檢查');
+  // M-02：CHANGE_ME
+  const todo = [];
+  const scan = (v, p) => { if (isObj(v)) for (const [k, x] of Object.entries(v)) scan(x, p ? `${p}.${k}` : k); else if (Array.isArray(v)) v.forEach((x, i) => scan(x, `${p}[${i}]`)); else if (v === 'CHANGE_ME') todo.push(p); };
+  scan(m, '');
+  if (todo.length) add('ERROR', 'M-02', F, null, null, `仍是 CHANGE_ME：${todo.join('、')}`);
+  // M-03：Work Type、Intent、origin
+  const wi = m.work_item || {}, type = wi.type, intents = wi.intents ?? [], origin = m.module?.origin;
+  if (type !== undefined && !WORK_TYPES.includes(type)) add('ERROR', 'M-03', F, null, null, `work_item.type「${type}」不在允許值內：${WORK_TYPES.join('、')}`);
+  if (!Array.isArray(intents)) add('ERROR', 'M-03', F, null, null, 'work_item.intents 必須是清單');
+  else for (const x of intents) if (!INTENTS.includes(x)) add('ERROR', 'M-03', F, null, null, `work_item.intents 的「${x}」不在允許值內：${INTENTS.join('、')}`);
+  if (origin !== undefined && !ORIGINS.includes(origin)) add('ERROR', 'M-03', F, null, null, `module.origin「${origin}」不在允許值內：${ORIGINS.join('、')}`);
+  // M-04：既有系統導入情境（core/invariants.md Work Model 表）
+  const list = Array.isArray(intents) ? intents : [];
+  const scenario = (name, want) => {
+    if (!list.includes(name)) return;
+    const got = {'work_item.type': type, 'module.origin': origin, 'behavior.change_allowed': m.behavior?.change_allowed};
+    for (const [k, v] of Object.entries(want)) if (got[k] !== v) add('ERROR', 'M-04', F, null, null, `${name} 的 ${k} 必須是 ${v}（目前：${got[k] ?? '（未填）'}）`);
+    for (const k of ['backend', 'frontend']) {
+      const v = m.status?.development?.[k];
+      if (v !== undefined && v !== 'not_applicable') add('WARN', 'M-04', F, null, null, `${name} 只驗證、不修改 Target，status.development.${k} 應為 not_applicable（目前：${v}）`);
+    }
+  };
+  if (list.includes('RETROFIT_VERIFY') && list.includes('BASELINE_ADOPTION')) add('ERROR', 'M-04', F, null, null, 'RETROFIT_VERIFY 與 BASELINE_ADOPTION 不可同時出現');
+  scenario('RETROFIT_VERIFY', {'work_item.type': 'MIGRATION', 'module.origin': 'MIGRATION', 'behavior.change_allowed': false});
+  scenario('BASELINE_ADOPTION', {'work_item.type': 'NEW', 'module.origin': 'NEW', 'behavior.change_allowed': false});
+  if (list.includes('BASELINE_ADOPTION') && m.review?.approval?.required !== true) add('WARN', 'M-04', F, null, null, 'BASELINE_ADOPTION 必須 Human Approval，review.approval.required 應為 true');
+  // M-05：狀態值
+  const walkStatus = (v, p) => {
+    if (isObj(v)) { for (const [k, x] of Object.entries(v)) if (`${p}.${k}` !== 'status.prototype.reason') walkStatus(x, `${p}.${k}`); return; }
+    const isAccept = p === 'status.verification.acceptance';
+    if (STAGE_STATUS.includes(v) || (isAccept && ACCEPT_ONLY.includes(v))) return;
+    if (ACCEPT_ONLY.includes(v)) add('WARN', 'M-05', F, null, null, `${p} 的「${v}」只用於 status.verification.acceptance`);
+    else add('ERROR', 'M-05', F, null, null, `${p} 的「${v}」不在允許值內：${STAGE_STATUS.join('、')}${isAccept ? `、${ACCEPT_ONLY.join('、')}` : ''}`);
+  };
+  if (isObj(m.status)) walkStatus(m.status, 'status');
+  const rs = m.review?.status;
+  if (rs !== undefined && !REVIEW_STATUS.includes(rs)) add('ERROR', 'M-05', F, null, null, `review.status「${rs}」不在允許值內：${REVIEW_STATUS.join('、')}`);
+  // M-06：問題數
+  const q = m.review?.questions;
+  if (isObj(q) && [q.total, q.answered, q.unresolved].every(Number.isInteger) && q.total !== q.answered + q.unresolved)
+    add('ERROR', 'M-06', F, null, null, `review.questions.total（${q.total}）應等於 answered（${q.answered}）+ unresolved（${q.unresolved}）`);
+  // M-07：核准
+  if (m.review?.approval?.approved === true && rs !== 'APPROVED') add('ERROR', 'M-07', F, null, null, `review.approval.approved 為 true 時，review.status 必須是 APPROVED（目前：${rs ?? '（未填）'}）`);
+  if (rs === 'APPROVED' && Number.isInteger(q?.unresolved) && q.unresolved > 0) add('ERROR', 'M-07', F, null, null, `仍有 ${q.unresolved} 個未解決問題，review.status 不可為 APPROVED`);
+}
+
 function findProject(moduleDir) {
   let d = path.resolve(moduleDir);
   for (;;) {
@@ -304,6 +435,8 @@ export function checkModule(moduleDir, opts = {}) {
   const mtext = read('manifest.yaml');
   if (mtext === null) add('ERROR', 'M-01', 'manifest.yaml', null, null, '找不到 manifest.yaml');
   else manifest = parseYaml(mtext); // YamlError 交給呼叫端（exit 2）
+  if (manifest !== null && !isObj(manifest)) { add('ERROR', 'M-01', 'manifest.yaml', null, null, 'manifest.yaml 的最上層必須是欄位對應（mapping）'); manifest = null; }
+  if (manifest && opts.manifest !== false) checkManifest(manifest, add);
 
   const files = [];
   const listDir = rel => { const p = path.join(dir, rel); return fs.existsSync(p) ? fs.readdirSync(p).map(f => `${rel}/${f}`) : []; };
@@ -318,11 +451,13 @@ export function checkModule(moduleDir, opts = {}) {
   const rows = {TC: [], FS: [], RULE: [], TRACE: [], STD: []};
   const rowsBy = {};               // 表格名稱 → 列（覆蓋率用）
 
-  const define = (id, file, line, status, row) => {
+  // sig：內容摘要（不含 Status），供 R-05 與 base_ref 版本比對是否修改
+  const define = (id, file, line, status, row, sig) => {
     const prev = defs.get(id);
     if (prev) { add('ERROR', 'L-04', file, line, id, `${id} 重複定義（第一次在 ${prev.file}:${prev.line}）`); return; }
-    defs.set(id, {file, line, status, removed: status === 'REMOVED', row});
+    defs.set(id, {file, line, status, removed: status === 'REMOVED', row, sig});
   };
+  const sigOf = (head, cells, skip) => head.map((h, i) => (i === skip ? null : `${norm(h)}=${cells[i].replace(/\s+/g, ' ')}`)).filter(Boolean).sort().join('\u0001');
 
   for (const {file, text, spec} of files) {
     const found = new Set();
@@ -349,7 +484,7 @@ export function checkModule(moduleDir, opts = {}) {
             if (ts.define.fileScope) {
               const set = acDefs.get(file) || new Set(); acDefs.set(file, set);
               if (set.has(rowId)) add('ERROR', 'L-04', file, r.line, rowId, `${rowId} 在本檔重複定義`); else set.add(rowId);
-            } else define(rowId, file, r.line, status, {file, line: r.line});
+            } else define(rowId, file, r.line, status, {file, line: r.line}, sigOf(t.head, r.cells, pos.status));
           }
           const row = {id: rowId, file, line: r.line, status, removed, vals: {}};
           for (const [k, c] of Object.entries(ts.cols)) {
@@ -365,6 +500,10 @@ export function checkModule(moduleDir, opts = {}) {
               if (!ok) add('ERROR', 'L-05', file, r.line, rowId, `「${c.names[0]}」的值「${val}」不在允許值內：${c.enum.join('、')}`);
               row.vals[k] = val;
               continue;
+            }
+            if (c.sql) {
+              const w = sqlWrite(val);
+              if (w) add('ERROR', 'L-08', file, r.line, rowId, `「${c.names[0]}」含有資料異動 SQL（${w}）；Verification SQL 只能用 SELECT，Cleanup SQL 須另外標示並由 Human 確認後執行`);
             }
             if (!c.ref) { row.vals[k] = val; continue; }
             if (RANGE.test(val)) add('ERROR', 'L-07', file, r.line, rowId, `「${c.names[0]}」不可寫範圍（${RANGE.exec(val)[0]}），請逐一列出`);
@@ -400,20 +539,54 @@ export function checkModule(moduleDir, opts = {}) {
       for (const m of heads) {
         const line = text.slice(0, m.index).split('\n').length;
         let status = '';
+        const body = [m[2].trim()];
         for (let i = line; i < lines.length && !/^#{1,6}\s/.test(lines[i]); i++) {
           const s = /^\s*[-*]?\s*(?:status|狀態)\s*[:：]\s*(\S+)/i.exec(lines[i]);
-          if (s) { status = s[1]; break; }
+          if (s) { if (!status) status = s[1]; } else if (lines[i].trim()) body.push(lines[i].trim().replace(/\s+/g, ' '));
         }
         if (!status) add('ERROR', 'L-14', file, line, m[1], `${m[1]} 沒有「Status:」行`);
         else if (!ART_STATUS.includes(status)) add('ERROR', 'L-05', file, line, m[1], `Status「${status}」不在允許值內：${ART_STATUS.join('、')}`);
-        define(m[1], file, line, status, {file, line});
+        define(m[1], file, line, status, {file, line}, body.join('\u0001'));
       }
       if (heads.length && found.has('Requirement')) add('WARN', 'L-13', file, null, null, 'Requirement 同時使用表格與標題兩種寫法');
     }
   }
 
+  // L-08：verification 文件中的 SQL 程式碼區塊（Cleanup 區塊另外判斷）
+  for (const {file, text} of files) {
+    if (!/^verification\/(functional-scenarios|test-cases|acceptance-.+)\.md$/.test(file)) continue;
+    const lines = text.split(/\r?\n/);
+    let section = '';
+    for (let i = 0; i < lines.length; i++) {
+      const h = /^#{1,6}\s+(.*)$/.exec(lines[i]);
+      if (h) { section = h[1]; continue; }
+      const f = /^\s*(```|~~~)/.exec(lines[i]);
+      if (!f) continue;
+      const start = i, block = [];
+      for (i++; i < lines.length && !lines[i].trimStart().startsWith(f[1]); i++) block.push(lines[i]);
+      const w = sqlWrite(block.join('\n'));
+      if (!w) continue;
+      const before = lines.slice(Math.max(0, start - 3), start).join('\n');
+      const context = [section, before, lines[start], block[0] || ''].join('\n');
+      if (!CLEANUP.test(context)) add('ERROR', 'L-08', file, start + 1, null, `SQL 區塊含有資料異動（${w}）；Verification SQL 只能用 SELECT，Cleanup SQL 要在標題或區塊前註明「Cleanup」`);
+      else if (!HUMAN_CONFIRM.test(context)) add('WARN', 'L-08', file, start + 1, null, `Cleanup SQL 含資料異動（${w}），須註明「人工確認後執行」`);
+    }
+  }
+
+  // L-09：Module 內所有文字檔
+  if (opts.secrets !== false) {
+    for (const f of walkAll(dir)) {
+      if (!TEXT_EXT.has(path.extname(f).toLowerCase()) || fs.statSync(f).size > 2 * 1024 * 1024) continue;
+      const rel = path.relative(dir, f).split(path.sep).join('/');
+      for (const s of secretFindings(fs.readFileSync(f, 'utf8')))
+        add(s.strong ? 'ERROR' : 'WARN', 'L-09', rel, s.line, null, s.strong
+          ? `疑似 ${s.kind}；Artifact 不可寫入 Secret（內容不顯示）`
+          : `${s.kind}的值（內容不顯示）；請確認不是正式環境的帳密或金鑰，測試帳密建議改由測試環境設定提供`);
+    }
+  }
+
   // 專案 standards
-  const project = opts.project ? path.resolve(opts.project) : findProject(dir);
+  const project =opts.project ? path.resolve(opts.project) : findProject(dir);
   const standards = loadStandards(project);
   let stdSkipped = false;
   const stdLookup = id => {
@@ -515,6 +688,9 @@ export function checkModule(moduleDir, opts = {}) {
     }
   }
 
+  // M-09／R-05：版控
+  if (manifest && opts.git !== false) gitChecks({dir, manifest, defs, add});
+
   // R-08：規格書（Read Model）
   const spec = read('specification.md');
   if (spec !== null) {
@@ -535,13 +711,98 @@ export function checkModule(moduleDir, opts = {}) {
   findings.sort((a, b) => String(a.file ?? '').localeCompare(String(b.file ?? '')) || (a.line ?? 0) - (b.line ?? 0) || order[a.level] - order[b.level]);
   const summary = {error: 0, warn: 0, info: 0};
   for (const f of findings) summary[f.level.toLowerCase()]++;
-  return {
+  const result = {
     tool: 'adf-module-check', format: FORMAT,
     module: project ? path.relative(project, dir).split(path.sep).join('/') || '.' : dir,
     work_item: manifest?.work_item?.id ?? null,
     summary, findings,
     coverage: computeCoverage({defs, rowsBy, manifest}),
   };
+  Object.defineProperty(result, 'defs', {value: defs, enumerable: false}); // 供 R-05 讀 base_ref 版本用，不輸出
+  return result;
+}
+
+// ---------- 版控檢查 ----------
+const KIND_LABEL = {added: '新增', modified: '修改', removed: '刪除'};
+
+function gitChecks({dir, manifest, defs, add}) {
+  const F = 'manifest.yaml';
+  const wi = manifest.work_item || {};
+  if (!('base_ref' in wi)) return; // 5.5.0 之前：M-01 已提示
+  const top = git(dir, ['rev-parse', '--show-toplevel'])?.trim();
+  if (!top) {
+    // 沒有版控時 base_ref 本來就是 null，不必提示
+    if (wi.base_ref !== null && wi.base_ref !== undefined) add('INFO', 'R-05', F, null, null, '不在 git 版控內（或沒有安裝 git），略過 base_ref 檢查（M-09）與實際差異比對（R-05）');
+    return;
+  }
+  const rel = path.relative(fs.realpathSync(top), fs.realpathSync(dir)).split(path.sep).join('/');
+  const relFile = f => (rel ? `${rel}/${f}` : f);
+
+  // M-09：base_ref 和這個 Work Item 第一次提交時的值相同
+  const commits = (git(top, ['log', '--format=%H', '--', relFile('manifest.yaml')]) || '').split('\n').filter(Boolean).reverse();
+  for (const c of commits) {
+    let old;
+    try { old = parseYaml(git(top, ['show', `${c}:${relFile('manifest.yaml')}`]) || ''); } catch { continue; }
+    const ow = isObj(old) ? old.work_item : null;
+    if (!isObj(ow) || ow.id !== wi.id || !('base_ref' in ow)) continue;
+    if (String(ow.base_ref) !== String(wi.base_ref))
+      add('ERROR', 'M-09', F, null, null, `work_item.base_ref 建立後不得改寫：第一次提交（${c.slice(0, 7)}）為 ${ow.base_ref ?? 'null'}，目前為 ${wi.base_ref ?? 'null'}`);
+    break;
+  }
+
+  // R-05：changes 與 base_ref 起的實際差異
+  const base = wi.base_ref;
+  const ch = wi.changes;
+  if (base === null || base === undefined || base === '') { add('INFO', 'R-05', F, null, null, 'work_item.base_ref 為 null（專案沒有版控基準），略過實際差異比對'); return; }
+  if (git(top, ['cat-file', '-e', `${base}^{commit}`]) === null) { add('WARN', 'M-09', F, null, null, `找不到 base_ref 指向的 commit ${base}（可能是 shallow clone 或尚未 fetch），無法比對實際差異`); return; }
+  if (!isObj(ch)) return;
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'adf-base-'));
+  let baseDefs;
+  try {
+    const listed = (git(top, ['ls-tree', '-r', '--name-only', base, '--', rel || '.']) || '').split('\n').filter(Boolean);
+    for (const f of listed) {
+      if (!/\.(md|ya?ml)$/i.test(f)) continue;
+      const content = git(top, ['show', `${base}:${f}`]);
+      if (content === null) continue;
+      const target = path.join(tmp, rel ? path.relative(rel, f) : f);
+      fs.mkdirSync(path.dirname(target), {recursive: true});
+      fs.writeFileSync(target, content);
+    }
+    baseDefs = checkModule(tmp, {git: false, secrets: false, manifest: false, project: tmp}).defs;
+  } catch (e) {
+    add('WARN', 'R-05', F, null, null, `無法解析 base_ref（${String(base).slice(0, 12)}）時的 Module，略過實際差異比對：${e.message}`);
+    return;
+  } finally { fs.rmSync(tmp, {recursive: true, force: true}); }
+
+  const actual = new Map();
+  for (const [id, d] of defs) {
+    if (!MODULE_PREFIXES.includes(prefixOf(id))) continue;
+    const b = baseDefs.get(id);
+    if (!b || b.removed) { if (!d.removed) actual.set(id, 'added'); }
+    else if (d.removed) actual.set(id, 'removed');
+    else if (b.sig !== d.sig) actual.set(id, 'modified');
+  }
+  for (const [id, b] of baseDefs) {
+    if (!MODULE_PREFIXES.includes(prefixOf(id)) || b.removed || defs.has(id)) continue;
+    actual.set(id, 'removed');
+    add('WARN', 'R-05', b.file, null, id, `REVIEW_REQUIRED：${id} 在 base_ref 存在，但整列被刪除；刪除時應保留該列並標 REMOVED`);
+  }
+  const listed = new Map();
+  for (const k of ['added', 'modified', 'removed']) for (const id of (Array.isArray(ch[k]) ? ch[k] : []).map(String)) if (!listed.has(id)) listed.set(id, k);
+  const short = String(base).slice(0, 7);
+  for (const [id, kind] of actual) {
+    const got = listed.get(id);
+    if (got === kind) continue;
+    const d = defs.get(id) || baseDefs.get(id);
+    const hint = kind === 'modified' && !got ? '（只改錯字或格式、行為不變時可不登記，請 Human 確認）' : '';
+    add('WARN', 'R-05', d.file, d.line, id, got
+      ? `REVIEW_REQUIRED：${id} 登記在 changes.${got}，但與 base_ref（${short}）相比實際為${KIND_LABEL[kind]}`
+      : `REVIEW_REQUIRED：${id} 與 base_ref（${short}）相比為${KIND_LABEL[kind]}，但 changes.${kind} 沒有登記${hint}`);
+  }
+  for (const [id, kind] of listed) {
+    if (actual.has(id) || !MODULE_PREFIXES.includes(prefixOf(id))) continue;
+    add('WARN', 'R-05', F, null, id, `REVIEW_REQUIRED：changes.${kind} 登記了 ${id}，但與 base_ref（${short}）相比沒有對應差異`);
+  }
 }
 
 // ---------- 覆蓋率（草案第 8 節） ----------
@@ -685,13 +946,13 @@ export function formatText(result) {
 const isMain = () => { try { return fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } };
 if (process.argv[1] && isMain()) {
   const argv = process.argv.slice(2);
-  const json = argv.includes('--json');
+  const json = argv.includes('--json'), noGit = argv.includes('--no-git');
   const pi = argv.indexOf('--project');
   const project = pi >= 0 ? argv[pi + 1] : undefined;
   const target = argv.filter((a, i) => !a.startsWith('--') && (pi < 0 || i !== pi + 1))[0];
-  if (!target) { console.error('用法：node module-check.mjs <module-dir> [--project <專案根目錄>] [--json]'); process.exit(2); }
+  if (!target) { console.error('用法：node module-check.mjs <module-dir> [--project <專案根目錄>] [--json] [--no-git]'); process.exit(2); }
   try {
-    const result = checkModule(target, {project});
+    const result = checkModule(target, {project, git: !noGit});
     console.log(json ? JSON.stringify(result, null, 2) : formatText(result));
     process.exit(result.summary.error ? 1 : 0);
   } catch (e) {
