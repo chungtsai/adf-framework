@@ -252,6 +252,7 @@ Status: APPROVED
 | Functional Scenario | 引用（`FS`） |
 | **Test** | 引用，**單一** ID（`TC`）；沒有測試時寫 `不適用` 並在 Result 寫 `NOT_RUN` |
 | **Result** | 列舉 4.2 |
+| Evidence | 文字，選填：結果的出處（測試報告路徑、測試管理系統的執行 ID、`comparison.md`）。依 9.2 轉換的列必填 |
 
 **每列只有一個 Source 和一個 Test**：一個 Requirement 有三個測試就寫三列。這樣 Result 才不會有「三個測試共用一個結果」的歧義，也才能直接算出執行結果。現有一列多個 Test 的寫法回報 `WARN`，並以該列的 Result 套用到所有 Test。
 
@@ -364,7 +365,7 @@ Status: APPROVED
 | 編號 | 問題 | 草案的預設做法 |
 |---|---|---|
 | Q1 | 刪除的項目要真的刪掉那一列，還是保留並改成 `REMOVED` 狀態？ | **已決定：保留並標成 `REMOVED`**（2.1.1、4.1、R-04、R-09） |
-| Q2 | traceability 改成「每列一個 Test」後，既有 Module 是否需要轉換？ | 待決，選項說明見 9.1 |
+| Q2 | traceability 改成「每列一個 Test」後，既有 Module 是否需要轉換？ | **已決定：B 碰到才轉換**（9.1）；有明確執行紀錄時，可另開 `CHANGE` 依 9.2 主動轉換 |
 | Q3 | manifest 的 `done` 和 `passed` 是否統一？ | **已決定：兩個都算完成**，不改寫既有 Skill（4.3） |
 | Q4 | 是否在 manifest 加上格式版本（例如 `module.format: 1`），讓工具知道要用嚴格還是相容模式？ | 不加；依 5.5.0 欄位是否存在判斷，降低使用者負擔 |
 | Q5 | `TC.Status` 是否也要表達執行結果？ | 不要；`Status` 只代表文件核准狀態，執行結果只寫在 traceability 的 `Result` |
@@ -397,6 +398,32 @@ Status: APPROVED
 | D. 不拆列，改 Result 寫法 | 保留一列多 Test，Result 改寫成 `TC-001:PASS、TC-002:FAIL、TC-003:PASS` | 列數不變 | 格子變長、難讀；Rule 與 Test 的對應仍然不明確（看不出 TC-002 驗的是 BR-001 還是 BR-002） |
 
 不論選哪一個，工具都**不會自動拆列**，避免替使用者編造每個 TC 的結果。
+
+### 9.2 依執行紀錄轉換 traceability（Documentation Retrofit CHANGE）
+
+專案保存了每個 TC 的明確執行紀錄時，不必等到下次修改行為，可以另開一個只補文件的 `CHANGE`，把舊寫法拆成每列一個 Test。做法比照 `functional-scenarios.md` 的「CHANGE 補做」：
+
+1. 建立 `CHANGE` Work Item，Intent 為 `DOCUMENTATION`（專案尚未使用此 Intent 時，用 `FEATURE` 並在 title 標記 `RETROFIT_TRACEABILITY`）；`behavior.change_allowed: false`。
+2. 收集執行紀錄。可採用的紀錄（由上而下優先）：
+
+   | 紀錄 | 每個 TC 的 Result |
+   |---|---|
+   | `verification/comparison.md` 差異清單（MIGRATION） | `PASS`、`APPROVED_BEHAVIOR_CHANGE` → `PASS`；`MIGRATION_DEFECT` → `FAIL`；其他分類 → `BLOCKED` 並標 `REVIEW_REQUIRED` |
+   | 自動化測試報告（例如 JUnit XML、CI 產出），測試名稱或標記含 TC ID | 依報告 |
+   | 測試管理系統的執行紀錄（例如 ALM Run），經 `verification/alm-mapping.md` 對回 TC | 依紀錄 |
+   | Human 簽核過的人工測試紀錄（有日期、執行人） | 依紀錄 |
+
+3. 一筆紀錄可以採用，必須同時符合：
+   - 能明確對應到**單一** TC ID，不靠名稱相似度猜測。
+   - 執行時間晚於該 TC 最後一次修改；有版控時由工具比對，沒有版控時由 Human 確認。
+   - 紀錄本身可以重新查閱，出處寫進新增的 `Evidence` 欄。
+4. 拆列規則：
+   - 沒有可採用紀錄的 TC 填 `NOT_RUN`，**不可**沿用舊列的 Result。
+   - 舊列的 Result 和紀錄矛盾時（例如舊列寫 `FAIL`，紀錄卻全部 `PASS`），兩者都保留在 Human 決策中，該列標 `REVIEW_REQUIRED`。
+   - 每列的 Rule 依該 TC 的 `Source` 填寫；看不出 TC 驗證的是哪條 Rule 時標 `REVIEW_REQUIRED`，不自行分配。
+5. 交 Traceability Human Gate 確認後才完成。轉換過程發現行為落差時，不得用文件掩蓋，應另開真正修正行為的 `CHANGE`。
+
+這條規則屬於 ADF 流程，寫在 `adf-traceability-check` 的「既有 Module 轉換」章節，不放在專案 `standards/`（那裡是開發與移轉規範）。專案若想限定可採用的紀錄來源（例如只承認 CI 報告與 ALM），在這次 `CHANGE` 由 Human 指定，寫入 Human 決策。
 
 ## 10. 採用時要一起改的地方
 
