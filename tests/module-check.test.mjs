@@ -513,3 +513,28 @@ test('M-09／R-05 版控：base_ref 不可改寫；changes 與實際差異比對
   write(dir, 'manifest.yaml', wi.replace(base, 'deadbeef'));
   assert.deepEqual(only(checkModule(dir), 'M-09').map(f => f.level), ['ERROR', 'WARN']);
 });
+
+test('M-09 放寬：建立時 base_ref 為 null，導入 git 後補一次 commit 允許；補上後不得再改寫或改回 null', {skip: skipGit}, t => {
+  const {root, dir} = moduleDir(t);
+  gitRun(root, 'init', '-q');
+  gitRun(root, 'add', '-A');
+  gitRun(root, 'commit', '-q', '-m', 'WI-001 建立時沒有版控，base_ref 為 null');
+  const c1 = gitRun(root, 'rev-parse', 'HEAD');
+  const setBase = v => write(dir, 'manifest.yaml', MANIFEST.replace('base_ref: null # 沒有版控', `base_ref: ${v}`));
+
+  setBase(c1);
+  let r = only(checkModule(dir), 'M-09');
+  assert.deepEqual(r.map(f => f.level), ['INFO'], '尚未提交補上的值時即視為補一次');
+  assert.match(r[0].message, /導入版控後補一次是允許的/);
+  gitRun(root, 'commit', '-q', '-am', '補上 base_ref');
+  assert.deepEqual(only(checkModule(dir), 'M-09'), [], '提交後補上的值就是正式的第一次記錄，不再提示');
+
+  gitRun(root, 'commit', '-q', '--allow-empty', '-m', 'next');
+  setBase(gitRun(root, 'rev-parse', 'HEAD'));
+  r = only(checkModule(dir), 'M-09');
+  assert.deepEqual(r.map(f => f.level), ['ERROR']);
+  assert.match(r[0].message, new RegExp(`第一次記錄（[0-9a-f]{7}）為 ${c1}`));
+
+  setBase('null');
+  assert.match(only(checkModule(dir), 'M-09')[0].message, /目前為 null/);
+});

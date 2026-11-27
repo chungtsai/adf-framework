@@ -293,7 +293,7 @@ Status: APPROVED
 | M-06 | `review.questions.total = answered + unresolved` | `ERROR` |
 | M-07 | `review.approval.approved: true` 時，`review.status` 必須是 `APPROVED` | `ERROR` |
 | M-08 | `work_item.changes` 的三個清單沒有重複出現同一個 ID | `ERROR` |
-| M-09 | `base_ref` 和這個 Work Item 第一次寫入的值相同（有版控時才檢查） | `ERROR` |
+| M-09 | `base_ref` 和這個 Work Item 第一次寫入的值相同（有版控時才檢查）。例外：建立時為 `null`、導入版控後補上一次 commit 是允許的（已決定） | `ERROR` |
 
 ## 7. 檢查結果的輸出
 
@@ -363,19 +363,20 @@ Status: APPROVED
 - **L-09 Secret**：
   - 掃描 Module 內所有文字檔。
   - 明確格式（私密金鑰、AWS／GitHub／Slack Token、`sk-` 金鑰、JWT、連線字串內含密碼）→ `ERROR`。
-  - `password=`、`token:`、`密碼：` 等關鍵字 → `WARN`：工具分不出正式環境還是測試帳號，交給 Human 判斷。
+  - `password=`、`token:`、`密碼：` 等關鍵字 → `WARN`（已決定維持警告）：工具分不出正式環境還是測試帳號，交給 Human 判斷。
   - 佔位字（`<...>`、`${...}`、`***`、「請洽…」）不報。
   - 訊息只寫類型與行號，不輸出內容。
 - **M-01**：欄位清單直接讀 `adf-feature-init/assets/manifest.yaml`（owner 範本，repo 與安裝後目錄結構相同），不在工具裡另抄一份；缺少 5.5.0 新增欄位時只報 `INFO`。
 - **M-09**：
-  - 從 git 歷史找出 `work_item.id` 相同、第一次出現 `base_ref` 的 manifest 版本，與目前的值比較。
+  - 從 git 歷史找出 `work_item.id` 相同、第一次記錄的 `base_ref`，與目前的值比較。
+  - **已決定放寬**：建立時為 `null`（當時沒有版控），導入 git 後補上一次 commit 是允許的。補上但還沒提交時報 `INFO` 提醒；提交後該值就是正式的第一次記錄，之後不得再改寫，也不可改回 `null`。
   - `base_ref` 指向的 commit 不存在時 `WARN`（可能是 shallow clone）。
 - **R-05**：
   - 把 `base_ref` 時的 Module 從 git 取出，以同一套規則解析後逐一比較每個 ID：
     - 新增：base_ref 時不存在，現在存在且不是 `REMOVED`。
     - 修改：內容摘要不同。
     - 刪除：現在是 `REMOVED`。
-  - 內容摘要包含整列所有欄位、但**不含 Status**，所以只改核准狀態不算修改。
+  - 內容摘要包含整列所有欄位、但**不含 Status**，所以只改核准狀態（例如 `DRAFT` → `APPROVED`）不算修改，不必登記到 `changes.modified`（已決定；依據是「只改錯字或格式、行為不變時不登記」）。
   - 未登記的修改提示「只改錯字或格式可不登記，請 Human 確認」。
   - 整列被刪除時另外提醒應保留並標 `REMOVED`。
   - 全部以 `WARN` 加 `REVIEW_REQUIRED` 呈現，不自動修正 `changes`。

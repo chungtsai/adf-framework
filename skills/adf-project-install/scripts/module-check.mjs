@@ -738,17 +738,23 @@ function gitChecks({dir, manifest, defs, add}) {
   const rel = path.relative(fs.realpathSync(top), fs.realpathSync(dir)).split(path.sep).join('/');
   const relFile = f => (rel ? `${rel}/${f}` : f);
 
-  // M-09：base_ref 和這個 Work Item 第一次提交時的值相同
+  // M-09：base_ref 和這個 Work Item 第一次記錄的值相同。
+  // 例外：建立時沒有版控（null），之後導入 git 再補上 commit，允許一次 null → commit；補上之後同樣不得改寫，也不可改回 null。
+  const empty = v => v === null || v === undefined || v === '';
   const commits = (git(top, ['log', '--format=%H', '--', relFile('manifest.yaml')]) || '').split('\n').filter(Boolean).reverse();
+  let first = null;
   for (const c of commits) {
     let old;
     try { old = parseYaml(git(top, ['show', `${c}:${relFile('manifest.yaml')}`]) || ''); } catch { continue; }
     const ow = isObj(old) ? old.work_item : null;
     if (!isObj(ow) || ow.id !== wi.id || !('base_ref' in ow)) continue;
-    if (String(ow.base_ref) !== String(wi.base_ref))
-      add('ERROR', 'M-09', F, null, null, `work_item.base_ref 建立後不得改寫：第一次提交（${c.slice(0, 7)}）為 ${ow.base_ref ?? 'null'}，目前為 ${wi.base_ref ?? 'null'}`);
-    break;
+    if (!first) first = {commit: c, value: ow.base_ref};
+    if (!empty(ow.base_ref)) { first = {commit: c, value: ow.base_ref}; break; }
   }
+  if (first && !empty(first.value) && String(first.value) !== String(wi.base_ref ?? 'null'))
+    add('ERROR', 'M-09', F, null, null, `work_item.base_ref 建立後不得改寫：第一次記錄（${first.commit.slice(0, 7)}）為 ${first.value}，目前為 ${wi.base_ref ?? 'null'}`);
+  else if (first && empty(first.value) && !empty(wi.base_ref))
+    add('INFO', 'M-09', F, null, null, `work_item.base_ref 建立時為 null（${first.commit.slice(0, 7)}），之後補上 ${String(wi.base_ref).slice(0, 12)}；導入版控後補一次是允許的，之後不得再改寫`);
 
   // R-05：changes 與 base_ref 起的實際差異
   const base = wi.base_ref;
