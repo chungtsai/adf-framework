@@ -42,7 +42,7 @@
 - 資料列欄數和標題列不同 → `ERROR`（通常是儲存格裡有未跳脫的 `|`）。
 
 ### 1.4 表格的辨識方式
-一個 Artifact 可能有好幾張表格，工具依「所在章節標題 + 必要欄位」找出要讀的那一張（第 5 節逐一列出）。範例表格（例如範本裡 `TC-001` 那一列）只要還留著，就會被當成真的資料讀進來。
+一個 Artifact 可能有好幾張表格，工具依「所在章節標題 + 必要欄位」找出要讀的那一張（第 5 節逐一列出）。表格裡的每一列都當成真的資料，所以範本只保留標題列，不放範例列（已決定，見第 9 節 Q6）。
 
 ## 2. 識別碼
 
@@ -58,6 +58,12 @@
 - **邊界**：ID 前一個字元不可以是英數字或 `-`，後一個字元不可以是英數字。
   所以 `REV-Q-005` 只會被辨識成問題 ID，不會誤抓出 `Q-005`。這是現行 `adf_alm.py` 的 `ID_RE`（`\b(?:…|Q|…)-`）會出錯的地方：`-` 也是字詞邊界，會從 `REV-Q-005` 裡抓出 `Q-005`。
 - ID 刪除後不可再給別的項目重複使用。
+
+### 2.1.1 刪除（已決定，見第 9 節 Q1）
+- 刪除項目時**不刪那一列**，把 `Status` 改成 `REMOVED`，並在備註或描述寫上刪除原因與 Work Item ID。
+- `REMOVED` 的列仍算「已定義」，所以 ID 不會被重複使用，歷史 traceability 也不會斷鏈。
+- 沒有 `Status` 欄的表格（`legacy-behavior.md` 行為清單）加一個選填的 `Status` 欄，只用來填 `REMOVED`，其他時候留白。
+- 本次 Work Item 新增後又刪除的項目同樣改成 `REMOVED`，但依 `core/invariants.md` 從 `work_item.changes` 移除。
 
 ### 2.2 前綴與定義位置
 
@@ -102,9 +108,10 @@
 | `REVIEW_REQUIRED` | 待 Human 判斷 | 否 |
 | `UNKNOWN` | 無法由 Evidence 證明 | 否 |
 | `CONFLICT` | 與其他來源衝突 | 否 |
+| `REMOVED` | 已刪除，保留列以免 ID 重複使用（2.1.1） | 不算分子，也不算分母 |
 
 - 一律大寫英文；不在表內的值回報 `ERROR`。
-- 分母一律包含所有狀態（`REVIEW_REQUIRED`、`UNKNOWN`、`CONFLICT` 不可從分母剔除）。
+- 除了 `REMOVED` 之外，分母一律包含所有狀態（`REVIEW_REQUIRED`、`UNKNOWN`、`CONFLICT` 不可從分母剔除）。
 - `LB` 的「確定度」（`CONFIRMED`／`UNKNOWN`）與「風險」（`HIGH`／`NORMAL`）是獨立欄位，不是 Status。
 
 ### 4.2 執行結果
@@ -117,16 +124,20 @@
 
 ### 4.3 manifest 的 `status.*`
 
-目前各 Skill 的寫法不一致：開發和分析階段用 `done`（backend-development、legacy-analysis、result-comparison），驗收用 `passed`／`in_review`／`failed`。草案先把現況收進來，統一與否列為待決問題（第 9 節 Q3）。
+各 Skill 的寫法不一致：開發和分析階段寫 `done`（backend-development、legacy-analysis、result-comparison），驗收寫 `passed`。已決定兩種都算完成、不強制改寫（第 9 節 Q3）。
 
-| 欄位 | 允許值 |
-|---|---|
-| `status.analysis`、`specification`、`standards`、`design` | `pending`、`done`、`not_applicable` |
-| `status.prototype.status` | `pending`、`done`、`not_applicable` |
-| `status.development.backend`／`frontend` | `pending`、`done`、`not_applicable` |
-| `status.verification.*`（`acceptance` 除外） | `pending`、`done`、`not_applicable` |
-| `status.verification.acceptance` | `pending`、`in_review`、`passed`、`failed`、`not_applicable` |
-| `review.status` | `IN_PROGRESS`、`QUESTIONS_PENDING`、`READY_FOR_REVIEW`、`APPROVED`、`CHANGES_REQUESTED` |
+| 意義 | 允許值 | 適用欄位 |
+|---|---|---|
+| 未開始或進行中 | `pending` | 全部 |
+| 完成 | `done`、`passed`（同義） | 全部 |
+| 不適用 | `not_applicable` | 全部 |
+| 等待 Human 簽核 | `in_review` | 只用於 `status.verification.acceptance` |
+| 未通過 | `failed` | 只用於 `status.verification.acceptance` |
+
+- 結案預檢只看「是否完成」，`done` 和 `passed` 不區分。
+- `in_review`、`failed` 出現在 `acceptance` 以外的欄位時回報 `WARN`。
+
+`review.status` 的允許值：`IN_PROGRESS`、`QUESTIONS_PENDING`、`READY_FOR_REVIEW`、`APPROVED`、`CHANGES_REQUESTED`。
 
 ## 5. 各 Artifact 的表格規格
 
@@ -325,11 +336,12 @@ Status: APPROVED
 | R-01 | 連結 | 引用的 ID 不存在 |
 | R-02 | 連結 | `TC.Scenario` 和 `FS.Related Test` 不一致 |
 | R-03 | 連結 | 孤兒：沒有被任何 TC 引用的 REQ／Rule；沒有 Source 的 TC |
-| R-04 | 連結 | `changes.added`／`modified` 的 ID 不存在，或 `removed` 的 ID 仍存在 |
+| R-04 | 連結 | `changes.added`／`modified` 的 ID 不存在或為 `REMOVED`；`changes.removed` 的 ID 不存在或不是 `REMOVED` |
 | R-05 | 連結 | `changes` 和 `base_ref` 起的實際 ID 差異不一致 → 輸出 `REVIEW_REQUIRED`，不自動修正 |
 | R-06 | 連結 | `spec/standards.md` 引用的規範不存在，或狀態不是 `APPROVED` |
 | R-07 | 連結 | 狀態矛盾：TC 為 `VERIFIED`，但 Source 不是 `APPROVED`；manifest 為 `done`／`passed`，對應 Artifact 卻仍有 `REVIEW_REQUIRED`／`UNKNOWN`／`CONFLICT` |
-| R-08 | 連結 | `specification.md` 提到的 ID 不存在 |
+| R-08 | 連結 | `specification.md` 提到的 ID 不存在，或提到的是 `REMOVED` 的項目 |
+| R-09 | 連結 | 有效的列（不是 `REMOVED`）引用了 `REMOVED` 的 ID，例如 TC 的 Source 是已刪除的 REQ。`REMOVED` 的列本身與 traceability 中 Result 已定案的歷史列不檢查 |
 
 ## 8. 覆蓋率定義
 
@@ -351,13 +363,40 @@ Status: APPROVED
 
 | 編號 | 問題 | 草案的預設做法 |
 |---|---|---|
-| Q1 | 刪除的項目要真的刪掉那一列，還是保留並改成 `REMOVED` 狀態？ | 刪掉那一列；其他 Artifact 仍引用它時回報 R-01。缺點是歷史 traceability 也要一起改 |
-| Q2 | traceability 改成「每列一個 Test」後，既有 Module 是否需要轉換？ | 不強制，只回報 `WARN`；下一個 CHANGE 碰到時再改 |
-| Q3 | manifest 的 `done` 和 `passed` 是否統一？ | 暫時都接受（4.3）；統一需要改 Skill 和升版說明 |
+| Q1 | 刪除的項目要真的刪掉那一列，還是保留並改成 `REMOVED` 狀態？ | **已決定：保留並標成 `REMOVED`**（2.1.1、4.1、R-04、R-09） |
+| Q2 | traceability 改成「每列一個 Test」後，既有 Module 是否需要轉換？ | 待決，選項說明見 9.1 |
+| Q3 | manifest 的 `done` 和 `passed` 是否統一？ | **已決定：兩個都算完成**，不改寫既有 Skill（4.3） |
 | Q4 | 是否在 manifest 加上格式版本（例如 `module.format: 1`），讓工具知道要用嚴格還是相容模式？ | 不加；依 5.5.0 欄位是否存在判斷，降低使用者負擔 |
 | Q5 | `TC.Status` 是否也要表達執行結果？ | 不要；`Status` 只代表文件核准狀態，執行結果只寫在 traceability 的 `Result` |
-| Q6 | 範本裡的範例列（`TC-001`、`FS-001`、`LB-001`）會被當成真資料 | 範本改成只有標題列，範例移到 SKILL.md 的「範例」章節 |
+| Q6 | 範本裡的範例列（`TC-001`、`FS-001`、`LB-001`）會被當成真資料 | **已決定：移除**。範本只留標題列，範例移到 SKILL.md 的「範例」章節（第 10 節） |
 | Q7 | `AC` 只在單一驗收清單內唯一，跨 Work Item 會重複 | 接受；工具一次只檢查目前 Work Item 的那份清單 |
+
+### 9.1 Q2 的選項
+
+現有範本允許一列寫多個 Test，但只有一個 Result：
+
+| Source | Rule | Functional Scenario | Test | Result |
+|---|---|---|---|---|
+| REQ-001 | BR-001、BR-002 | FS-001 | TC-001、TC-002、TC-003 | FAIL |
+
+工具看到這一列，只知道「三個測試中至少一個失敗」，不知道是哪一個，所以「執行結果」統計算不準；寫 `PASS` 時則通常代表三個都通過。草案的新寫法是拆成三列，每列一個結果：
+
+| Source | Rule | Functional Scenario | Test | Result |
+|---|---|---|---|---|
+| REQ-001 | BR-001 | FS-001 | TC-001 | PASS |
+| REQ-001 | BR-002 | FS-001 | TC-002 | FAIL |
+| REQ-001 | BR-002 | FS-001 | TC-003 | PASS |
+
+既有 Module 的處理方式：
+
+| 選項 | 做法 | 優點 | 缺點 |
+|---|---|---|---|
+| A. 不轉換 | 工具照樣讀舊寫法，回報 `WARN`。Result 為 `PASS` 時視為每個 TC 都 `PASS`；為其他值時每個 TC 都記為「結果不明」 | 使用者完全不用動 | 舊 Module 的執行結果一直是「結果不明」，結案預檢會卡住或要 Human 例外核准 |
+| B. 碰到才轉換（建議） | 同 A；另外規定下一個 `CHANGE` 修改到該 Module 的 traceability 時，由 `adf-traceability-check` 把多 Test 的列拆開，每個 TC 的結果依實際執行紀錄填寫，查不到的填 `NOT_RUN` | 不用一次處理全部 Module；新寫法逐步普及 | 一段時間內新舊寫法並存 |
+| C. 升版時一次轉換 | 升級 SOP 要求所有 Module 轉換 | 之後只有一種寫法，工具最單純 | 工作量大；拆列時每個 TC 的結果要重新查證，不能把原本的一個 Result 直接複製到每一列（那等於捏造結果） |
+| D. 不拆列，改 Result 寫法 | 保留一列多 Test，Result 改寫成 `TC-001:PASS、TC-002:FAIL、TC-003:PASS` | 列數不變 | 格子變長、難讀；Rule 與 Test 的對應仍然不明確（看不出 TC-002 驗的是 BR-001 還是 BR-002） |
+
+不論選哪一個，工具都**不會自動拆列**，避免替使用者編造每個 TC 的結果。
 
 ## 10. 採用時要一起改的地方
 
