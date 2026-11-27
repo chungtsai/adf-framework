@@ -40,6 +40,22 @@ function files(root, relative) {
   }
   walk(p);return out;
 }
+// npx skills 的 computedHash。lock version 1：路徑與內容依序串接（localeCompare 排序）。
+// version 2（npx skills 1.9 起）：排除 metadata.json 與 .git／__pycache__／__pypackages__ 目錄，CRLF 正規化為 LF，
+// 路徑以位元組排序，依序寫入「路徑 \0 長度 \0 內容」。兩者都要支援：npx 讀到 version 1 時會自動遷移成 version 2。
+const HASH_V2_EXCLUDE_FILES=new Set(['metadata.json']), HASH_V2_EXCLUDE_DIRS=new Set(['.git','__pycache__','__pypackages__']);
+export function skillHash(folder, rels, version) {
+  const h=crypto.createHash('sha256');
+  if(version===1) {
+    for(const rel of [...rels].sort((a,b)=>a.localeCompare(b))) {h.update(rel);h.update(fs.readFileSync(safe(folder,rel)));}
+    return h.digest('hex');
+  }
+  const eol=c=>(c.includes(0)||!c.includes('\r\n'))?c:Buffer.from(c.toString('latin1').replaceAll('\r\n','\n'),'latin1');
+  const entries=rels.filter(rel=>{const parts=rel.split('/');return !parts.some((p,i)=>i===parts.length-1?HASH_V2_EXCLUDE_FILES.has(p):HASH_V2_EXCLUDE_DIRS.has(p));})
+    .map(rel=>({p:Buffer.from(rel,'utf8'),c:eol(fs.readFileSync(safe(folder,rel)))})).sort((a,b)=>Buffer.compare(a.p,b.p));
+  for(const {p,c} of entries) {h.update(p);h.update('\0');h.update(String(c.length));h.update('\0');h.update(c);}
+  return h.digest('hex');
+}
 function snapshot(root) {
   return Object.assign({},...['standards','modules','CLAUDE.md','AGENTS.md','.adf/project.yaml','.adf/templates','.adf/relocations.json','skills-lock.json'].map(p=>files(root,p)));
 }
@@ -74,16 +90,16 @@ function inventory(root) {
   let lock=null, ref=null;
   try {
     lock=json(safe(root,'skills-lock.json'));
-    if(lock.version!==1||!lock.skills) fail('Unsupported npx skills lock format');
+    // npx skills 1.9 起寫入 version 2（每支多了 commit）；其餘欄位相同。未知版本一律阻擋，不猜測格式
+    if(![1,2].includes(lock.version)||!lock.skills) fail(`Unsupported npx skills lock format (version ${lock.version})`);
     for(const name of names) {
       const entry=lock.skills[name];
       if(!entry||entry.sourceType!=='github'||entry.source!=='chungtsai/adf-framework'||!isSupportedRef(entry.ref)||entry.skillPath!==`skills/${name}/SKILL.md`) fail(`Missing/unsupported formal npx source: ${name}`);
       if(ref&&entry.ref!==ref) fail(`Mixed npx source refs: ${ref} and ${entry.ref} (${name})`);
       ref=entry.ref;
       if(sources[name]) {
-        const folder=skillLocation(root,name),h=crypto.createHash('sha256');
-        for(const rel of Object.keys(sources[name]).sort((a,b)=>a.localeCompare(b))) {h.update(rel);h.update(fs.readFileSync(safe(folder,rel)));}
-        if(h.digest('hex')!==entry.computedHash) fail(`Installed skill differs from npx lock: ${name}`);
+        const folder=skillLocation(root,name);
+        if(skillHash(folder,Object.keys(sources[name]),lock.version)!==entry.computedHash) fail(`Installed skill differs from npx lock: ${name}`);
       }
     }
   }catch(e){blockers.push(`Installation provenance: ${e.message}`);}

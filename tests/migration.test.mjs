@@ -5,7 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import {fileURLToPath} from 'node:url';
-import {plan,apply,verify,restore,resolveResource} from '../skills/adf-project-install/scripts/project.mjs';
+import {plan,apply,verify,restore,resolveResource,skillHash} from '../skills/adf-project-install/scripts/project.mjs';
 const repo=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const registry=JSON.parse(fs.readFileSync(path.join(repo,'skills/adf-project-install/references/resources.json')));
 function digest(folder){const paths=[];function walk(p){for(const n of fs.readdirSync(p)){const f=path.join(p,n);if(fs.statSync(f).isDirectory())walk(f);else paths.push(path.relative(folder,f).split(path.sep).join('/'));}}walk(folder);const h=crypto.createHash('sha256');for(const rel of paths.sort((a,b)=>a.localeCompare(b))){h.update(rel);h.update(fs.readFileSync(path.join(folder,rel)));}return h.digest('hex');}
@@ -47,8 +47,28 @@ test('legacy project Codex directory must be disabled before completion',t=>{con
 test('VERIFY rejects newly introduced global conflicts and honors recorded loading evidence',t=>{const r=fixture(t);const home=fs.mkdtempSync(path.join(os.tmpdir(),'adf-home-'));t.after(()=>fs.rmSync(home,{recursive:true,force:true}));t.mock.method(os,'homedir',()=>home);apply(r,plan(r));const g=path.join(home,'.claude/skills/adf-feature-init');fs.mkdirSync(g,{recursive:true});fs.writeFileSync(path.join(g,'SKILL.md'),'old');assert.ok(plan(r).blockers.some(s=>s.includes('Global skill')));assert.throws(()=>verify(r),/Global skill/);});
 test('confirmed global disposition survives migration verification',t=>{const r=fixture(t);const home=fs.mkdtempSync(path.join(os.tmpdir(),'adf-home-'));t.after(()=>fs.rmSync(home,{recursive:true,force:true}));t.mock.method(os,'homedir',()=>home);const g=path.join(home,'.claude/skills/adf-feature-init');fs.mkdirSync(g,{recursive:true});fs.writeFileSync(path.join(g,'SKILL.md'),'old');const p=plan(r,{entries:[],global_dispositions:[{path:g,disposition:'project_scope_only',human_confirmed:true,evidence:'Agent configured to load this project only'}]});assert.deepEqual(p.blockers,[]);apply(r,p);assert.equal(verify(r).status,'verified');});
 test('shared core resources resolve from the project install owner',t=>{const r=fixture(t);for(const key of ['core/invariants.md','core/runtime-compat.md','core/skill-contract.md']) assert.ok(fs.existsSync(resolveResource(r,key)));});
-for(const old of ['5.1.0','5.2.0','5.3.0','5.4.0','5.4.1']) test(`project configuration written by ${old} stays valid after upgrading to 5.5.0`,t=>{const r=fixture(t);const p=plan(r);apply(r,p);const cfg=path.join(r,'.adf/project.yaml');const c=JSON.parse(fs.readFileSync(cfg));c.tool_version=old;fs.writeFileSync(cfg,JSON.stringify(c,null,2)+'\n');const state=path.join(r,'.adf/migration.json');const m=JSON.parse(fs.readFileSync(state));m.after_config=crypto.createHash('sha256').update(fs.readFileSync(cfg)).digest('hex');fs.writeFileSync(state,JSON.stringify(m,null,2));assert.deepEqual(plan(r).blockers,[]);assert.equal(verify(r).status,'verified');c.tool_version='4.0.0';fs.writeFileSync(cfg,JSON.stringify(c,null,2)+'\n');assert.ok(plan(r).blockers.some(s=>s.includes('Unsupported project configuration')));});
+for(const old of ['5.1.0','5.2.0','5.3.0','5.4.0','5.4.1','5.5.0']) test(`project configuration written by ${old} stays valid after upgrading to 5.5.1`,t=>{const r=fixture(t);const p=plan(r);apply(r,p);const cfg=path.join(r,'.adf/project.yaml');const c=JSON.parse(fs.readFileSync(cfg));c.tool_version=old;fs.writeFileSync(cfg,JSON.stringify(c,null,2)+'\n');const state=path.join(r,'.adf/migration.json');const m=JSON.parse(fs.readFileSync(state));m.after_config=crypto.createHash('sha256').update(fs.readFileSync(cfg)).digest('hex');fs.writeFileSync(state,JSON.stringify(m,null,2));assert.deepEqual(plan(r).blockers,[]);assert.equal(verify(r).status,'verified');c.tool_version='4.0.0';fs.writeFileSync(cfg,JSON.stringify(c,null,2)+'\n');assert.ok(plan(r).blockers.some(s=>s.includes('Unsupported project configuration')));});
 test('lockfile pinned to the previous release tag is rejected',t=>{const r=fixture(t);const lock=JSON.parse(fs.readFileSync(path.join(r,'skills-lock.json')));for(const s of Object.values(lock.skills)) s.ref='v5.1.0';fs.writeFileSync(path.join(r,'skills-lock.json'),JSON.stringify(lock));assert.ok(plan(r).blockers.some(s=>s.includes('formal npx source')));});
 test('lockfile from a pre-release tag of the same version verifies and reports prerelease',t=>{const r=fixture(t);const lock=JSON.parse(fs.readFileSync(path.join(r,'skills-lock.json')));for(const s of Object.values(lock.skills)) s.ref=`v${registry.version}-beta.2`;fs.writeFileSync(path.join(r,'skills-lock.json'),JSON.stringify(lock));assert.deepEqual(plan(r).blockers,[]);apply(r,plan(r));const v=verify(r);assert.equal(v.ref,`v${registry.version}-beta.2`);assert.equal(v.prerelease,true);});
 test('formal install reports prerelease false',t=>{const r=fixture(t);apply(r,plan(r));const v=verify(r);assert.equal(v.ref,`v${registry.version}`);assert.equal(v.prerelease,false);});
 test('mixed or unsupported pre-release refs are rejected',t=>{for(const mutate of [l=>{Object.values(l.skills)[0].ref=`v${registry.version}-beta.1`;},l=>{for(const s of Object.values(l.skills)) s.ref=`v${registry.version}-alpha.1`;},l=>{for(const s of Object.values(l.skills)) s.ref=`v${registry.version}-beta.0`;}]){const r=fixture(t);const lock=JSON.parse(fs.readFileSync(path.join(r,'skills-lock.json')));mutate(lock);fs.writeFileSync(path.join(r,'skills-lock.json'),JSON.stringify(lock));assert.ok(plan(r).blockers.some(s=>/formal npx source|Mixed npx source refs/.test(s)),JSON.stringify(plan(r).blockers));}});
+
+// npx skills 1.9 起 skills-lock.json 為 version 2，computedHash 算法改變；npx 讀到 version 1 時會自動遷移成 version 2。
+test('npx skills lock version 2: computedHash matches npx skills 1.9.1 (CRLF, excluded files, byte order)',()=>{
+ const folder=path.join(repo,'tests/fixtures/npx-lock-v2/sample-skill');
+ const rels=[];(function walk(p,pre){for(const n of fs.readdirSync(p)){const f=path.join(p,n);if(fs.statSync(f).isDirectory())walk(f,pre+n+'/');else rels.push(pre+n);}})(folder,'');
+ // 預期值由 npx skills 1.9.1 的 computeSkillFolderHash 對同一個資料夾計算
+ assert.equal(skillHash(folder,rels,2),'886cbbd61372fc2fe5ab4fb936802e1c0246feb251c30302d3362009a9bc1e19');
+ assert.notEqual(skillHash(folder,rels,1),skillHash(folder,rels,2));
+});
+test('PLAN accepts lock version 2, still detects modified skills, and blocks unknown lock versions',t=>{
+ const r=fixture(t);const lockPath=path.join(r,'skills-lock.json');const lock=JSON.parse(fs.readFileSync(lockPath));
+ lock.version=2;
+ for(const name of Object.keys(lock.skills)){const folder=path.join(r,'.agents/skills',name);const rels=[];(function walk(p,pre){for(const n of fs.readdirSync(p)){const f=path.join(p,n);if(fs.statSync(f).isDirectory())walk(f,pre+n+'/');else rels.push(pre+n);}})(folder,'');lock.skills[name].computedHash=skillHash(folder,rels,2);lock.skills[name].commit='0'.repeat(40);}
+ fs.writeFileSync(lockPath,JSON.stringify(lock,null,2));
+ assert.deepEqual(plan(r).blockers,[]);
+ fs.appendFileSync(path.join(r,'.agents/skills/adf-ask/SKILL.md'),'\nlocal edit\n');
+ assert.ok(plan(r).blockers.some(b=>b.includes('Installed skill differs from npx lock: adf-ask')));
+ lock.version=3;fs.writeFileSync(lockPath,JSON.stringify(lock,null,2));
+ assert.ok(plan(r).blockers.some(b=>b.includes('Unsupported npx skills lock format (version 3)')));
+});
