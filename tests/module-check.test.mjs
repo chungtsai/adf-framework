@@ -285,7 +285,7 @@ test('CLI：exit code 與 JSON 輸出', t => {
   const bad = spawnSync(process.execPath, [cli, moduleDir(t, {'verification/test-cases.md': edit('verification/test-cases.md', 'REQ-002 |', 'REQ-404 |')}).dir], {encoding: 'utf8'});
   assert.equal(bad.status, 1);
   assert.match(bad.stdout, /\[錯誤\] R-01 verification\/test-cases\.md:7/);
-  const yaml = spawnSync(process.execPath, [cli, moduleDir(t, {'manifest.yaml': 'a: |\n  b\n'}).dir], {encoding: 'utf8'});
+  const yaml = spawnSync(process.execPath, [cli, moduleDir(t, {'manifest.yaml': 'a: &x 1\n'}).dir], {encoding: 'utf8'});
   assert.equal(yaml.status, 2);
   assert.match(yaml.stderr, /超出支援的 YAML 範圍/);
   assert.equal(spawnSync(process.execPath, [cli, path.join(os.tmpdir(), 'no-such-module-xyz')], {encoding: 'utf8'}).status, 2);
