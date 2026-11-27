@@ -316,6 +316,7 @@ export function checkModule(moduleDir, opts = {}) {
   const acDefs = new Map();        // file → Set(AC)
   const refs = [];                 // {file, line, from, removed, col, id, finalTrace}
   const rows = {TC: [], FS: [], RULE: [], TRACE: [], STD: []};
+  const rowsBy = {};               // 表格名稱 → 列（覆蓋率用）
 
   const define = (id, file, line, status, row) => {
     const prev = defs.get(id);
@@ -382,6 +383,7 @@ export function checkModule(moduleDir, opts = {}) {
             }
             row.vals[k] = ids;
           }
+          (rowsBy[ts.name] ||= []).push(row);
           if (ts.define?.prefixes.includes('TC')) rows.TC.push(row);
           if (ts.define?.prefixes.includes('FS')) rows.FS.push(row);
           if (ts.define?.bySection) rows.RULE.push(row);
@@ -538,7 +540,133 @@ export function checkModule(moduleDir, opts = {}) {
     module: project ? path.relative(project, dir).split(path.sep).join('/') || '.' : dir,
     work_item: manifest?.work_item?.id ?? null,
     summary, findings,
+    coverage: computeCoverage({defs, rowsBy, manifest}),
   };
+}
+
+// ---------- 覆蓋率（草案第 8 節） ----------
+const GOOD_TC = ['APPROVED', 'VERIFIED'];
+const FINAL_CLASS = c => !['TEST_DATA_PROBLEM', 'REVIEW_REQUIRED'].includes(c);
+const PASS_CLASS = ['PASS', 'APPROVED_BEHAVIOR_CHANGE'];
+
+function metric(ids, isCovered, isDraftOnly = () => false) {
+  const uncovered = [], draft_only = [];
+  let covered = 0;
+  for (const id of ids) {
+    if (isCovered(id)) covered++;
+    else { uncovered.push(id); if (isDraftOnly(id)) draft_only.push(id); }
+  }
+  return {covered, total: ids.length, ratio: ids.length ? covered / ids.length : null, uncovered, draft_only};
+}
+
+export function computeCoverage({defs, rowsBy, manifest}) {
+  const get = name => rowsBy[name] || [];
+  const live = prefixes => [...defs].filter(([id, d]) => !d.removed && prefixes.includes(prefixOf(id))).map(([id]) => id);
+  const tcStatus = new Map(get('Test Case').filter(r => r.id && !r.removed).map(r => [r.id, r.status]));
+
+  // 每個 REQ／Rule／FS 連到的有效 TC（含 DRAFT 等未核准者，供「只有未核准測試」使用）
+  const tests = new Map();
+  const link = (id, tc) => { if (tcStatus.has(tc)) (tests.get(id) || tests.set(id, new Set()).get(id)).add(tc); };
+  for (const tc of get('Test Case')) if (tc.id && !tc.removed) {
+    for (const s of tc.vals.source || []) link(s, tc.id);
+    for (const f of tc.vals.scenario || []) link(f, tc.id);
+  }
+  for (const t of get('Traceability')) for (const tc of t.vals.test || [])
+    for (const s of [...(t.vals.source || []), ...(t.vals.rule || []), ...(t.vals.fs || [])]) link(s, tc);
+  for (const f of get('Functional Scenario')) if (f.id && !f.removed) for (const tc of f.vals.tests || []) link(f.id, tc);
+  for (const r of get('Rule')) if (r.id && !r.removed) for (const s of r.vals.source || []) for (const tc of tests.get(r.id) || []) link(s, tc);
+
+  const covered = id => [...(tests.get(id) || [])].some(tc => GOOD_TC.includes(tcStatus.get(tc)));
+  const draftOnly = id => (tests.get(id)?.size || 0) > 0 && !covered(id);
+  const out = {
+    requirement: metric(live(['REQ']), covered, draftOnly),
+    rules: Object.fromEntries(RULE_PREFIXES.map(p => [p, metric(live([p]), covered, draftOnly)])),
+    scenario: metric(live(['FS']), covered, draftOnly),
+  };
+
+  // 本次變更
+  const ch = manifest?.work_item?.changes;
+  const changed = ch ? [...new Set([...(ch.added || []), ...(ch.modified || [])].map(String))].filter(id => ['REQ', ...RULE_PREFIXES, 'FS'].includes(prefixOf(id))) : null;
+  out.changes = changed ? metric(changed, covered, draftOnly) : null;
+
+  // Legacy 行為（沿用 adf-result-comparison 步驟 5）
+  const lbRows = get('Legacy 行為清單').filter(r => r.id && !r.removed);
+  if (lbRows.length || defs.size && [...defs.keys()].some(id => prefixOf(id) === 'LB')) {
+    const cmp = get('差異清單');
+    const classes = new Map();
+    for (const r of cmp) for (const tc of r.vals.tc || []) (classes.get(tc) || classes.set(tc, []).get(tc)).push(r.vals.cls);
+    const finalTc = tc => (classes.get(tc) || []).length > 0 && classes.get(tc).every(FINAL_CLASS);
+    const lbTests = new Map(lbRows.map(r => [r.id, new Set()]));
+    for (const tc of get('Test Case')) if (tc.id && !tc.removed) for (const s of tc.vals.source || []) lbTests.get(s)?.add(tc.id);
+    for (const r of cmp) for (const lb of r.vals.lb || []) for (const tc of r.vals.tc || []) lbTests.get(lb)?.add(tc);
+    const compared = id => [...lbTests.get(id)].some(finalTc);
+    const passed = id => compared(id) && [...lbTests.get(id)].filter(finalTc).every(tc => classes.get(tc).every(c => PASS_CLASS.includes(c)));
+    const ids = lbRows.map(r => r.id), high = lbRows.filter(r => r.vals.risk === 'HIGH').map(r => r.id);
+    const overall = metric(ids, compared), comparedIds = ids.filter(compared);
+    out.legacy = {
+      overall, high_risk: metric(high, compared),
+      pass: metric(comparedIds, passed),
+      unknown: lbRows.filter(r => r.vals.certainty === 'UNKNOWN').length,
+    };
+  } else out.legacy = null;
+
+  // 驗收（目前 Work Item 的驗收清單）
+  const wi = manifest?.work_item?.id;
+  const acRows = get('驗收項目').filter(r => r.file === `verification/acceptance-${wi}.md`);
+  if (!changed) out.acceptance = null;
+  else if (!acRows.length) out.acceptance = {...metric(changed, () => false), note: `沒有 verification/acceptance-${wi ?? '<work_item.id>'}.md`};
+  else {
+    const acSources = new Set(acRows.filter(r => r.vals.type === '功能').flatMap(r => r.vals.source || []));
+    out.acceptance = metric(changed, id => acSources.has(id));
+  }
+
+  // 執行結果（traceability，每個 TC 取最後一次結果；一列多 Test 的舊寫法依草案 9.1）
+  const result = new Map();
+  for (const t of get('Traceability')) {
+    const list = (t.vals.test || []).filter(tc => tcStatus.has(tc));
+    const r = typeof t.vals.result === 'string' ? t.vals.result : null;
+    for (const tc of list) result.set(tc, !r ? 'UNCERTAIN' : list.length > 1 && r !== 'PASS' ? 'UNCERTAIN' : r);
+  }
+  const exec = {PASS: 0, FAIL: 0, NOT_RUN: 0, BLOCKED: 0, UNCERTAIN: 0, NOT_RECORDED: 0, failed: [], uncertain: [], not_recorded: []};
+  for (const [tc, status] of tcStatus) {
+    if (!GOOD_TC.includes(status)) continue;
+    const r = result.get(tc);
+    if (!r) { exec.NOT_RECORDED++; exec.not_recorded.push(tc); continue; }
+    exec[r] = (exec[r] || 0) + 1;
+    if (r === 'FAIL') exec.failed.push(tc);
+    if (r === 'UNCERTAIN') exec.uncertain.push(tc);
+  }
+  exec.total = [...tcStatus.values()].filter(s => GOOD_TC.includes(s)).length;
+  out.execution = exec;
+  return out;
+}
+
+const pct = m => m.ratio === null ? '不適用' : `${Math.floor(m.ratio * 100)}%`;
+function fmtMetric(label, m, unit = '') {
+  if (!m) return `  ${label}：不適用`;
+  let s = `  ${label}：${m.covered}／${m.total}${unit}（${pct(m)}）`;
+  if (m.uncovered.length) s += `；未涵蓋：${m.uncovered.join('、')}`;
+  if (m.draft_only?.length) s += `；其中只有未核准測試：${m.draft_only.join('、')}`;
+  if (m.note) s += `；${m.note}`;
+  return s;
+}
+
+export function formatCoverage(c) {
+  const out = ['覆蓋率（涵蓋只代表至少有一個已核准的測試案例，不代表所有分支與資料組合都測過）'];
+  out.push(fmtMetric('Requirement', c.requirement));
+  for (const [p, m] of Object.entries(c.rules)) if (m.total) out.push(fmtMetric(`Rule ${p}`, m));
+  out.push(fmtMetric('Functional Scenario', c.scenario));
+  out.push(c.changes ? fmtMetric('本次變更（REQ／Rule／FS）', c.changes) : '  本次變更：不適用（manifest 沒有 work_item.changes）');
+  if (c.legacy) {
+    out.push(fmtMetric('Legacy 行為整體', c.legacy.overall) + `；確定度 UNKNOWN ${c.legacy.unknown} 項`);
+    out.push(fmtMetric('Legacy 高風險', c.legacy.high_risk));
+    out.push(fmtMetric('Legacy 通過率（通過 ÷ 已比對）', c.legacy.pass));
+  }
+  out.push(c.acceptance ? fmtMetric('驗收（本次變更有功能類 AC）', c.acceptance) : '  驗收：不適用（manifest 沒有 work_item.changes）');
+  const e = c.execution;
+  const tail = [e.failed.length && `失敗：${e.failed.join('、')}`, e.uncertain.length && `結果不明：${e.uncertain.join('、')}`, e.not_recorded.length && `未記錄：${e.not_recorded.join('、')}`].filter(Boolean);
+  out.push(`  執行（已核准的 TC ${e.total} 個）：PASS ${e.PASS}、FAIL ${e.FAIL}、NOT_RUN ${e.NOT_RUN}、BLOCKED ${e.BLOCKED}、結果不明 ${e.UNCERTAIN}、未記錄 ${e.NOT_RECORDED}${tail.length ? `；${tail.join('；')}` : ''}`);
+  return out.join('\n');
 }
 
 export function formatText(result) {
@@ -550,6 +678,7 @@ export function formatText(result) {
   }
   const s = result.summary;
   out.push(`結果：錯誤 ${s.error}、警告 ${s.warn}、資訊 ${s.info}`);
+  if (result.coverage) out.push('', formatCoverage(result.coverage));
   return out.join('\n');
 }
 

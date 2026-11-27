@@ -362,23 +362,31 @@ Status: APPROVED
 - L-08、L-09。
 - M-01～M-07、M-09。
 - R-05：需要讀 git 差異。
-- 覆蓋率（第 8 節）。
+
+覆蓋率（第 8 節）已實作，結果放在 JSON 的 `coverage`，文字輸出附在檢查結果之後；覆蓋率不影響 exit code。
 
 ## 8. 覆蓋率定義
 
+「已核准的 TC」指 Status 為 `APPROVED` 或 `VERIFIED` 的 TC；`REMOVED` 的項目不算分子也不算分母。
+
 | 指標 | 分子 | 分母 |
 |---|---|---|
-| Requirement | 至少被一個 `APPROVED`／`VERIFIED` 的 TC 引用（直接引用，或經 traceability 由 Rule 連回）的 `REQ` | 全部 `REQ` |
-| Rule（`BR`、`VAL`、`Q`、`UI` 分開列） | 至少被一個 `APPROVED`／`VERIFIED` 的 TC 引用的 Rule | 該類全部 Rule |
-| Scenario | `Related Test` 至少有一個存在的 TC 的 `FS` | 全部 `FS` |
-| 本次變更 | `changes.added + modified` 中，符合上列條件的項目 | `changes.added + modified` 中的 `REQ`／Rule／`FS` |
-| Legacy 行為 | 沿用 `adf-result-comparison` 步驟 5 的定義（整體、高風險、通過率） | 同左 |
-| 驗收 | `changes.added + modified` 中，被 `功能` 類 AC 引用的項目 | `changes.added + modified` |
-| 執行 | 各 Result 的筆數（每個 TC 取最後一次結果） | traceability 中的 TC |
+| Requirement | 連到至少一個已核准 TC 的 `REQ`。可直接被 TC 的 Source 引用、經 traceability 同列的 Test，或經 Rule（該 Rule 有已核准 TC，且 Rule 的 Source 是這個 REQ） | 全部 `REQ` |
+| Rule（`BR`、`VAL`、`Q`、`UI` 分開列） | 被已核准 TC 的 Source 引用，或在 traceability 與已核准 TC 同列的 Rule | 該類全部 Rule |
+| Scenario | 與已核准 TC 互相連結的 `FS`（TC 的 Scenario、FS 的 Related Test 或 traceability 同列，任一即可） | 全部 `FS` |
+| 本次變更 | `changes.added + modified` 中，符合上列條件的項目 | `changes.added + modified` 中的 `REQ`、Rule 與 `FS`（`LB`、`TC` 不列入） |
+| Legacy 行為 | 沿用 `adf-result-comparison` 步驟 5：`LB` 連到的 TC（TC 的 Source 或差異清單同列）中，至少一個 TC 的所有差異列都有最終分類（不是 `TEST_DATA_PROBLEM`、`REVIEW_REQUIRED`）即算已比對；高風險只看 `HIGH`；通過率的分母是已比對的 `LB` | 同左 |
+| 驗收 | 本次變更項目中，被 `verification/acceptance-<work_item.id>.md` 的「功能」類 AC 列為來源 ID 的項目；其他 Work Item 的驗收清單不算 | 與「本次變更」相同 |
+| 執行 | 已核准 TC 依 traceability 的 Result 分類計數，每個 TC 取檔案中最後一次出現的結果 | 已核准 TC 總數 |
 
-- 每個指標都寫出分子與分母；分母為 0 時寫「不適用」。
-- 「涵蓋」只代表至少有一個案例，不代表所有分支都測過；這句話會固定出現在工具的報告裡。
-- `DRAFT` 的 TC 不算在分子，但工具另外列出「有 DRAFT 測試但尚無核准測試」的項目，方便判斷是缺測試還是缺核准。
+- 每個指標都寫出分子與分母；分母為 0 時寫「不適用」（JSON 中 `ratio` 為 `null`）。
+- 百分比**無條件捨去**，避免 99.6% 顯示成 100% 讓人以為全部涵蓋。
+- 「涵蓋」只代表至少有一個已核准的案例，不代表所有分支都測過；這句話固定出現在工具的報告裡。
+- 未涵蓋的項目中，有連到 TC 但那些 TC 都還沒核准的，另外列為「只有未核准測試」，方便判斷是缺測試還是缺核准。
+- 執行結果的分類：
+  - `PASS`、`FAIL`、`NOT_RUN`、`BLOCKED`：依 traceability 的 Result。
+  - **結果不明**：舊寫法一列多個 Test 且 Result 不是 `PASS`（9.1），或 Result 空白。
+  - **未記錄**：traceability 沒有出現的已核准 TC。
 
 ## 9. 待決問題
 

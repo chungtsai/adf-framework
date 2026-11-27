@@ -6,7 +6,7 @@ import path from 'node:path';
 import os from 'node:os';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {checkModule, parseYaml, findIds, tables, YamlError} from '../skills/adf-project-install/scripts/module-check.mjs';
+import {checkModule, parseYaml, findIds, tables, YamlError, formatCoverage} from '../skills/adf-project-install/scripts/module-check.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const cli = path.join(repo, 'skills/adf-project-install/scripts/module-check.mjs');
@@ -241,4 +241,87 @@ test('CLI：exit code 與 JSON 輸出', t => {
   assert.equal(yaml.status, 2);
   assert.match(yaml.stderr, /超出支援的 YAML 範圍/);
   assert.equal(spawnSync(process.execPath, [cli, path.join(os.tmpdir(), 'no-such-module-xyz')], {encoding: 'utf8'}).status, 2);
+});
+
+test('覆蓋率：完整 Module 全部涵蓋，分母為 0 的指標為 null', t => {
+  const c = checkModule(moduleDir(t).dir).coverage;
+  assert.deepEqual([c.requirement.covered, c.requirement.total], [2, 2]);
+  assert.deepEqual([c.rules.BR.covered, c.rules.VAL.covered, c.rules.Q.total, c.rules.Q.ratio], [1, 1, 0, null]);
+  assert.deepEqual([c.scenario.covered, c.scenario.total], [1, 1]);
+  assert.deepEqual([c.changes.covered, c.changes.total], [2, 2], 'TC 不算在本次變更的分母');
+  assert.equal(c.legacy, null);
+  assert.deepEqual(c.acceptance.uncovered, ['REQ-001', 'BR-001']);
+  assert.match(c.acceptance.note, /acceptance-WI-001\.md/);
+  assert.deepEqual([c.execution.total, c.execution.PASS, c.execution.not_recorded], [3, 2, ['TC-003']]);
+});
+
+test('覆蓋率：只計已核准的 TC；只有 DRAFT 測試的項目另外列出；REMOVED 不算分母', t => {
+  const {dir} = moduleDir(t, {
+    'spec/requirements.md': FILES['spec/requirements.md'] + '| REQ-003 | 已刪除 | | REMOVED |\n| REQ-004 | 沒有測試 | | APPROVED |\n',
+    'verification/test-cases.md': edit('verification/test-cases.md', '| 下載 Excel | 檔案 | APPROVED |', '| 下載 Excel | 檔案 | DRAFT |'),
+  });
+  const c = checkModule(dir).coverage;
+  assert.deepEqual([c.requirement.covered, c.requirement.total, c.requirement.uncovered, c.requirement.draft_only], [1, 3, ['REQ-002', 'REQ-004'], ['REQ-002']]);
+  assert.match(formatCoverage(c), /Requirement：1／3（33%）；未涵蓋：REQ-002、REQ-004；其中只有未核准測試：REQ-002/);
+});
+
+test('覆蓋率：經 traceability 或經 Rule 連回的也算涵蓋', t => {
+  const {dir} = moduleDir(t, {
+    'verification/test-cases.md': edit('verification/test-cases.md', '| TC-001 | REQ-001、BR-001 |', '| TC-001 | BR-001 |').replace('| TC-003 | REQ-002 |', '| TC-003 | VAL-001 |'),
+    'verification/traceability.md': FILES['verification/traceability.md'] + '| REQ-002 | | | | | TC-003 | PASS |\n',
+  });
+  const c = checkModule(dir).coverage;
+  assert.deepEqual(c.requirement.uncovered, []);
+});
+
+test('覆蓋率：Legacy 行為依 comparison 計算整體、高風險與通過率', t => {
+  const {dir} = moduleDir(t, {
+    'analysis/legacy-behavior.md': `# Legacy Behavior
+
+## 行為清單
+
+| ID | 入口 | 類別 | 行為 | 證據位置 | 確定度 | 風險 | 規則 | Status |
+|---|---|---|---|---|---|---|---|---|
+| LB-001 | 查詢 | 查詢 | 空白不加條件 | a.java:1 | CONFIRMED | NORMAL | | |
+| LB-002 | 查詢 | 交易 | 失敗回滾 | a.java:2 | CONFIRMED | HIGH | | |
+| LB-003 | 查詢 | 權限 | 管理者才可查 | | UNKNOWN | HIGH | | |
+| LB-004 | 查詢 | 副作用 | 寫稽核 | a.java:4 | CONFIRMED | NORMAL | | |
+| LB-005 | 查詢 | 分支 | 已刪除 | a.java:5 | CONFIRMED | HIGH | | REMOVED |
+`,
+    'verification/comparison.md': `# Result Comparison
+
+## 差異清單
+
+| TC | LB | 面向 | 欄位 | Legacy | Target | 分類 | 依據 | 處理 |
+|---|---|---|---|---|---|---|---|---|
+| TC-001 | LB-001 | 畫面 | name | A | A | PASS | — | — |
+| TC-002 | LB-002 | DB 寫入 | cnt | 0 | 1 | MIGRATION_DEFECT | — | — |
+| TC-002 | LB-002 | 畫面 | msg | X | X | PASS | — | — |
+| TC-003 | LB-004 | 副作用 | log | 1 | — | TEST_DATA_PROBLEM | — | — |
+`,
+  });
+  const l = checkModule(dir).coverage.legacy;
+  assert.deepEqual([l.overall.covered, l.overall.total, l.overall.uncovered], [2, 4, ['LB-003', 'LB-004']], 'TEST_DATA_PROBLEM 不算已比對');
+  assert.deepEqual([l.high_risk.covered, l.high_risk.total, l.high_risk.uncovered], [1, 2, ['LB-003']]);
+  assert.deepEqual([l.pass.covered, l.pass.total, l.pass.uncovered], [1, 2, ['LB-002']]);
+  assert.equal(l.unknown, 1);
+});
+
+test('覆蓋率：驗收只看本次 Work Item 清單的功能類 AC', t => {
+  const {dir} = moduleDir(t);
+  const ac = src => `# 驗收清單\n\n## 3. 驗收項目\n\n| AC ID | 類型 | 來源 ID | 驗收項目 | 操作步驟 | 預期結果 | 對應測試與目前結果 | 結果 | 備註 |\n|---|---|---|---|---|---|---|---|---|\n${src}`;
+  write(dir, 'verification/acceptance-WI-001.md', ac('| AC-001 | 功能 | REQ-001 | 查詢 | | | TC-001 PASS | 待驗收 | |\n| AC-101 | 回歸 | BR-001 | 停用 | | | | 待驗收 | |\n'));
+  write(dir, 'verification/acceptance-WI-000.md', ac('| AC-001 | 功能 | BR-001 | 舊的 | | | | 通過 | |\n'));
+  const r = checkModule(dir);
+  assert.deepEqual(r.findings, []);
+  assert.deepEqual([r.coverage.acceptance.covered, r.coverage.acceptance.uncovered], [1, ['BR-001']]);
+});
+
+test('執行結果：每個 TC 取最後一次；一列多 Test 時只有 PASS 能套用到每個 TC', t => {
+  const {dir} = moduleDir(t, {
+    'verification/traceability.md': FILES['verification/traceability.md'] + '| REQ-001 | | | | | TC-001 | FAIL |\n| REQ-002 | | | | | TC-002、TC-003 | FAIL |\n',
+  });
+  const e = checkModule(dir).coverage.execution;
+  assert.deepEqual([e.PASS, e.FAIL, e.UNCERTAIN, e.NOT_RECORDED, e.failed, e.uncertain], [0, 1, 2, 0, ['TC-001'], ['TC-002', 'TC-003']]);
+  assert.match(formatCoverage(checkModule(dir).coverage), /執行（已核准的 TC 3 個）：PASS 0、FAIL 1、NOT_RUN 0、BLOCKED 0、結果不明 2、未記錄 0；失敗：TC-001；結果不明：TC-002、TC-003/);
 });
