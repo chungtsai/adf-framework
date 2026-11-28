@@ -7,7 +7,6 @@
 
 | ID | Source | Preconditions | Test Input | User Flow | UI Expected | Data Verification | Expected Data | Related Test | Status |
 |---|---|---|---|---|---|---|---|---|---|
-| FS-001 | REQ-001 | 使用者已登入 | account=TEST001 | 1. 開啟功能 2. 輸入資料 3. 儲存 | 顯示新增成功 | SQL / API / Query UI | TEST001 存在且欄位值正確 | TC-001 | DRAFT |
 
 ## 規則
 

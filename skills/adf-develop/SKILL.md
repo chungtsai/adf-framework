@@ -29,6 +29,11 @@ description: ADF 統一開發 Orchestrator，依 NEW、CHANGE、MIGRATION 與 In
 - Retrofit CHANGE 僅補 Scenario、Test 關聯與 Traceability，不應重新走 Implementation；除非過程發現並經 Human 確認存在真正的 Behavior Change。
 - 不新增 `FUNCTIONAL_SCENARIO` Work Type，不新增 Work Type。
 
+## Module 檢查與結案前哨
+
+- 進入 `adf-development-complete` 前，強制經由 `module-check.mjs --gate`（規則見 `core/module-format.md`）預檢；`BLOCKED` 時依問題分類退回對應 Stage，不得直接結案。
+- 針對既有已完成 Module 僅需修正格式或拆列 `traceability.md`（不改變行為）時，建立 `Documentation Retrofit CHANGE`（`behavior.change_allowed: false`），不進入實作 Stage。
+
 ## Acceptance Routing
 
 - Traceability 完成後、`adf-development-complete` 之前，執行 `adf-acceptance-checklist` 產生本次 Work Item 的驗收清單；Human 填寫並簽核後再執行一次回收結果。

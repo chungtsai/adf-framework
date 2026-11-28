@@ -49,7 +49,7 @@ description: 以程式逐欄比對 Legacy 與 Target 的正規化結果，依固
    - 通過率 = 通過的 `LB-*` ÷ 已比對 `LB-*`。
    每個指標都寫出分子與分母（例如 `18／24（75%）`），分母為 0 時寫 `不適用`，不寫 100%。未涵蓋的高風險 `LB-*` 標 `REVIEW_REQUIRED`。涵蓋只代表該行為至少有一個案例驗證過，不代表所有分支與資料組合都測過。
 6. **結果不穩定**：同一案例重跑結果不同時，記錄每次結果並標 `REVIEW_REQUIRED`，不得取其中一次當作結果。
-7. **交付審查**：寫入 `verification/comparison.md`，送 Result Comparison Human Gate。Human 確認分類後才把 manifest `status.verification.comparison` 改為 `done`；`MIGRATION_DEFECT` 交 `adf-verification-fix`，RETROFIT_VERIFY 經 Human 決定後另開 `CHANGE`。
+7. **格式自檢與交付審查**：寫入 `verification/comparison.md` 後執行 `module-check.mjs` 依 `core/module-format.md` 核對 `TC-*`/`LB-*` 引用、分類合法值與涵蓋率口徑，無格式與斷鏈錯誤再送 Result Comparison Human Gate。Human 確認分類後才把 manifest `status.verification.comparison` 改為 `done`；`MIGRATION_DEFECT` 交 `adf-verification-fix`，RETROFIT_VERIFY 經 Human 決定後另開 `CHANGE`。
 
 ## 輸出
 - `verification/comparison.md`：比對摘要、差異清單、分類統計、涵蓋率與未涵蓋 `LB-*`、比對指令。

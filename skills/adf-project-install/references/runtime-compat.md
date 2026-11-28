@@ -17,3 +17,4 @@
 - 保留既有 Module 文件、完成狀態與核准紀錄；新版缺少的欄位或文件列為補做建議，不自動撤銷核准。需要補做時另走 `CHANGE`。
 - 尚未採用新版 Gate 的舊 Module，只列出 Functional Scenario / `specification.md` 差異；已明確採用新版的工作才檢查新版要求。
 - 沒有標記版本的 v5.0 文件不是壞檔。
+- 歷史完成 Module 的格式與 `traceability.md` 採「碰到才轉換（Touch-to-Migrate）」，維持既有核准狀態不動；無 git 環境下版控比對自動降級為 `INFO`，不阻擋流程。

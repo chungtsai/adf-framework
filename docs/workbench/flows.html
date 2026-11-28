@@ -274,7 +274,7 @@ footer{color:#88a8b7;font-size:13px}
     </div>
   </section>
 
-  <footer>內容依 ADF v5.6.0 的 SKILL.md、官方範本與 <code>core/invariants.md</code> 整理；此頁是互動導覽，不執行 Skill，也不會寫入任何專案檔案。範例案例、ID 與數值皆為示意。Stage 與 Gate 位置為示意，實際以 <code>adf-develop</code> 依 Artifact 與 Review 狀態判斷的結果為準。</footer>
+  <footer>內容依 ADF v5.7.0 的 SKILL.md、官方範本與 <code>core/invariants.md</code>、<code>core/module-format.md</code> 整理；此頁是互動導覽，不執行 Skill，也不會寫入任何專案檔案。範例案例、ID 與數值皆為示意。Stage 與 Gate 位置為示意，實際以 <code>adf-develop</code> 與 <code>module-check.mjs --gate</code> 依 Artifact 與 Review 狀態判斷的結果為準。</footer>
 </div>
 
 <script>
@@ -302,11 +302,23 @@ const ART={
   refa:{p:'重構分析',id:'行為不變範圍'},
   stdfile:{p:'standards/DEV-DATE-001.md',id:'專案規範'},
   impact:{p:'規範影響報告',id:'各 Module 的影響'},
-  ask:{p:'adf-ask 回報',id:'唯讀狀態報告',kind:'done'}
+  ask:{p:'adf-ask 回報',id:'唯讀狀態報告',kind:'done'},
+  mcheck:{p:'module-check --gate 報告',id:'L-*/M-*/R-* · G-01～G-12',kind:'done'}
 };
-const DONE_LABEL={code:'已實作',ask:'唯讀報告'};
+const DONE_LABEL={code:'已實作',ask:'唯讀報告',mcheck:'唯讀預檢'};
 
 /* ======== 共用 Gate ======== */
+const STAGE_MCHECK={sk:'module-check.mjs --gate',t:'強制結案預檢（G-01～G-12）',d:'依 core/module-format.md 檢查格式（L-*）、manifest（M-*）、連結（R-*）、覆蓋率與 12 項結案條件；工具只報告事實、不改檔，BLOCKED 強制阻擋結案。',
+  p:['mcheck'],out:'預檢報告（exit 0 READY／exit 1 BLOCKED／exit 3 HUMAN_REQUIRED／exit 2 工具錯誤）；工具結論不等於核准。',
+  ex:'L-*/M-*/R-* 0 錯誤，覆蓋率 100%，G-01～G-12 通過 → READY，進入 Human Completion Gate。'};
+const DEFAULT_MCHECK=`# module-check.mjs --gate 結案預檢報告（唯讀示意）
+| 檢查項目 | 結果 | 說明 |
+|---|---|---|
+| 格式與安全（L-01～L-14） | PASS | 0 錯誤，Verification SQL 皆為 SELECT，無疑似 Secret |
+| manifest（M-01～M-09） | PASS | 欄位完整、狀態一致、base_ref 未改寫 |
+| 跨檔連結（R-01～R-09） | PASS | ID 無斷鏈、TC↔FS 一致、changes 與版控相符 |
+| 覆蓋率 | 100% | REQ／Rule／FS／本次變更皆有已核准 TC 且全部 PASS |
+| G-01～G-12 結案預檢 | READY（exit 0） | 無阻擋項目；工具結論不等於核准，請進 Human Gate 確認 |`;
 const GATE_REQ={kind:'gate',sk:'Human Gate',t:'需求與規則核准',d:'確認需求與規則正確，才進入設計。',
   out:'沒有新檔案；目前所有 DRAFT 的 Artifact 由 Human 確認後改為 APPROVED。',ex:'主管看過 REQ-001 與 BR-001 後按「核准」，兩份文件改為 APPROVED。'};
 const GATE_PROTO={kind:'gate',sk:'adf-prototype-review',t:'Prototype 獨立審查',d:'獨立審查 Prototype 是否符合需求、規則與 Standard，再由 Human 確認。',
@@ -1075,12 +1087,51 @@ status: {S}
 | Blocker | Prototype Review 尚未經 Human 核准 |
 | Standard drift | 無 |
 | 建議下一步 | 請 Human 審查 Prototype（adf-prototype-review） |`
+ }},
+/* ---------------- 11 MCHECK ---------------- */
+{id:'mcheck',group:'其他',no:'11',name:'結案預檢與文件健檢',desc:'v5.7 強制結案預檢與未達標文件調整',tag:'MANDATORY · v5.7',entry:'module-check.mjs --gate',
+ caseT:'請假模組結案前強制預檢與健檢',caseD:'leave-request 準備結案（或既有舊 Module 首次導入 v5.7 檢查），先跑 module-check.mjs --gate 確認格式、連結、覆蓋率與 G-01～G-12，並依問題分類決定調整策略。',
+ summary:'依 core/module-format.md 執行唯讀檢查；BLOCKED 強制阻擋結案並區分 A/B/C 類問題調整，READY 仍須 Human Completion Gate 確認。',
+ mf:['node <skill-root>/scripts/module-check.mjs <module> --gate','只讀不改檔 · 工具結論不等於核准','exit 0 READY / 1 BLOCKED / 3 HUMAN / 2 工具錯'],
+ caution:'L-08（非 SELECT SQL）、L-09（Secret）與 G-02／G-05／G-06（未核准／測試失敗）一律不得豁免；嚴禁刪列洗綠報告或把舊列 Result 複製給多個 TC。',
+ stages:[
+  {sk:'module-check.mjs',t:'格式與安全掃描（L-01～L-14）',d:'檢查表格欄數、必要欄位、ID 語法與重複、狀態值、章節前綴、Verification SQL 限 SELECT（L-08）與疑似 Secret（L-09）。',p:[],
+   out:'格式與安全問題清單（含檔名、行號與代碼，Secret 不輸出內容）。',ex:'L-01 欄數錯位、L-10 舊寫法一列多 Test、L-08 出現 DELETE FROM'},
+  {sk:'module-check.mjs',t:'manifest 與跨檔連結、版控比對（M-* · R-*）',d:'比對 manifest 範本與狀態一致性（M-01～M-09），檢查 ID 斷鏈、TC↔FS 雙向一致與 work_item.changes vs base_ref 差異（R-01～R-09）。',p:[],
+   out:'manifest 與跨檔連結問題清單；R-05 只回報 REVIEW_REQUIRED，不自動修改 changes。',ex:'R-01 TC-005 引用不存在的 BR-009；R-05 VAL-002 有異動未登記'},
+  {sk:'module-check.mjs --gate',t:'計算覆蓋率與 G-01～G-12 結案預檢',d:'僅計已核准（APPROVED／VERIFIED）TC，無條件捨去百分比；依 adf-development-complete 檢查 12 項結案條件。',p:['mcheck'],
+   out:'唯讀結案預檢報告與 exit code（0 READY／1 BLOCKED／3 HUMAN_REQUIRED／2 工具無法執行）。',ex:'G-01 格式連結、G-06 測試結果、G-07 追溯、G-11 驗收簽核逐項判定'},
+  {kind:'branch',sk:'未達標調整策略',t:'依預檢結果與問題分類（A／B／C）處置',d:'點選不同預檢結果，看看強制流程如何處置未達標文件。',
+   out:'依問題性質分流，兼顧嚴格把關與既有文件漸進轉換。',ex:'A 類直接修格式、B 類依證據對齊、C 類強制退回補測或除錯',options:[
+    ['BLOCKED · A 類純格式（欄數／範例列）','行為不變：直接修格式或刪殘留範例列，不登記 work_item.changes、不撤銷核准；升版前舊 Work Item 可經 Human 記 blockers 有條件通過。'],
+    ['BLOCKED · B 類追溯未對齊（L-10／R-05）','依 comparison／CI／ALM／人工紀錄拆列並填 Evidence，查無紀錄填 NOT_RUN（嚴禁複製舊 Result）；歷史 Module 開 Documentation Retrofit CHANGE。'],
+    ['BLOCKED · C 類實質缺漏（L-08／L-09／漏測）','紅線零容忍：強制阻擋結案，退回對應 Skill 移除 Secret、修正 SQL 或補測並重走 Human Gate，嚴禁刪列洗綠報告。','bugfix'],
+    ['HUMAN_REQUIRED（exit 3 · 如無 FS）','工具無法判定適用性（如純技術模組免 FS 或 5.5.0 前舊 Work Item），進入 Human Gate 逐項確認並留紀錄。'],
+    ['READY（exit 0 · 無阻擋）','全部自動檢核通過，進入 Human Completion Gate 做最終語意確認與簽核（工具結論不等於核准）。']]},
+  {kind:'exit',sk:'完成',t:'依預檢與 Human 決策推進或退回',d:'歷史已完成 Module 採「碰到才轉換（Touch-to-Migrate）」，不因升版撤銷既有核准。'}
+ ],
+ files:{
+  mcheck:`# module-check.mjs --gate 結案預檢報告（示意）
+| Gate | 項目 | 狀態 | 說明 |
+|---|---|---|---|
+| G-01 | 格式、manifest 與連結 | BLOCKED | L-10（traceability 一列多 Test）、R-01（TC-005 引用 BR-009 不存在） |
+| G-02 | Review 與 Human Approval | PASS | 無未解決問題，已核准 |
+| G-06 | 測試與執行結果 | PASS | 已核准 TC 6／6 全部 PASS |
+| G-07 | Traceability 覆蓋率 | PASS | REQ 100%（2／2）、Rule 100%（4／4） |
+| G-09 | Functional Scenario | HUMAN | 若為純技術模組請 Human 確認不適用 |
+| G-11 | 驗收簽核 | PASS | acceptance-WI-002.md 已由 Human 簽核通過 |
+- 結論：BLOCKED（exit 1）— 請依 A／B／C 問題分類修正後重跑；工具結論不等於核准。`
  }}
 ];
 
-const TRIG={"new": {"prompt": "用 adf-develop 開一個 NEW Module：【leave-request】（【請假申請】）。需求來源：【docs/需求/線上請假.docx】，重點是【員工線上申請、主管簽核、特休不足不可送出】。\n先做 feature-init 和 requirement-analysis，產出 REQ-* 就停，不要寫程式。需求不清楚的地方一問一答問我。", "prep": ["需求文件或需求描述", "Module 代號與名稱"], "ex": "指定 NEW、Module、需求來源，做到 REQ-* 就停"}, "change": {"prompt": "用 adf-develop 在 modules/【leave-request】（【請假申請】）開一個 CHANGE（FEATURE）：新增【上午／下午半天假，以 0.5 天扣特休】。需求來源：【Redmine #5120】。\n必須保留：【REQ-001 申請與簽核、REQ-002 查詢本人假單】。先記錄 Requirement Delta、找出受影響的規則與 Regression 範圍就停。", "prep": ["單號或需求描述", "已有核准 Baseline 的 Module", "必須保留的行為"], "ex": "指定 CHANGE（FEATURE）與必須保留的行為"}, "migration": {"prompt": "用 adf-migrate 開始移轉【請假查詢】：Legacy 在【legacy/leave/query.asp、LeaveDao.asp】，Target 是【Spring Boot + Vue】，Module 用【leave-query】（【請假查詢】）。\n先做 adf-legacy-analysis：每個入口追到最終 SQL 或副作用，建立 analysis/legacy-behavior.md（LB-* 附檔案:行號）。看不懂的地方標 UNKNOWN 問我，不要猜。做完分析就停。", "prep": ["Legacy 原始碼路徑", "DB 物件定義（Stored Procedure 等）", "Target 技術架構"], "ex": "指定 Legacy 位置與 Target，先做行為分析"}, "retrofit": {"prompt": "【請假查詢】已經移轉到新系統，舊系統【legacy/leave/query.asp】還能執行，新系統在【LeaveQueryController.java】。\n用 adf-retrofit-verification 對 modules/【leave-query】（【請假查詢】）做事後驗證：先 VERIFY ONLY，用同一批案例跑新舊兩邊，差異只分類不修改程式。", "prep": ["新舊系統都能執行的環境", "可共用的測試資料"], "ex": "指定 VERIFY ONLY，差異只分類不修改"}, "adoption": {"prompt": "modules/【overtime-request】（【加班申請】）只有現行程式，沒有舊系統也沒有規格。Target 程式在【src/overtime/、web/overtime/】，只分析這些位置。\n用 adf-baseline-adoption 從現行程式反向整理候選需求與規則，全部標 OBSERVED；整理完交給我審查，我核准後才建立 Baseline 與 Regression Test。", "prep": ["現行程式位置", "能回答業務問題的人"], "ex": "指定只分析現行程式，核准前不建立 Baseline"}, "bugfix": {"prompt": "modules/【leave-request】（【請假申請】）有 Bug：【請 11/30～12/01 兩天假只扣 1 天特休】。重現步驟：【登入 → 請假 → 特休 11/30～12/01 → 送出】。\n用 adf-develop 開 CHANGE（BUGFIX）：先找出是 Rule、Design 還是程式的問題，補一個會失敗的測試案例再修，修完跑 Regression。", "prep": ["重現步驟、預期與實際結果", "錯誤截圖或 log（如有）"], "ex": "附重現步驟，先補失敗的測試再修"}, "security": {"prompt": "【資安檢測報告 #SEC-2026-11】指出 modules/【leave-request】（【請假申請】）的【GET /api/leave?empId=】可以查看他人假單。\n用 adf-develop 開 CHANGE（SECURITY_FIX）：先用 adf-security-analysis 分析，正常查詢行為要保留；修完用 adf-security-verification 驗證，並跑 Regression。", "prep": ["報告編號與內容", "受影響的 API 或類別"], "ex": "附報告編號，並要求保留正常行為"}, "refactor": {"prompt": "用 adf-develop 在 modules/【leave-request】（【請假申請】）開 CHANGE（REFACTOR）：把【LeaveService.days()】拆成獨立類別，不允許任何行為改變。\n先用 adf-refactor-analysis 建立行為基線和 Characterization Test，給我看過再動程式。", "prep": ["要重構的類別", "可執行測試的環境"], "ex": "明說「不允許任何行為改變」"}, "standard": {"prompt": "用 adf-standard-authoring 新增一條 DEV-*：【畫面與匯出檔的日期一律 yyyy-MM-dd】，適用【所有作業】。寫好給我審查，不要自行核准。\n核准後再用 adf-standard-impact-analysis 列出受影響的 Module，只分析不修改。", "prep": ["規範內容與適用範圍"], "ex": "先寫規範給人審，核准後才分析影響"}, "unsure": {"prompt": "用 adf-ask 看 modules/【leave-request】（【請假申請】）：目前卡在哪？有沒有等我回答的 REVIEW_REQUIRED 問題？只給一個建議的下一步，不要修改任何檔案。", "prep": ["Module 名稱"], "ex": "adf-ask 是唯讀，不會修改檔案"}};
-S.forEach(s=>{const t=TRIG[s.id];s.stages.unshift({kind:'trigger',sk:'對 Claude Code 說',t:'觸發這個情境',d:'用提示詞指定 Skill、範圍與停止點；【】內換成你的實際內容。',
-  out:'AI 依提示詞判斷 Work Type 與要執行的 Skill，做到你指定的停止點就停。',ex:t.ex,prompt:t.prompt,prep:t.prep});});
+const TRIG={"new": {"prompt": "用 adf-develop 開一個 NEW Module：【leave-request】（【請假申請】）。需求來源：【docs/需求/線上請假.docx】，重點是【員工線上申請、主管簽核、特休不足不可送出】。\n先做 feature-init 和 requirement-analysis，產出 REQ-* 就停，不要寫程式。需求不清楚的地方一問一答問我。", "prep": ["需求文件或需求描述", "Module 代號與名稱"], "ex": "指定 NEW、Module、需求來源，做到 REQ-* 就停"}, "change": {"prompt": "用 adf-develop 在 modules/【leave-request】（【請假申請】）開一個 CHANGE（FEATURE）：新增【上午／下午半天假，以 0.5 天扣特休】。需求來源：【Redmine #5120】。\n必須保留：【REQ-001 申請與簽核、REQ-002 查詢本人假單】。先記錄 Requirement Delta、找出受影響的規則與 Regression 範圍就停。", "prep": ["單號或需求描述", "已有核准 Baseline 的 Module", "必須保留的行為"], "ex": "指定 CHANGE（FEATURE）與必須保留的行為"}, "migration": {"prompt": "用 adf-migrate 開始移轉【請假查詢】：Legacy 在【legacy/leave/query.asp、LeaveDao.asp】，Target 是【Spring Boot + Vue】，Module 用【leave-query】（【請假查詢】）。\n先做 adf-legacy-analysis：每個入口追到最終 SQL 或副作用，建立 analysis/legacy-behavior.md（LB-* 附檔案:行號）。看不懂的地方標 UNKNOWN 問我，不要猜。做完分析就停。", "prep": ["Legacy 原始碼路徑", "DB 物件定義（Stored Procedure 等）", "Target 技術架構"], "ex": "指定 Legacy 位置與 Target，先做行為分析"}, "retrofit": {"prompt": "【請假查詢】已經移轉到新系統，舊系統【legacy/leave/query.asp】還能執行，新系統在【LeaveQueryController.java】。\n用 adf-retrofit-verification 對 modules/【leave-query】（【請假查詢】）做事後驗證：先 VERIFY ONLY，用同一批案例跑新舊兩邊，差異只分類不修改程式。", "prep": ["新舊系統都能執行的環境", "可共用的測試資料"], "ex": "指定 VERIFY ONLY，差異只分類不修改"}, "adoption": {"prompt": "modules/【overtime-request】（【加班申請】）只有現行程式，沒有舊系統也沒有規格。Target 程式在【src/overtime/、web/overtime/】，只分析這些位置。\n用 adf-baseline-adoption 從現行程式反向整理候選需求與規則，全部標 OBSERVED；整理完交給我審查，我核准後才建立 Baseline 與 Regression Test。", "prep": ["現行程式位置", "能回答業務問題的人"], "ex": "指定只分析現行程式，核准前不建立 Baseline"}, "bugfix": {"prompt": "modules/【leave-request】（【請假申請】）有 Bug：【請 11/30～12/01 兩天假只扣 1 天特休】。重現步驟：【登入 → 請假 → 特休 11/30～12/01 → 送出】。\n用 adf-develop 開 CHANGE（BUGFIX）：先找出是 Rule、Design 還是程式的問題，補一個會失敗的測試案例再修，修完跑 Regression。", "prep": ["重現步驟、預期與實際結果", "錯誤截圖或 log（如有）"], "ex": "附重現步驟，先補失敗的測試再修"}, "security": {"prompt": "【資安檢測報告 #SEC-2026-11】指出 modules/【leave-request】（【請假申請】）的【GET /api/leave?empId=】可以查看他人假單。\n用 adf-develop 開 CHANGE（SECURITY_FIX）：先用 adf-security-analysis 分析，正常查詢行為要保留；修完用 adf-security-verification 驗證，並跑 Regression。", "prep": ["報告編號與內容", "受影響的 API 或類別"], "ex": "附報告編號，並要求保留正常行為"}, "refactor": {"prompt": "用 adf-develop 在 modules/【leave-request】（【請假申請】）開 CHANGE（REFACTOR）：把【LeaveService.days()】拆成獨立類別，不允許任何行為改變。\n先用 adf-refactor-analysis 建立行為基線和 Characterization Test，給我看過再動程式。", "prep": ["要重構的類別", "可執行測試的環境"], "ex": "明說「不允許任何行為改變」"}, "standard": {"prompt": "用 adf-standard-authoring 新增一條 DEV-*：【畫面與匯出檔的日期一律 yyyy-MM-dd】，適用【所有作業】。寫好給我審查，不要自行核准。\n核准後再用 adf-standard-impact-analysis 列出受影響的 Module，只分析不修改。", "prep": ["規範內容與適用範圍"], "ex": "先寫規範給人審，核准後才分析影響"}, "unsure": {"prompt": "用 adf-ask 看 modules/【leave-request】（【請假申請】）：先執行 module-check.mjs --gate --json，告訴我目前卡在哪、有沒有等我回答的 REVIEW_REQUIRED 問題？只給一個建議的下一步，不要修改任何檔案。", "prep": ["Module 名稱", "Node 18 以上"], "ex": "adf-ask 是唯讀，會先以 module-check --gate 診斷"}, "mcheck": {"prompt": "請執行 node .claude/skills/adf-project-install/scripts/module-check.mjs modules/【leave-request】 --gate，依 core/module-format.md 把錯誤、警告與 G-01～G-12 結案預檢分成 A 類（純格式）、B 類（追溯未對齊）、C 類（實質缺漏）三類說明，並指出各自對應的調整策略與 Skill。不要修改任何文件。", "prep": ["ADF v5.7.0 以上", "Node 18 以上", "Module 路徑"], "ex": "先以 --gate 取得客觀報告，再依 A／B／C 類分流處理"}};
+S.forEach(s=>{
+  const t=TRIG[s.id];
+  s.stages.unshift({kind:'trigger',sk:'對 Claude Code 說',t:'觸發這個情境',d:'用提示詞指定 Skill、範圍與停止點；【】內換成你的實際內容。',
+    out:'AI 依提示詞判斷 Work Type 與要執行的 Skill，做到你指定的停止點就停。',ex:t.ex,prompt:t.prompt,prep:t.prep});
+  const doneIdx=s.stages.indexOf(GATE_DONE);
+  if(doneIdx>=0){s.stages.splice(doneIdx,0,STAGE_MCHECK);if(!s.files.mcheck)s.files.mcheck=DEFAULT_MCHECK;}
+});
 const $=id=>document.getElementById(id);
 const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const st={sc:null,i:0,playing:false,timer:null,art:{},order:[],waiting:false,finished:false,view:null};

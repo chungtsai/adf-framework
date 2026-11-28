@@ -16,5 +16,9 @@ description: 建立或更新 Business Rule 與 Validation Rule。
 
 來源缺少或版本不相容時停止，不回退全域，不保留本地副本。
 
+## 格式與自檢
+- 依 `core/module-format.md` 將規則寫入 `spec/rules.md` 對應章節表格（`BR-*`、`VAL-*`、`Q-*`、`UI-*` 前綴須與章節相符），填齊 `Source` 與 `Status`。
+- 寫入規則文件後執行 `module-check.mjs` 自檢章節前綴（`L-06`）、引用存在性（`R-01`）與 `Status` 合法值。
+
 ## 本 Skill 官方資源
 - `template/spec/rules.md` → `assets/rules.md`。

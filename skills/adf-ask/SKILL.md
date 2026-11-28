@@ -17,4 +17,4 @@ description: 唯讀查看 ADF 專案進度、Blocker、Review Gate 與下一個�
 來源缺少或版本不相容時停止，不回退全域，不保留本地副本。
 
 ## 導航規則
-支援 Module Summary、`next`、`blockers`、`all`。回覆目前 Work Type、Stage、Completed/Pending、Blockers，並只給一個建議的下一支 ADF Skill 或 Human Review。`adf-ask` 為 READ ONLY，不得執行建議 Skill 或直接修改 Artifact。
+支援 Module Summary、`next`、`blockers`、`all`。執行唯讀診斷時，優先呼叫 `node <skill-root>/scripts/module-check.mjs modules/<module-id> --gate --json`（規格見 `core/module-format.md`）取得客觀的錯誤、覆蓋率與 `G-01～G-12` 阻擋狀態，再回覆目前 Work Type、Stage、Completed/Pending、Blockers，並只給一個建議的下一支 ADF Skill 或 Human Review。`adf-ask` 為 READ ONLY，不得執行建議 Skill 或直接修改 Artifact。

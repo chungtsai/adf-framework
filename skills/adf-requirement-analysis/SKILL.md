@@ -16,5 +16,9 @@ description: 分析 NEW 或 CHANGE 的需求與需求差異。
 
 來源缺少或版本不相容時停止，不回退全域，不保留本地副本。
 
+## 格式與自檢
+- 依 `core/module-format.md` 以標準需求表格維護 `spec/requirements.md`（必要欄位：`ID`、`名稱`、`Status`）；刪除需求時保留該列並將 `Status` 改為 `REMOVED`。
+- 寫入需求文件後執行 `module-check.mjs` 自檢 `REQ-*` 語法、重複定義與 `work_item.changes` 登記是否無誤。
+
 ## 本 Skill 官方資源
 - `template/spec/requirements.md` → `assets/requirements.md`。

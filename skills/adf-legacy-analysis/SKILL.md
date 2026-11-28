@@ -44,7 +44,7 @@ description: 從 Legacy 原始碼（JSP、Servlet、Service、DAO、SQL、設定
    - `UNKNOWN`：只能由命名、註解或慣例推測，或依賴「無法取得清單」中的來源。
    安全弱點（SQL 串接、未檢查權限等）照實登錄並另標 Finding，交給 `MIG-SEC-001` 處理，不在本 Stage 修正。
 5. **提問**：把所有 `UNKNOWN` 與「無法取得清單」整理成 Evidence-Guided Q&A 問題，附上已讀到的證據與候選答案。高風險（交易、權限、金額、副作用）逐題確認。
-6. **交付審查**：問題清除後把 manifest `review.status` 設為 `READY_FOR_REVIEW`，送 Legacy Analysis Human Gate；Human 明確確認後才設為 `APPROVED`，並把 `status.analysis` 改為 `done`。
+6. **格式自檢與交付審查**：寫入 `analysis/legacy-behavior.md` 後執行 `module-check.mjs` 依 `core/module-format.md` 核對入口對齊、8 類盤點值與 `LB-*` 欄位完整性；問題清除後把 manifest `review.status` 設為 `READY_FOR_REVIEW`，送 Legacy Analysis Human Gate；Human 明確確認後才設為 `APPROVED`，並把 `status.analysis` 改為 `done`。
 
 ## 輸出
 - `analysis/legacy-behavior.md`：入口表、8 類盤點表、`LB-*` 行為清單、無法取得清單、Finding。

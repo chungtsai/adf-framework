@@ -16,5 +16,9 @@ NEW/CHANGE/MIGRATION 讀取 APPROVED DEV-*；MIGRATION 額外判斷 MIG-*，並�
 
 來源缺少或版本不相容時停止，不回退全域，不保留本地副本。
 
+## 格式與自檢
+- 依 `core/module-format.md` 以標準表格維護 `spec/standards.md`（必要欄位：`Standard`、`適用`、`理由`；標示 `不適用` 或 `CONFLICT` 時 `理由` 必填）。
+- 寫入適用性文件後執行 `module-check.mjs` 自檢引用的 `DEV-*`/`MIG-*` 規範是否存在且狀態為 `APPROVED`（`R-06`）。
+
 ## 本 Skill 官方資源
 - `template/spec/standards.md` → `assets/standards.md`。

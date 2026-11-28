@@ -31,7 +31,7 @@ description: 讀取目前 Work Item 的變更紀錄（work_item.changes）、影
 
 ## 步驟
 1. **判斷模式**：清單不存在 → 產生；清單存在且 Human 已填寫結果或簽核 → 回收（跳到步驟 7）；清單存在但 Artifact 在產生後又有變動 → 重新產生，保留 Human 已填的結果與備註，變動過的項目結果改回 `待驗收`。
-2. **確定範圍**：讀取 `work_item.changes`。有 `base_ref` 時，比對 `base_ref` 到目前工作目錄的 Module 文件差異，找出新增、修改、刪除的 ID：
+2. **確定範圍**：先執行 `node <skill-root>/scripts/module-check.mjs modules/<module-id> --json` 依 `core/module-format.md` 核對 `R-04`/`R-05` 與覆蓋率，再讀取 `work_item.changes`。有 `base_ref` 時，比對 `base_ref` 到目前工作目錄的 Module 文件差異，找出新增、修改、刪除的 ID：
    - 差異中有、`changes` 沒有的 ID：加入範圍並標記 `REVIEW_REQUIRED`，請 Human 確認。
    - `changes` 有、差異中找不到的 ID：列入「未解決項目」，請 Human 確認是否真的有變更。
    - 沒有 `changes`（5.5.0 之前的 Work Item）：只依差異重建範圍；沒有 `base_ref` 也沒有版控時，請 Human 指定本次範圍，不得自行推測。

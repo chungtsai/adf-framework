@@ -1,4 +1,4 @@
-// Module 檢查工具原型（skills/adf-project-install/scripts/module-check.mjs），依 docs/proposals/module-format.md。
+// Module 檢查工具（skills/adf-project-install/scripts/module-check.mjs），依共用規範 core/module-format.md。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -683,4 +683,26 @@ test('相容實務寫法：rules 標題、REQ/說明欄名、status.*.reason、t
   const g6 = r3.gate.gates.find(g => g.id === 'G-06');
   assert.equal(g6.state, 'BLOCKED');
   assert.match(g6.reasons[0], /仍有未核准的測試/);
+});
+
+test('新版無範例列官方範本零誤報且 R-07 偵測各階段狀態矛盾', t => {
+  const readAsset = rel => fs.readFileSync(path.join(repo, 'skills', rel), 'utf8');
+  const tplFiles = {
+    'manifest.yaml': READY_MANIFEST,
+    'spec/requirements.md': readAsset('adf-requirement-analysis/assets/requirements.md'),
+    'spec/rules.md': readAsset('adf-business-rule/assets/rules.md'),
+    'spec/standards.md': readAsset('adf-standards-applicability/assets/standards.md'),
+    'analysis/legacy-behavior.md': readAsset('adf-legacy-analysis/assets/legacy-behavior.md'),
+    'verification/functional-scenarios.md': readAsset('adf-test-generation/assets/functional-scenarios.md'),
+    'verification/test-cases.md': readAsset('adf-test-generation/assets/test-cases.md'),
+    'verification/traceability.md': readAsset('adf-traceability-check/assets/traceability.md'),
+    'verification/comparison.md': readAsset('adf-result-comparison/assets/comparison.md'),
+    'verification/acceptance-WI-2026-001.md': readAsset('adf-acceptance-checklist/assets/acceptance.md'),
+  };
+  const r = checkModule(moduleDir(t, tplFiles).dir);
+  const bad = r.findings.filter(f => ['L-01', 'L-02', 'L-03', 'R-01'].includes(f.code));
+  assert.deepEqual(bad, []);
+  const reqOpen = `# Requirements\n\n| ID | 名稱 | Status |\n|---|---|---|\n| REQ-001 | 帳號查詢 | REVIEW_REQUIRED |\n`;
+  const r2 = checkModule(moduleDir(t, {...READY, 'spec/requirements.md': reqOpen}).dir);
+  assert.ok(only(r2, 'R-07').some(f => /status\.analysis/.test(f.message)));
 });
