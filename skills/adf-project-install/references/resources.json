@@ -1,5 +1,5 @@
 {
-  "version": "5.6.0",
+  "version": "5.7.0",
   "compatible_tool_versions": [
     "5.1.0",
     "5.2.0",
@@ -8,7 +8,8 @@
     "5.4.1",
     "5.5.0",
     "5.5.1",
-    "5.6.0"
+    "5.6.0",
+    "5.7.0"
   ],
   "resources": {
     "review/approval-gate.md": {
@@ -30,6 +31,10 @@
     "core/invariants.md": {
       "skill": "adf-project-install",
       "path": "references/core-invariants.md"
+    },
+    "core/module-format.md": {
+      "skill": "adf-project-install",
+      "path": "references/core-module-format.md"
     },
     "core/runtime-compat.md": {
       "skill": "adf-project-install",

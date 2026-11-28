@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// ADF Module 檢查工具（原型）：格式與 SQL／Secret（L-*）、manifest 結構（M-*）、連結與版控差異（R-*）檢查，以及覆蓋率。
-// 規則依 adf-framework repo 的 docs/proposals/module-format.md（草案）；只讀檔案、不修改任何 Artifact，也不判定核准。
+// ADF Module 檢查工具：格式與 SQL／Secret（L-*）、manifest 結構（M-*）、連結與版控差異（R-*）檢查，以及覆蓋率與結案預檢。
+// 規則依共用規範 core/module-format.md；只讀檔案、不修改任何 Artifact，也不判定核准。
 // 用法：node module-check.mjs <module-dir> [--project <專案根目錄>] [--json] [--no-git] [--gate]
 // exit code：0 沒有 ERROR；1 有 ERROR；2 工具無法執行（找不到 Module、manifest 超出 YAML 子集等）
 // --gate（結案預檢）：0 READY；1 BLOCKED；3 HUMAN_REQUIRED；2 工具無法執行
@@ -780,9 +780,14 @@ export function checkModule(moduleDir, opts = {}) {
         add('ERROR', 'R-07', tc.file, tc.line, tc.id, `${tc.id} 已是 VERIFIED，但 Source ${s} 的狀態是 ${d.status || '（空白）'}`);
     }
   }
-  const st = manifest?.status?.verification || {};
+  const mst = manifest?.status || {};
+  const st = mst.verification || {};
+  const valOf = v => (isObj(v) ? v.status : v);
   const openIn = file => [...defs.entries()].filter(([, d]) => d.file === file && OPEN_STATUS.includes(d.status)).map(([id]) => id);
-  const pairs = [['status.verification.test_generation', st.test_generation, ['verification/test-cases.md', 'verification/functional-scenarios.md']]];
+  const pairs = [
+    ['status.analysis', valOf(mst.analysis), ['spec/requirements.md', 'spec/rules.md', 'analysis/legacy-behavior.md']],
+    ['status.verification.test_generation', valOf(st.test_generation), ['verification/test-cases.md', 'verification/functional-scenarios.md']],
+  ];
   for (const [key, val, fl] of pairs) {
     if (!DONE.includes(val)) continue;
     const open = fl.flatMap(openIn);

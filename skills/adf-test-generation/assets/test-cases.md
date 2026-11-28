@@ -4,7 +4,6 @@
 
 | ID | Source | Scenario | Preconditions | Test Input | Steps | Expected Result | Verification | Status |
 |---|---|---|---|---|---|---|---|---|
-| TC-001 | REQ-001 | FS-001 | 使用者已登入 | account=TEST001 | 1. 輸入資料 2. 儲存 | 顯示新增成功 | SELECT 確認 1 筆且欄位值正確 | DRAFT |
 
 ## 規則
 

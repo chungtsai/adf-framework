@@ -50,9 +50,11 @@ Module 預設使用以下 Artifact（路徑相對於 Module 根目錄）：
 - 無法由 Evidence 證明的行為必須標記 `UNKNOWN` 或 `REVIEW_REQUIRED`，不得把推測寫成事實。
 - 不得為了取得 `PASS` 而弱化 Expected Result，也不得由 Target 現況反推 Expected Result。
 - AI 不能自行核准；需要 Human Gate 的 Stage 只有 Human 明確確認後才能標記 `APPROVED`。
+- Module Artifact 格式、ID 連結與結案預檢依 `core/module-format.md` 執行 `module-check.mjs`；工具只報告事實與阻擋缺漏，不取代 Human 核准。
 
 ## 識別碼與語言
 - 穩定識別碼維持英文：`REQ-*`、`LB-*`、`BR-*`、`VAL-*`、`Q-*`、`UI-*`、`FS-*`、`TC-*`、`AC-*`、`DEV-*`、`MIG-*`。
+- 刪除項目時保留該列並將 `Status` 改為 `REMOVED`（寫明原因與 Work Item ID），不重複使用已刪除 ID。
 - 人看的內容使用繁體中文；Skill ID、檔名、YAML/JSON Key、Work Type、Intent、Status 與程式代碼維持英文。術語對照見 `review/terminology.md`。
 
 ## Standards

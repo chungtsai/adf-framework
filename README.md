@@ -1,8 +1,13 @@
-# ADF — AI Development Framework v5.6
+# ADF — AI Development Framework v5.7
 
 > **語言政策：人看的內容使用繁體中文；機器識別碼與程式代碼維持英文。**
 
 ADF 的目的不是讓 AI 單純寫得更快，而是把「相信 AI」轉成「相信可驗證的證據」。透過分析、規格、標準、設計、開發、測試、比對、Traceability 與 Human Gate，降低 AI 誤解需求與 Legacy 行為的風險。
+
+## v5.7.0 重點
+- **Module 檢查工具正式納入強制流程**：共用規範 `core/module-format.md` 正式登錄為單一來源；`adf-development-complete` 結案前強制執行 `module-check.mjs --gate`（`exit 1 BLOCKED` 阻擋、`exit 2` 停止、`exit 3` 交 Human、`exit 0 READY` 進最終 Human Gate），`adf-traceability-check`、`adf-acceptance-checklist`、`adf-ask` 與產出階段 Skill 同步整合自檢。
+- **未達標文件調整策略（A／B／C）與範本標準化**：明定 A 類純格式、B 類追溯未對齊（含 Documentation Retrofit CHANGE 與「碰到才轉換」）、C 類實質缺漏紅線；補齊 `requirements.md`、`rules.md`、`standards.md` 標題列並移除各範本殘留範例列；操作台與情境流程動畫（`flows.html`）同步更新。
+- 既有已完成 Module 不撤銷核准。由 v5.6 升級見 [v5.6 → v5.7 SOP](docs/upgrades/5.6-to-5.7.md)，版本說明見 [docs/releases/5.7.md](docs/releases/5.7.md)。
 
 ## v5.6.0 重點
 - 新增 Module 檢查工具（試用）`adf-project-install/scripts/module-check.mjs`：用程式檢查 Module 文件的格式、ID 連結、manifest 結構、Verification SQL 與疑似 Secret，計算 Requirement／Rule／Scenario／本次變更／Legacy 行為／驗收的覆蓋率，並以 `--gate` 做結案預檢。只讀檔案、不修改 Artifact、不判定核准；使用方式見下方「Quality Gate」。
@@ -169,7 +174,7 @@ Migration 不以「新系統能跑」為完成條件。ADF 先從 Legacy 建立�
 - **`adf-acceptance-checklist`** — 讀取本次 Work Item 的變更紀錄（`work_item.changes`）、影響範圍與已核准 Artifact，產生給 Human 逐項操作與簽核的驗收清單（`AC-*`），並回收驗收結果；AI 不代填結果。
 - **`adf-development-complete`** — 最終 Completion Gate；確認 Blocker、Review、Tests、Comparison、Traceability 與 Human 驗收簽核都符合條件。
 
-### Module 檢查工具（試用，v5.6.0 起）
+### Module 檢查工具（v5.6.0 引入，v5.7.0 起正式強制）
 
 Gate 前可先用程式檢查，把「格式寫錯、ID 斷鏈、測試沒涵蓋」這類機械性問題找出來，Human 審查就能專注在內容本身：
 
@@ -189,7 +194,7 @@ node .claude/skills/adf-project-install/scripts/module-check.mjs modules/<module
 - exit code：
   - 一般檢查：`0` 沒有錯誤、`1` 有錯誤、`2` 工具無法執行。
   - `--gate`：`0` READY、`1` BLOCKED、`3` HUMAN_REQUIRED。
-- 已知限制見 [docs/releases/5.6.md](docs/releases/5.6.md)「已知限制」（例如範本範例列殘留會被當成真資料）。
+- 規則為正式單一來源 `core/module-format.md`；未達標文件調整策略（A／B／C 類與歷史 Module「碰到才轉換」）見 [v5.6 → v5.7 SOP](docs/upgrades/5.6-to-5.7.md)。
 
 ## Security
 
@@ -263,9 +268,9 @@ ADF_REF=main; t=$(mktemp -d) && curl -fsSL "https://codeload.github.com/chungtsa
 $r='main'; $t=Join-Path $env:TEMP "adf-$(New-Guid)"; Invoke-WebRequest -UseBasicParsing "https://codeload.github.com/chungtsai/adf-framework/zip/$r" -OutFile "$t.zip"; Expand-Archive "$t.zip" $t; & (Get-ChildItem "$t\*\scripts\install.ps1").FullName; Remove-Item -Recurse -Force $t, "$t.zip"
 ```
 
-`ADF_REF` 只決定安裝腳本取自哪個分支／tag；Skill 本身一律由 `npx skills` 從正式 tag（預設 v5.6.0）安裝，才能留下 `skills-lock.json` 來源紀錄。
+`ADF_REF` 只決定安裝腳本取自哪個分支／tag；Skill 本身一律由 `npx skills` 從正式 tag（預設 v5.7.0）安裝，才能留下 `skills-lock.json` 來源紀錄。
 
-腳本會依序：檢查是否為全新專案 → 下載同版本原始檔 → 專案層級 `npx skills add`（v5.6.0 全部 34 支）→ **逐檔比對每支 Skill 的 `SKILL.md`、`scripts/`、`assets/`、`references/` 都已放在正確位置且內容一致** → `PLAN`（計畫檔存在專案外暫存目錄）→ `APPLY` → `VERIFY`。只新增 Skill、`skills-lock.json` 與 `.adf/`，不碰其他檔案。有缺檔會停止並列出，不會自行補檔（補檔會與 `skills-lock.json` 雜湊不符）。
+腳本會依序：檢查是否為全新專案 → 下載同版本原始檔 → 專案層級 `npx skills add`（v5.7.0 全部 34 支）→ **逐檔比對每支 Skill 的 `SKILL.md`、`scripts/`、`assets/`、`references/` 都已放在正確位置且內容一致** → `PLAN`（計畫檔存在專案外暫存目錄）→ `APPLY` → `VERIFY`。只新增 Skill、`skills-lock.json` 與 `.adf/`，不碰其他檔案。有缺檔會停止並列出，不會自行補檔（補檔會與 `skills-lock.json` 雜湊不符）。
 
 安裝完成後的位置（Claude Code 預設）：
 
@@ -396,7 +401,7 @@ irm https://raw.githubusercontent.com/chungtsai/adf-framework/main/scripts/stand
 
 ## 既有專案：移轉與升級
 
-統一使用專案層級 `npx skills`。正式版本指令、手動來源轉接、前置備份與回復，從 v5.0 導入見 [v5.0 → v5.1 SOP](docs/upgrades/5.0-to-5.1.md)，從 v5.1 升級見 [v5.1 → v5.2 SOP](docs/upgrades/5.1-to-5.2.md)，從 v5.2 升級見 [v5.2 → v5.3 SOP](docs/upgrades/5.2-to-5.3.md)，從 v5.3 升級見 [v5.3 → v5.4 SOP](docs/upgrades/5.3-to-5.4.md)，從 v5.4 升級見 [v5.4 → v5.5 SOP](docs/upgrades/5.4-to-5.5.md)，從 v5.5 升級見 [v5.5 → v5.6 SOP](docs/upgrades/5.5-to-5.6.md)。v5.6.0 tag 發佈前，main 分支僅為候選版。
+統一使用專案層級 `npx skills`。正式版本指令、手動來源轉接、前置備份與回復，從 v5.0 導入見 [v5.0 → v5.1 SOP](docs/upgrades/5.0-to-5.1.md)，從 v5.1 升級見 [v5.1 → v5.2 SOP](docs/upgrades/5.1-to-5.2.md)，從 v5.2 升級見 [v5.2 → v5.3 SOP](docs/upgrades/5.2-to-5.3.md)，從 v5.3 升級見 [v5.3 → v5.4 SOP](docs/upgrades/5.3-to-5.4.md)，從 v5.4 升級見 [v5.4 → v5.5 SOP](docs/upgrades/5.4-to-5.5.md)，從 v5.5 升級見 [v5.5 → v5.6 SOP](docs/upgrades/5.5-to-5.6.md)，從 v5.6 升級見 [v5.6 → v5.7 SOP](docs/upgrades/5.6-to-5.7.md)。v5.7.0 tag 發佈前，main 分支僅為候選版。
 
 官方範本各自只有一個 owner，資源清單位於 `skills/adf-project-install/references/resources.json`；不建立專案 `.adf/templates/` 或客製範本。共用 Review 也採單一來源。規範範例歸位至 authoring Skills 的 assets，專案實際規範維持 `standards/`。
 

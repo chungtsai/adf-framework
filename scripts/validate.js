@@ -12,7 +12,7 @@ for(const name of dirs) {
  const front=text.match(/^---\s*\n([\s\S]*?)\n---/);
  if(!front||!front[1].includes(`name: ${name}`)||!/^description: .+/m.test(front?.[1]||'')) errors.push(`${name}: invalid frontmatter`);
  if(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name)||name.length>64) errors.push(`${name}: invalid name`);
- if(/framework\/(review|templates)|install\/base/.test(text)&&name!=='adf-project-install') errors.push(`${name}: stale resource reference`);
+ if(/framework\/(review|templates)|install\/base|docs\/proposals\/module-format\.md/.test(text)&&name!=='adf-project-install') errors.push(`${name}: stale resource reference`);
  const version=JSON.parse(fs.readFileSync(path.join(folder,'references/release.json'))).version;
  if(version!==registry.version) errors.push(`${name}: release mismatch`);
 }
@@ -55,6 +55,7 @@ for(const p of packs) {
  for(const k of p.resources||[]) {const r=registry.resources[k];if(r&&!/^---\n[\s\S]*?^id:\s*\S+[\s\S]*?^status:\s*DRAFT$/m.test(fs.readFileSync(path.join(root,'skills',r.skill,r.path),'utf8'))) errors.push(`${k}: starter standard needs frontmatter id and status: DRAFT`);}
 }
 if(fs.existsSync(path.join(root,'framework/templates'))||fs.existsSync(path.join(root,'framework/review'))) errors.push('Duplicate legacy resources');
+if(!fs.existsSync(path.join(root,'skills/adf-project-install/scripts/module-check.mjs'))) errors.push('Missing adf-project-install/scripts/module-check.mjs');
 // macOS bash 3.2 會把緊接在 $VAR 後的非 ASCII 字元當成變數名稱（set -u 時 unbound variable），一律寫成 ${VAR}
 for(const f of fs.readdirSync(path.join(root,'scripts')).filter(f=>f.endsWith('.sh'))) fs.readFileSync(path.join(root,'scripts',f),'utf8').split('\n').forEach((l,i)=>{if(/\$[A-Za-z_][A-Za-z0-9_]*[^\x00-\x7F]/.test(l)) errors.push(`scripts/${f}:${i+1}: use \${VAR} before non-ASCII text (macOS bash 3.2)`);});
 if(errors.length){console.error(errors.join('\n'));process.exitCode=1;}else console.log(`Validated ${dirs.length} skills and ${seen.size} single-source resources.`);

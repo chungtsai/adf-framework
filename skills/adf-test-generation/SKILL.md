@@ -47,6 +47,16 @@ NEW 依 Requirement/Rules；CHANGE 加 Change Test 與受影響 Regression；MIG
 - 若補文件時發現規格、測試與實作不一致，標記 `REVIEW_REQUIRED`。
 - Human 確認需要修改行為後，另開真正的 CHANGE 處理行為差異。
 
+## 格式自檢與範例
+
+- 寫入 `functional-scenarios.md` 與 `test-cases.md` 後，依 `core/module-format.md` 執行 `module-check.mjs` 自檢：`TC.Scenario` 與 `FS.Related Test` 雙向一致（`R-02`）、Verification SQL 限 `SELECT`（`L-08`）、無疑似 Secret（`L-09`），以及 `Source` 引用皆存在（`R-01`）。
+
+範例（`verification/functional-scenarios.md` 一列示意）：
+`| FS-001 | REQ-001 | 使用者已登入 | account=TEST001 | 1. 開啟功能 2. 輸入資料 3. 儲存 | 顯示新增成功 | SELECT 確認 1 筆 | TEST001 存在且欄位值正確 | TC-001 | DRAFT |`
+
+範例（`verification/test-cases.md` 一列示意）：
+`| TC-001 | REQ-001 | FS-001 | 使用者已登入 | account=TEST001 | 1. 輸入資料 2. 儲存 | 顯示新增成功 | SELECT 確認 1 筆且欄位值正確 | DRAFT |`
+
 ## 本 Skill 官方資源
 - `template/verification/functional-scenarios.md` → `assets/functional-scenarios.md`。
 - `template/verification/test-cases.md` → `assets/test-cases.md`。

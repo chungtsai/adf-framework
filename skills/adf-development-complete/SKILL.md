@@ -16,6 +16,15 @@ description: 只有所有適用 Gate、Test、Traceability 與 Blocker 都完成
 
 來源缺少或版本不相容時停止，不回退全域，不保留本地副本。
 
+## Module 檢查預檢（強制）
+
+- 進入任何結案判斷前，必須先執行 `node <skill-root>/scripts/module-check.mjs modules/<module-id> --gate`，並依 `core/module-format.md` 處置結果：
+  - `exit 2`（工具無法執行或 YAML 超出子集）：立即停止，修正路徑或 `manifest.yaml` 語法後重跑。
+  - `exit 1`（`BLOCKED`）：強制阻擋結案，逐項列出 `G-01～G-12` 阻擋原因、問題分類（A 類純格式／B 類追溯未對齊／C 類實質缺漏）與建議回退 Skill；AI 不得自行繞過。
+  - `exit 3`（`HUMAN_REQUIRED`）：列出所有 `HUMAN` 項目，交由 Human 逐項確認適用性或補做決策。
+  - `exit 0`（`READY`）：呈現覆蓋率與預檢摘要後，進入最終 Human Completion Gate。
+- 工具結論不等於核准；`L-08`（非 SELECT SQL）、`L-09`（Secret）、`G-02`/`G-05`/`G-06`（未核准／未定案／測試失敗）一律不得豁免。
+
 ## Functional Scenario Gate
 
 - 若 Module 有使用者操作流程，Completion 前應確認主要流程已有 `FS-*`，且可追溯到 Test 與 Result。
